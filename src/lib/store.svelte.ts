@@ -593,6 +593,12 @@ class Store {
     }
   }
 
+  revealInFinder(id: string) {
+    const n = this.byId(id);
+    if (!n || !this.path || !n.file) return;
+    backend.revealNote(this.path, n.file).catch((e) => this.fail(e));
+  }
+
   openInWindow(id: string) {
     const n = this.byId(id);
     if (n && this.path) backend.openNoteWindow(this.path, id, n.title);

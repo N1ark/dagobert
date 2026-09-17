@@ -6,6 +6,7 @@
   import Copy from "phosphor-svelte/lib/Copy";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Trash from "phosphor-svelte/lib/Trash";
+  import FolderOpen from "phosphor-svelte/lib/FolderOpen";
 
   export type MenuTarget =
     | { kind: "node"; id: string }
@@ -89,6 +90,7 @@
   {#if note && workflow}
     <button class="item" onclick={() => run(() => store.select(note.id))}>Open</button>
     <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> Open in new window</button>
+    <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> Reveal in Finder</button>
     <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> Copy <kbd>⌘C</kbd></button>
     <button class="item" onclick={() => run(() => { const d = store.duplicate(note.id); if (d) store.select(d.id); })}>Duplicate <kbd>⌘D</kbd></button>
     {#if note.workflow === null}

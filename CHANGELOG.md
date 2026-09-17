@@ -7,6 +7,7 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- "Reveal in Finder" in the node context menu.
 - Pasting a URL over selected text in the editor turns the selection into a link.
 
 ### Fixed

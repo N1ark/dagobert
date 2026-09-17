@@ -8,6 +8,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import type { Meta, MetaPatch, Note, Project } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -179,6 +180,12 @@ export const backend = {
       return;
     }
     new WebviewWindow(label, { url, title: title || "Untitled", width: 720, height: 800, minWidth: 400, minHeight: 300 });
+  },
+
+  /** Show the note's file in Finder / Explorer. */
+  async revealNote(path: string, file: string) {
+    if (!inTauri) return;
+    await revealItemInDir(`${path}/notes/${file}`);
   },
 
   setWindowTitle(title: string) {
