@@ -4,7 +4,7 @@
   import type { Note } from "./types";
   import Markdown from "./Markdown.svelte";
   import MentionPopup from "./MentionPopup.svelte";
-  import { command } from "./editor";
+  import { command, pasteLink } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode } from "./blocks";
 
@@ -181,6 +181,18 @@
     updateMention();
   }
 
+  /** Pasting a URL over selected text turns the selection into a link. */
+  function onPaste(e: ClipboardEvent) {
+    const el = e.target as HTMLTextAreaElement;
+    const pasted = e.clipboardData?.getData("text/plain") ?? "";
+    const next = pasteLink({ text: el.value, start: el.selectionStart, end: el.selectionEnd }, pasted);
+    if (!next) return;
+    e.preventDefault();
+    el.value = next.text;
+    el.setSelectionRange(next.start, next.end);
+    onInput().then(() => textarea?.setSelectionRange(next.start, next.end));
+  }
+
   function lineOf(text: string, pos: number) {
     return { first: text.lastIndexOf("\n", pos - 1) === -1, last: text.indexOf("\n", pos) === -1 };
   }
@@ -289,6 +301,7 @@
           value={draft}
           oninput={onInput}
           onkeydown={onKey}
+          onpaste={onPaste}
           onkeyup={(e) => {
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
           }}
@@ -306,7 +319,7 @@
   {/each}
   {#if active !== null && active >= blocks.length}
     <div class="block editing" class:code={activeIsCode}>
-      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onblur={() => setTimeout(() => (mention = null), 150)} spellcheck="false" rows="1"></textarea>
+      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onpaste={onPaste} onblur={() => setTimeout(() => (mention = null), 150)} spellcheck="false" rows="1"></textarea>
     </div>
   {/if}
   {#if !blocks.length && active === null}

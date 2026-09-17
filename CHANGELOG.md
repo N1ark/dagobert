@@ -6,6 +6,9 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Pasting a URL over selected text in the editor turns the selection into a link.
+
 ### Fixed
 - Task-list checkboxes in the rendered body can be ticked by clicking them.
 - Double-clicking a node no longer creates a note on top of it (it now opens the note

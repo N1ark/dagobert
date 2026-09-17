@@ -40,6 +40,15 @@ export function link(s: Sel): Sel {
   return { text: text.slice(0, start) + out + text.slice(end), start: urlAt, end: urlAt + 3 };
 }
 
+/** If `pasted` is a URL and text is selected, wrap the selection as `[selection](url)`. */
+export function pasteLink(s: Sel, pasted: string): Sel | null {
+  const url = pasted.trim();
+  if (s.start === s.end || !/^(https?:\/\/|mailto:)\S+$/.test(url) || url.includes("\n")) return null;
+  const { text, start, end } = s;
+  const out = `[${text.slice(start, end)}](${url})`;
+  return { text: text.slice(0, start) + out + text.slice(end), start: start + out.length, end: start + out.length };
+}
+
 const LIST_RE = /^(\s*)([-*+]|\d+\.)(\s+\[[ xX]\])?\s+/;
 
 /** Continue a list on Enter; returns null when not in a list. */

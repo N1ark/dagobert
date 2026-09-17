@@ -19,3 +19,11 @@ assert.equal(continueList(sel("plain", 5)), null);
 assert.deepEqual(indent(sel("a\nb", 0, 3), false), sel("  a\n  b", 2, 7));
 assert.deepEqual(indent(sel("  a\n  b", 2, 7), true), sel("a\nb", 0, 3));
 console.log("editor ok");
+{
+  const { pasteLink } = await import("../src/lib/editor.ts");
+  const sel = (text, start, end = start) => ({ text, start, end });
+  assert.deepEqual(pasteLink(sel("see docs now", 4, 8), "https://x.y/d"), sel("see [docs](https://x.y/d) now", 25, 25));
+  assert.equal(pasteLink(sel("see docs", 4, 4), "https://x.y"), null, "no selection → normal paste");
+  assert.equal(pasteLink(sel("see docs", 4, 8), "plain text"), null, "not a url → normal paste");
+  console.log("pasteLink ok");
+}
