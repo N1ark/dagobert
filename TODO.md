@@ -11,7 +11,7 @@ Tracked work. Move items to CHANGELOG.md (Unreleased) as they land.
 - [ ] Keyboard navigation on the canvas (arrows between neighbours, Enter opens, Tab to dependent)
 - [ ] Note templates: per-workflow default body for new notes
 - [ ] Minimap
-- [ ] Quick open (`⌘K`)
+- [x] Quick open (`⌘K`)
 
 ## Later
 
