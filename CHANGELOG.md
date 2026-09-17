@@ -6,6 +6,9 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+- Double-clicking a node opens it in its own window instead of creating a note on top of it.
+
 ## [0.2.0] - 2026-09-17
 
 ### Added

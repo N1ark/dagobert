@@ -165,6 +165,7 @@ from the CLI, so the browser shim is the practical way to check interactions.
   picks the node nearest the view centre. `ensureVisible` pans minimally.
   In the body editor: `⌘B` bold, `⌘I` italic, `⌘E`/`` ⌘` `` code, `⌘K` link,
   `⌘⇧X` strike, `⌘H` ==highlight==, Enter continues lists, Tab/⇧Tab indents.
+- Double-click on a node = `store.openInWindow`; on empty canvas = create note.
 - Multiple windows: `App.svelte` reads `?note=`/`?path=` and renders just
   `NotePanel` (`standalone` prop) full-window. Every window has its own `store`;
   writes broadcast `note` / `note-removed` / `meta` messages and `store.applySync`

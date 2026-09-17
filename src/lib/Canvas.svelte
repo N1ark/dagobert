@@ -452,7 +452,15 @@
   }
 
   function onDblClick(e: MouseEvent) {
-    if (nodeIdAt(e.target) || (e.target as HTMLElement).closest("[data-edge]")) return;
+    const target = e.target as HTMLElement;
+    const id = nodeIdAt(target);
+    if (id) {
+      // Double-clicking a node opens it in its own window (not a control inside it).
+      if (target.closest("button, input, textarea, a, [data-port], [data-resize]")) return;
+      store.openInWindow(id);
+      return;
+    }
+    if (target.closest("[data-edge]")) return;
     const w = toWorld(e.clientX, e.clientY);
     createAt(w.x - NODE_W / 2, w.y - 20);
   }
