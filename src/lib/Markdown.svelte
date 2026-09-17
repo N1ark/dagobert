@@ -7,7 +7,14 @@
 
   let { source }: { source: string } = $props();
 
-  const html = $derived(DOMPurify.sanitize(marked.parse(renderWikilinks(source), { gfm: true, async: false }) as string));
+  // marked emits task checkboxes as `disabled`, which swallows clicks; the
+  // live editor toggles them, so re-enable.
+  const html = $derived(
+    DOMPurify.sanitize(marked.parse(renderWikilinks(source), { gfm: true, async: false }) as string).replace(
+      /(<input\b[^>]*?)\s+disabled(?:=""|='')?(?=[\s>/])/g,
+      "$1",
+    ),
+  );
 
   function onClick(e: MouseEvent) {
     const id = wikilinkTarget(e.target as HTMLElement);

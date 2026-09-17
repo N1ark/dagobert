@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Task-list checkboxes in the rendered body can be ticked by clicking them.
+- Double-clicking a node no longer creates a note on top of it (it now opens the note
+  in its own window).
+
 ### Changed
 - Double-clicking a node opens it in its own window instead of creating a note on top of it.
 
