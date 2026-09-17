@@ -9,8 +9,9 @@ Keep it lightweight: avoid adding dependencies unless they clearly pay for thems
 npm run tauri dev                              # desktop app (compiles Rust, opens window)
 npm run dev                                    # UI only in a browser, in-memory backend
 npm run check                                  # svelte-check (must be 0 errors / 0 warnings)
-cargo test --manifest-path src-tauri/Cargo.toml
+npm test                                       # tests/*.test.mjs (pure TS modules) + cargo test
 npm run tauri build
+npm run version -- X.Y.Z                       # sync versions, roll CHANGELOG, commit + tag
 ```
 
 Verifying UI changes: `npm run dev`, open http://localhost:1420 in a browser, click
@@ -82,6 +83,16 @@ from the CLI, so the browser shim is the practical way to check interactions.
   `continueList`, `indent`, `command`) used by the panel's body `onkeydown`.
   Test them with a node script (`node --experimental-strip-types` works) rather
   than in the browser.
+- `src/lib/history.ts` — pure undo stack (`History`, `NoteDiff`, `sameNote`). The
+  store integrates it: every `touch`/`create`/`remove`/`restoreNote` calls
+  `#record`, which batches all diffs recorded in the same microtask into one entry
+  (so loops over a group become one undo step) and keeps `#last` (per-note baseline
+  snapshot) current. `#apply` replays `before`/`after`: deleted notes come back via
+  their `trashFile` (falls back to recreating from the snapshot if the trash was
+  emptied); notes that must vanish go through `remove()`. `#applying` suppresses
+  recording during replay; `applySync`/`applyExternal` update `#last` without
+  recording. `opened`/`modified`/`file` changes never count as edits (`sameNote`).
+  Pass `label` to `touch` for a readable "Undid: …" toast (`store.notice`).
 - `src/lib/wikilinks.ts` — `[[Title]]` links: `renderWikilinks` (pre-pass before
   marked, skips code; resolved → `<a class="wikilink" href="#note-<id>">`, missing →
   `.wikilink.missing`), `wikilinkTarget` for click handling, `mentions` (backlinks),
@@ -189,5 +200,4 @@ from the CLI, so the browser shim is the practical way to check interactions.
 
 ## Not done / ideas
 
-- No undo (in progress).
 - Fonts (Inter, Fira Code) are used only if installed locally; nothing is fetched.

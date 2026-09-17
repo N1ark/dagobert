@@ -279,7 +279,7 @@
       if (!p || (p.x === n.x && p.y === n.y)) continue;
       n.x = p.x;
       n.y = p.y;
-      store.touch(n.id, { immediate: true, silent: true });
+      store.touch(n.id, { immediate: true, silent: true, label: "tidy" });
     }
     fitAll();
   }
@@ -391,7 +391,7 @@
 
   function onPointerUp(e: PointerEvent) {
     if (resize) {
-      if (resize.moved) store.touch(resize.id, { immediate: true, silent: true });
+      if (resize.moved) store.touch(resize.id, { immediate: true, silent: true, label: "resize" });
       resize = null;
       return;
     }
@@ -406,7 +406,7 @@
     }
     if (drag) {
       if (drag.moved) {
-        for (const id of drag.ids) store.touch(id, { immediate: true, silent: true });
+        for (const id of drag.ids) store.touch(id, { immediate: true, silent: true, label: "move" });
       } else {
         const group = drag.ids;
         store.select(drag.clicked);
@@ -502,6 +502,12 @@
     const t = e.target as HTMLElement;
     if (t.closest("input, textarea, [contenteditable]")) return;
     const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      if (e.shiftKey) store.redo();
+      else store.undo();
+      return;
+    }
     if (mod && e.key.toLowerCase() === "a") {
       e.preventDefault();
       store.multi = store.notes.map((n) => n.id);

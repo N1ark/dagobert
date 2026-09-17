@@ -7,6 +7,9 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Undo / redo (`⌘Z` / `⇧⌘Z`, also in the ⌘K palette) for moves, resizes, links,
+  tags, status/workflow changes, edits, creates, deletes and restores. Actions done
+  together (group drag, Tidy, bulk tag/status) undo as one step; typing coalesces.
 - Quick open (`⌘K`): fuzzy-jump to any note, `#tag` to narrow, `>` for commands,
   `⌘↩` opens the note in a new window, "Create …" when nothing matches.
 - **Tidy** toolbar button: layered auto-layout of the DAG (dependencies left,

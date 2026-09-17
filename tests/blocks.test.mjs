@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { splitBlocks, joinBlocks, locate, toggleCheckbox } from "../src/lib/blocks.ts";
+assert.deepEqual(splitBlocks("a\nb\n\nc\n\n\n\nd"), ["a\nb", "c", "d"]);
+assert.deepEqual(splitBlocks("x\n\n```js\nfoo\n\nbar\n```\n\ny"), ["x", "```js\nfoo\n\nbar\n```", "y"]);
+assert.deepEqual(splitBlocks(""), []);
+assert.equal(joinBlocks(["a", "", "b"]), "a\n\nb");
+assert.deepEqual(locate("hello\n\nworld", 9), { index: 1, offset: 2 });
+assert.deepEqual(locate("hello\n\nworld", 3), { index: 0, offset: 3 });
+assert.deepEqual(locate("hello", 3), { index: 0, offset: 3 });
+assert.equal(toggleCheckbox("- [ ] a\n- [x] b", 1), "- [ ] a\n- [ ] b");
+assert.equal(toggleCheckbox("- [ ] a\n- [x] b", 0), "- [x] a\n- [x] b");
+console.log("blocks ok");

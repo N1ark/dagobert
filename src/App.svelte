@@ -102,6 +102,8 @@
     const sel = store.selected;
     return [
       { label: "New note", hint: "⌘N", run: () => canvas?.createAtCenter() },
+      { label: "Undo", hint: "⌘Z", run: () => store.undo() },
+      { label: "Redo", hint: "⇧⌘Z", run: () => store.redo() },
       { label: "Fit to view", run: () => canvas?.fitAll() },
       { label: "Tidy layout", run: () => canvas?.tidy() },
       { label: "Open trash", run: () => (showTrash = true) },
@@ -267,6 +269,8 @@
 
 {#if store.error}
   <div class="toast">{store.error}</div>
+{:else if store.notice}
+  <div class="toast notice">{store.notice}</div>
 {/if}
 
 <style>
@@ -458,6 +462,10 @@
     padding: 2px 8px;
   }
 
+  .toast.notice {
+    border-color: var(--border2);
+    color: var(--color);
+  }
   .toast {
     position: fixed;
     bottom: 20px;

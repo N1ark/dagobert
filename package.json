@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
-    "version": "node scripts/version.mjs"
+    "version": "node scripts/version.mjs",
+    "test": "for f in tests/*.test.mjs; do node \"$f\" || exit 1; done && cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "license": "MIT",
   "dependencies": {

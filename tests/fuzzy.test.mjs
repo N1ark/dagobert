@@ -1,0 +1,13 @@
+import assert from "node:assert/strict";
+import { fuzzyMatch, parseQuery } from "../src/lib/fuzzy.ts";
+const s = (q, t) => fuzzyMatch(q, t).score;
+assert.ok(s("des", "Design the schema") > s("des", "The design"), "prefix beats word-start");
+assert.ok(s("sch", "Design the schema") > s("sch", "Reschedule"), "word-start beats substring");
+assert.ok(s("dts", "Design the schema") > 0, "subsequence matches");
+assert.equal(s("xyz", "Design the schema"), 0, "no match");
+assert.equal(s("", "anything"), 1, "empty query matches everything");
+assert.deepEqual(fuzzyMatch("dts", "Design the schema").indices, [0, 7, 11]);
+assert.deepEqual(parseQuery("> tidy"), { mode: "commands", text: "tidy", tag: null });
+assert.deepEqual(parseQuery("#backend sch"), { mode: "notes", text: "sch", tag: "backend" });
+assert.deepEqual(parseQuery("plain"), { mode: "notes", text: "plain", tag: null });
+console.log("fuzzy ok");

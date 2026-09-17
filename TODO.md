@@ -4,7 +4,7 @@ Tracked work. Move items to CHANGELOG.md (Unreleased) as they land.
 
 ## In progress (v0.2.0)
 
-- [ ] Undo / redo (`⌘Z` / `⇧⌘Z`) for moves, deletes, links, tags, status, bulk edits
+- [x] Undo / redo (`⌘Z` / `⇧⌘Z`) for moves, deletes, links, tags, status, bulk edits
 - [x] File watching: pick up external edits to `notes/` and `dagobert.json`
 - [x] Auto-layout: "Tidy" arranges the DAG topologically (deps left → dependents right)
 - [x] Highlight the chain: selected node's ancestors/descendants, everything else dimmed

@@ -1,5 +1,6 @@
 import { backend, type ProjectChange, type SyncMessage } from "./backend";
 import type { MetaPatch, Note, Viewport, Workflow } from "./types";
+import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR } from "./tags";
 
@@ -54,6 +55,19 @@ class Store {
   projectName = $derived(this.path?.split(/[\\/]/).filter(Boolean).pop() ?? "");
 
   #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+  // ---- undo/redo state -----------------------------------------------------
+  #history = new History();
+  /** Last recorded snapshot per note: the "before" of the next diff. */
+  #last = new Map<string, Note>();
+  /** Diffs collected during the current synchronous handler, flushed as one entry. */
+  #pending: { label: string; diffs: NoteDiff[] } | null = null;
+  /** True while undo/redo is applying; suppresses recording. */
+  #applying = false;
+  undoDepth = $state(0);
+  redoDepth = $state(0);
+  /** Neutral toast (e.g. "Undid: move"). */
+  notice = $state<string | null>(null);
   /** Writes currently in flight, so a delete can wait for them. */
   #inflight = new Map<string, Promise<void>>();
   /** IDs removed this session; late writes for them are dropped. */
@@ -110,7 +124,7 @@ class Store {
     const n = this.byId(id);
     if (!n || n.status === status) return;
     n.status = status;
-    this.touch(id, { immediate: true });
+    this.touch(id, { immediate: true, label: "status" });
   }
 
   /** Move to the next stage, wrapping around at the end. */
@@ -146,7 +160,7 @@ class Store {
     n.status = (wasDone ? stages.find((s) => s.done) ?? stages[0] : stages[0]).name;
     // An untouched body picks up the new workflow's template.
     if (blank) n.body = renderTemplate(this.templateFor(workflowId), n.title);
-    this.touch(id, { immediate: true });
+    this.touch(id, { immediate: true, label: "workflow" });
   }
 
   addWorkflow(): Workflow {
@@ -225,6 +239,9 @@ class Store {
       this.workflows = p.meta.workflows ?? [];
       this.defaultTemplate = p.meta.default_template ?? "";
       this.tagFilter = [];
+      this.#history.clear();
+      this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
+      this.#syncDepths();
       this.viewport = {
         x: Number.isFinite(v.x) ? v.x : 0,
         y: Number.isFinite(v.y) ? v.y : 0,
@@ -293,6 +310,7 @@ class Store {
     // New notes start from their workflow's template; clones/pastes pass a body.
     if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow), note.title);
     this.notes.push(note);
+    this.#record("create", { id: note.id, before: null, after: $state.snapshot(note) });
     this.save(note.id, true);
     return note;
   }
@@ -319,14 +337,15 @@ class Store {
   }
 
   /** Mark a note as edited and schedule a save. */
-  touch(id: string, opts: { immediate?: boolean; silent?: boolean } = {}) {
+  touch(id: string, opts: { immediate?: boolean; silent?: boolean; label?: string } = {}) {
     const n = this.byId(id);
     if (!n) return;
     if (!opts.silent) n.modified = now();
+    this.#record(opts.label ?? "edit", { id, before: this.#last.get(id) ?? null, after: $state.snapshot(n) });
     this.save(id, opts.immediate);
   }
 
-  async remove(id: string) {
+  async remove(id: string): Promise<string | undefined> {
     const n = this.byId(id);
     if (!n || !this.path) return;
     const path = this.path;
@@ -335,19 +354,26 @@ class Store {
     this.#saveTimers.delete(id);
     this.#deleted.add(id);
     if (this.selectedId === id) this.selectedId = null;
+    this.multi = this.multi.filter((x) => x !== id);
     this.notes = this.notes.filter((x) => x.id !== id);
+    const diff: NoteDiff = { id, before: this.#last.get(id) ?? $state.snapshot(n), after: null };
+    this.#record("delete", diff);
     for (const other of this.notes) {
       if (other.deps.includes(id)) {
         other.deps = other.deps.filter((d) => d !== id);
-        this.save(other.id, true);
+        this.touch(other.id, { immediate: true, silent: true, label: "delete" });
       }
     }
     // A write may still be creating/renaming the file; let it finish so we
     // know the real filename before moving it to the trash.
     await this.#inflight.get(id);
     try {
-      if (n.file) await backend.deleteNote(path, n.file, now());
+      if (n.file) {
+        const trashed = await backend.deleteNote(path, n.file, now());
+        diff.trashFile = trashed?.file;
+      }
       backend.broadcast({ type: "note-removed", id });
+      return diff.trashFile;
     } catch (e) {
       this.fail(e);
     }
@@ -365,6 +391,7 @@ class Store {
     if (this.selectedId === id) this.selectedId = null;
     this.multi = this.multi.filter((x) => x !== id);
     this.notes = this.notes.filter((x) => x.id !== id);
+    this.#last.delete(id);
     await this.#inflight.get(id);
     try {
       if (n.file) await backend.discardNote(path, n.file);
@@ -397,6 +424,7 @@ class Store {
       n.deleted = null;
       this.notes.push(n);
       this.trash = this.trash.filter((t) => t.file !== file);
+      this.#record("restore", { id: n.id, before: null, after: structuredClone(n) });
       backend.broadcast({ type: "note", note: $state.snapshot(n) });
       this.select(n.id);
     } catch (e) {
@@ -432,7 +460,7 @@ class Store {
     const n = this.byId(id);
     if (!n) return;
     n.width = width;
-    this.touch(id, { immediate: true, silent: true });
+    this.touch(id, { immediate: true, silent: true, label: "resize" });
   }
 
   /** Create a fresh note with `src`'s content (no deps, new id) at x/y. */
@@ -457,14 +485,14 @@ class Store {
     const t = tag.trim().replace(/^#/, "");
     if (!n || !t || n.tags.includes(t)) return;
     n.tags.push(t);
-    this.touch(id, { immediate: true });
+    this.touch(id, { immediate: true, label: "tag" });
   }
 
   removeTag(id: string, tag: string) {
     const n = this.byId(id);
     if (!n || !n.tags.includes(tag)) return;
     n.tags = n.tags.filter((x) => x !== tag);
-    this.touch(id, { immediate: true });
+    this.touch(id, { immediate: true, label: "untag" });
   }
 
   toggleTag(id: string, tag: string) {
@@ -484,7 +512,7 @@ class Store {
       return false;
     }
     n.deps.push(dep);
-    this.touch(dependent, { immediate: true, silent: true });
+    this.touch(dependent, { immediate: true, silent: true, label: "link" });
     return true;
   }
 
@@ -492,7 +520,7 @@ class Store {
     const n = this.byId(dependent);
     if (!n) return;
     n.deps = n.deps.filter((d) => d !== dep);
-    this.touch(dependent, { immediate: true, silent: true });
+    this.touch(dependent, { immediate: true, silent: true, label: "unlink" });
   }
 
   // ---- other windows -------------------------------------------------------
@@ -506,6 +534,7 @@ class Store {
       if (local && this.#saveTimers.has(local.id)) return;
       if (local) Object.assign(local, msg.note);
       else this.notes.push(msg.note);
+      this.#last.set(msg.note.id, structuredClone(msg.note));
     } else if (msg.type === "note-removed") {
       if (!this.byId(msg.id)) return;
       this.#saveTimers.delete(msg.id);
@@ -532,6 +561,7 @@ class Store {
       // Match by id, so an external rename updates `file` rather than duplicating.
       if (local) Object.assign(local, incoming);
       else this.notes.push(incoming);
+      this.#last.set(incoming.id, structuredClone(incoming));
       this.#dropDanglingDeps();
     } else if (change.kind === "note-removed") {
       const local = this.notes.find((n) => n.file === change.file);
@@ -566,6 +596,100 @@ class Store {
   openInWindow(id: string) {
     const n = this.byId(id);
     if (n && this.path) backend.openNoteWindow(this.path, id, n.title);
+  }
+
+  // ---- undo / redo ---------------------------------------------------------
+
+  /** Queue a diff; everything recorded in the same tick becomes one entry. */
+  #record(label: string, diff: NoteDiff) {
+    if (this.#applying) return;
+    if (!this.#pending) {
+      this.#pending = { label, diffs: [] };
+      queueMicrotask(() => this.#flushRecord());
+    }
+    const existing = this.#pending.diffs.find((d) => d.id === diff.id);
+    if (existing) existing.after = diff.after; // keep the earliest "before"
+    else this.#pending.diffs.push(diff);
+    if (diff.after) this.#last.set(diff.id, structuredClone(diff.after));
+    else this.#last.delete(diff.id);
+  }
+
+  #flushRecord() {
+    const p = this.#pending;
+    this.#pending = null;
+    if (!p) return;
+    const label = p.diffs.length > 1 ? `${p.label} (${p.diffs.length} notes)` : p.label;
+    this.#history.push({ label, diffs: p.diffs, at: Date.now() });
+    this.#syncDepths();
+  }
+
+  #syncDepths() {
+    this.undoDepth = this.#history.undo.length;
+    this.redoDepth = this.#history.redo.length;
+  }
+
+  async undo() {
+    this.#flushRecord();
+    const e = this.#history.popUndo();
+    if (!e) return;
+    await this.#apply(e.diffs, "undo");
+    this.#syncDepths();
+    this.#toast(`Undid: ${e.label}`);
+  }
+
+  async redo() {
+    const e = this.#history.popRedo();
+    if (!e) return;
+    await this.#apply(e.diffs, "redo");
+    this.#syncDepths();
+    this.#toast(`Redid: ${e.label}`);
+  }
+
+  /** Put every note in `diffs` into its `before` (undo) or `after` (redo) state. */
+  async #apply(diffs: NoteDiff[], dir: "undo" | "redo") {
+    if (!this.path) return;
+    this.#applying = true;
+    try {
+      // Bring notes back first so restored links have something to point at.
+      const ordered = [...diffs].sort((a, b) => Number(!(dir === "undo" ? a.before : a.after)) - Number(!(dir === "undo" ? b.before : b.after)));
+      for (const d of ordered) {
+        const target = dir === "undo" ? d.before : d.after;
+        const local = this.byId(d.id);
+        if (!target) {
+          if (local) d.trashFile = await this.remove(d.id);
+          continue;
+        }
+        if (local) {
+          const { file: _f, ...fields } = target;
+          Object.assign(local, fields);
+          this.save(d.id, true);
+        } else {
+          let n: Note | null = null;
+          if (d.trashFile) {
+            try {
+              n = await backend.restoreNote(this.path, d.trashFile);
+            } catch {
+              n = null; // trash was emptied; fall through and recreate
+            }
+          }
+          this.#deleted.delete(d.id);
+          const fresh: Note = { ...target, file: n?.file ?? "", deleted: null };
+          this.notes.push(fresh);
+          this.save(d.id, true);
+        }
+        this.#last.set(d.id, structuredClone(target));
+      }
+      this.#dropDanglingDeps();
+    } finally {
+      this.#applying = false;
+    }
+  }
+
+  #toast(msg: string) {
+    this.notice = msg;
+    setTimeout(() => {
+      if (this.notice === msg) this.notice = null;
+    }, 2000);
   }
 
   // ---- persistence ---------------------------------------------------------
