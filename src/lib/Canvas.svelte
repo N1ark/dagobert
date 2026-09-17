@@ -452,7 +452,9 @@
   }
 
   function onDblClick(e: MouseEvent) {
-    const target = e.target as HTMLElement;
+    // Pointer capture (set on pointerdown) makes the browser target the
+    // container, not what's under the cursor — hit-test by position instead.
+    const target = (document.elementFromPoint(e.clientX, e.clientY) ?? e.target) as HTMLElement;
     const id = nodeIdAt(target);
     if (id) {
       // Double-clicking a node opens it in its own window (not a control inside it).
