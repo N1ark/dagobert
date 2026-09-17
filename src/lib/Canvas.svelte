@@ -6,7 +6,7 @@
   import type { Note } from "./types";
   import { layout } from "./layout";
 
-  let { matches = null }: { matches?: Set<string> | null } = $props();
+  let { matches = null, focus = true }: { matches?: Set<string> | null; focus?: boolean } = $props();
 
   const NODE_W = 220;
   const MIN_W = 140;
@@ -36,17 +36,46 @@
 
   const vp = $derived(store.viewport);
 
+  /** The selected node plus everything upstream and downstream of it. */
+  const chain = $derived.by(() => {
+    if (!focus || !store.selectedId || store.multi.length > 1) return null;
+    const set = new Set<string>([store.selectedId]);
+    const up = [store.selectedId];
+    while (up.length) {
+      const n = store.byId(up.pop()!);
+      for (const d of n?.deps ?? []) if (!set.has(d)) {
+        set.add(d);
+        up.push(d);
+      }
+    }
+    const down = [store.selectedId];
+    while (down.length) {
+      const id = down.pop()!;
+      for (const n of store.notes) if (n.deps.includes(id) && !set.has(n.id)) {
+        set.add(n.id);
+        down.push(n.id);
+      }
+    }
+    return set;
+  });
+
+  /** Search/tag filter wins; otherwise the focus chain; null = nothing dimmed. */
+  const visible = $derived(matches ?? chain);
+  const softDim = $derived(matches === null && chain !== null);
+
   const edges = $derived.by(() => {
-    const out: { from: string; to: string; d: string; dim: boolean }[] = [];
+    const out: { from: string; to: string; d: string; dim: boolean; chain: boolean }[] = [];
     for (const n of store.notes) {
       for (const dep of n.deps) {
         const s = store.byId(dep);
         if (!s) continue;
+        const inSet = visible === null || (visible.has(dep) && visible.has(n.id));
         out.push({
           from: dep,
           to: n.id,
           d: path(rightOf(s), leftOf(n)),
-          dim: matches !== null && !(matches.has(dep) && matches.has(n.id)),
+          dim: !inSet,
+          chain: chain !== null && inSet && matches === null,
         });
       }
     }
@@ -408,6 +437,7 @@
   class="canvas"
   class:panning={isPanning}
   class:linking={!!linking}
+  class:soft-dim={softDim}
   bind:this={container}
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
@@ -430,7 +460,7 @@
       </defs>
       {#each edges as edge (edge.from + ">" + edge.to)}
         {@const sel = selectedEdge?.from === edge.from && selectedEdge?.to === edge.to}
-        {@const near = store.selectedId === edge.from || store.selectedId === edge.to}
+        {@const near = edge.chain || store.selectedId === edge.from || store.selectedId === edge.to}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <g
           class="edge"
@@ -468,7 +498,7 @@
         width={widthOf(note)}
         selected={store.selectedId === note.id}
         grouped={store.multi.length > 1 && store.multi.includes(note.id)}
-        dim={matches !== null && !matches.has(note.id)}
+        dim={visible !== null && !visible.has(note.id)}
         linkTarget={linking?.over === note.id}
         onresize={(h) => (heights[note.id] = h)}
       />
@@ -566,6 +596,13 @@
   }
   .edge.dim {
     opacity: 0.15;
+  }
+  /* Focus-chain dimming is gentler than search dimming. */
+  .soft-dim .edge.dim {
+    opacity: 0.3;
+  }
+  .soft-dim :global(.node.dim) {
+    opacity: 0.3;
   }
   .link-preview {
     fill: none;

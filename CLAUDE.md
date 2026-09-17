@@ -113,7 +113,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
   notes whose stage vanished (`updateWorkflow`); deleting one reverts its notes to Todo.
 - "Ready" = not done and every dep is done. Shown with a purple ring; counted in toolbar.
 - Canvas dimming: `App.svelte` computes `matches` = search terms AND tag filter
-  (tag filter is OR across selected tags); `null` means nothing is filtered.
+  (tag filter is OR across selected tags); `null` means nothing is filtered. When
+  `matches` is null and Focus is on (`focus` prop, localStorage `dagobert.focus`),
+  Canvas dims everything outside the selected note's `chain` (ancestors +
+  descendants) at a softer opacity (`.soft-dim`). `visible = matches ?? chain`.
 - Tag colours are project-wide (`tag_colors` in `dagobert.json`), not per note.
   The default colour is not stored (`setTagColor` deletes the entry).
 - Timestamps are ISO strings generated in the frontend; Rust treats them as opaque.

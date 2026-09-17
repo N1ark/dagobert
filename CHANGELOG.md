@@ -9,6 +9,8 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 - **Tidy** toolbar button: layered auto-layout of the DAG (dependencies left,
   dependents right); with a multi-selection only that subgraph is arranged.
+- **Focus** toggle: selecting a note softly dims everything that isn't upstream or
+  downstream of it, and highlights the chain's edges. Remembered across launches.
 
 ## [0.1.0] - 2026-09-17
 

@@ -7,7 +7,7 @@ Tracked work. Move items to CHANGELOG.md (Unreleased) as they land.
 - [ ] Undo / redo (`⌘Z` / `⇧⌘Z`) for moves, deletes, links, tags, status, bulk edits
 - [ ] File watching: pick up external edits to `notes/` and `dagobert.json`
 - [x] Auto-layout: "Tidy" arranges the DAG topologically (deps left → dependents right)
-- [ ] Highlight the chain: selected node's ancestors/descendants, everything else dimmed
+- [x] Highlight the chain: selected node's ancestors/descendants, everything else dimmed
 - [ ] Keyboard navigation on the canvas (arrows between neighbours, Enter opens, Tab to dependent)
 - [ ] Note templates: per-workflow default body for new notes
 - [ ] Minimap
