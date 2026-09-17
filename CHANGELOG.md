@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- **Tidy** toolbar button: layered auto-layout of the DAG (dependencies left,
+  dependents right); with a multi-selection only that subgraph is arranged.
+
 ## [0.1.0] - 2026-09-17
 
 Initial version.

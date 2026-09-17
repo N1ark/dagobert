@@ -10,6 +10,7 @@
   import Tag from "phosphor-svelte/lib/Tag";
   import Trash from "phosphor-svelte/lib/Trash";
   import CornersOut from "phosphor-svelte/lib/CornersOut";
+  import TreeStructure from "phosphor-svelte/lib/TreeStructure";
   import X from "phosphor-svelte/lib/X";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
@@ -158,6 +159,7 @@
       </span>
       <TagMenu />
       <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
+      <button class="ghost" onclick={() => canvas?.tidy()} title="Auto-layout (selection, or everything)"><TreeStructure size={15} /> Tidy</button>
       <button class="ghost" onclick={() => canvas?.fitAll()} title="Fit all notes in view"><CornersOut size={15} /> Fit</button>
       <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
     </div>

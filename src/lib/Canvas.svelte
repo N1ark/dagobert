@@ -4,6 +4,7 @@
   import NodeCard from "./NodeCard.svelte";
   import ContextMenu, { type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
+  import { layout } from "./layout";
 
   let { matches = null }: { matches?: Set<string> | null } = $props();
 
@@ -110,6 +111,30 @@
     vp.x = (r.width - (maxX - minX) * zoom) / 2 - minX * zoom;
     vp.y = (r.height - (maxY - minY) * zoom) / 2 - minY * zoom;
     store.saveViewport();
+  }
+
+  /**
+   * Auto-layout. With a multi-selection, only that subgraph is tidied,
+   * anchored at its current top-left; otherwise everything is.
+   */
+  export function tidy() {
+    const subset = store.multi.length > 1 ? store.notes.filter((n) => store.multi.includes(n.id)) : store.notes;
+    if (!subset.length) return;
+    const ids = new Set(subset.map((n) => n.id));
+    const originX = Math.min(...subset.map((n) => n.x));
+    const originY = Math.min(...subset.map((n) => n.y));
+    const positions = layout(
+      subset.map((n) => ({ id: n.id, deps: n.deps.filter((d) => ids.has(d)), width: widthOf(n), height: h(n.id) })),
+      { originX, originY },
+    );
+    for (const n of subset) {
+      const p = positions.get(n.id);
+      if (!p || (p.x === n.x && p.y === n.y)) continue;
+      n.x = p.x;
+      n.y = p.y;
+      store.touch(n.id, { immediate: true, silent: true });
+    }
+    fitAll();
   }
 
   // ---- pointer handling ----------------------------------------------------

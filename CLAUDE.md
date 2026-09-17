@@ -43,6 +43,11 @@ from the CLI, so the browser shim is the practical way to check interactions.
   note. Trash state: `trash`, `loadTrash`, `restoreNote`, `purge`.
 - `src/lib/Canvas.svelte` — pan/zoom/drag/link interactions and edge rendering.
   Exposes `focusNode`, `createAtCenter`, `fitAll` via `bind:this`.
+- `src/lib/layout.ts` — pure layered layout (`layout(nodes, opts)`): longest-path
+  layering, barycenter ordering sweeps, columns centred on the tallest, components
+  stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
+  when `store.multi.length > 1`, anchored at the selection's top-left). Test:
+  `node tests/layout.test.mjs`.
 - `src/lib/NodeCard.svelte` — a node. Reports its height via `onresize` so edges
   can anchor at mid-height (don't use `bind:` with a fallback — Svelte 5 throws).
 - `src/lib/NotePanel.svelte` — right-hand editor. Re-keyed per note id in `App.svelte`
