@@ -1,0 +1,265 @@
+<script lang="ts">
+  import { store } from "./store.svelte";
+  import { stageColor } from "./workflows";
+  import Check from "phosphor-svelte/lib/Check";
+  import Minus from "phosphor-svelte/lib/Minus";
+  import Copy from "phosphor-svelte/lib/Copy";
+  import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
+  import Trash from "phosphor-svelte/lib/Trash";
+
+  export type MenuTarget =
+    | { kind: "node"; id: string }
+    | { kind: "group"; ids: string[] }
+    | { kind: "edge"; from: string; to: string }
+    | { kind: "background"; wx: number; wy: number };
+
+  let {
+    x,
+    y,
+    target,
+    onclose,
+    oncreate,
+    onpaste,
+  }: {
+    x: number;
+    y: number;
+    target: MenuTarget;
+    onclose: () => void;
+    oncreate: (wx: number, wy: number) => void;
+    onpaste: (wx: number, wy: number) => void;
+  } = $props();
+
+  let el = $state<HTMLDivElement | null>(null);
+  let newTag = $state("");
+  let confirmDelete = $state(false);
+
+  const note = $derived(target.kind === "node" ? store.byId(target.id) : null);
+  const group = $derived(target.kind === "group" ? target.ids.map((id) => store.byId(id)).filter((n): n is NonNullable<typeof n> => !!n) : []);
+
+  /** "all" / "some" / "none" of the group carry the tag. */
+  function groupHas(tag: string): "all" | "some" | "none" {
+    const c = group.filter((n) => n.tags.includes(tag)).length;
+    return c === group.length ? "all" : c ? "some" : "none";
+  }
+  function groupToggleTag(tag: string) {
+    const all = groupHas(tag) === "all";
+    for (const n of group) (all ? store.removeTag : store.addTag).call(store, n.id, tag);
+  }
+  function groupAddTag() {
+    const t = newTag.trim();
+    if (!t) return;
+    for (const n of group) store.addTag(n.id, t);
+    newTag = "";
+  }
+  const workflow = $derived(note ? store.workflowOf(note) : null);
+
+  // Keep the menu on screen.
+  const pos = $derived.by(() => {
+    const w = el?.offsetWidth ?? 220;
+    const h = el?.offsetHeight ?? 300;
+    return {
+      left: Math.min(x, window.innerWidth - w - 8),
+      top: Math.min(y, window.innerHeight - h - 8),
+    };
+  });
+
+  function onWindowPointerDown(e: PointerEvent) {
+    if (!(e.target as HTMLElement).closest(".ctx")) onclose();
+  }
+  function onKey(e: KeyboardEvent) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onclose();
+    }
+  }
+  function run(fn: () => void) {
+    fn();
+    onclose();
+  }
+  function addNewTag() {
+    if (!note) return;
+    store.addTag(note.id, newTag);
+    newTag = "";
+  }
+</script>
+
+<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} onblur={onclose} />
+
+<div class="ctx" bind:this={el} style="left:{pos.left}px; top:{pos.top}px" role="menu" tabindex="-1" oncontextmenu={(e) => e.preventDefault()}>
+  {#if note && workflow}
+    <button class="item" onclick={() => run(() => store.select(note.id))}>Open</button>
+    <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> Open in new window</button>
+    <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> Copy <kbd>⌘C</kbd></button>
+    <button class="item" onclick={() => run(() => { const d = store.duplicate(note.id); if (d) store.select(d.id); })}>Duplicate <kbd>⌘D</kbd></button>
+    {#if note.workflow === null}
+      <button class="item" onclick={() => run(() => store.advance(note.id))}>{store.isDone(note) ? "Mark as not done" : "Mark as done"}</button>
+    {:else}
+      <div class="section">Status</div>
+      {#each workflow.stages as stage (stage.name)}
+        <button class="item check" class:on={note.status === stage.name} onclick={() => run(() => store.setStatus(note.id, stage.name))}>
+          <span class="mark">{#if note.status === stage.name}<Check size={11} weight="bold" />{/if}</span>
+          <span class="pip" style="--c:{stageColor(workflow, stage.name)}"></span>{stage.name}
+        </button>
+      {/each}
+    {/if}
+
+    <div class="section">Tags</div>
+    <div class="tags">
+      {#each store.allTags as { tag } (tag)}
+        <button class="item check" class:on={note.tags.includes(tag)} onclick={() => store.toggleTag(note.id, tag)}>
+          <span class="mark">{#if note.tags.includes(tag)}<Check size={11} weight="bold" />{/if}</span>
+          <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
+        </button>
+      {/each}
+    </div>
+    <form
+      class="new-tag"
+      onsubmit={(e) => {
+        e.preventDefault();
+        addNewTag();
+      }}
+    >
+      <input placeholder="new tag…" bind:value={newTag} onblur={addNewTag} />
+    </form>
+
+    {#if note.width != null}
+      <button class="item" onclick={() => run(() => store.setWidth(note.id, null))}>Reset width</button>
+    {/if}
+    <div class="sep"></div>
+    {#if confirmDelete}
+      <button class="item danger" onclick={() => run(() => store.remove(note.id))}>Really delete (goes to trash)</button>
+    {:else}
+      <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> Delete…</button>
+    {/if}
+  {:else if target.kind === "group"}
+    <div class="section">{group.length} notes selected</div>
+    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, true)))}>Mark all as done</button>
+    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, false)))}>Mark all as not done</button>
+    <div class="section">Tags</div>
+    <div class="tags">
+      {#each store.allTags as { tag } (tag)}
+        {@const has = groupHas(tag)}
+        <button class="item check" class:on={has === "all"} class:some={has === "some"} onclick={() => groupToggleTag(tag)}>
+          <span class="mark">{#if has === "all"}<Check size={11} weight="bold" />{:else if has === "some"}<Minus size={11} weight="bold" />{/if}</span>
+          <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
+        </button>
+      {/each}
+    </div>
+    <form
+      class="new-tag"
+      onsubmit={(e) => {
+        e.preventDefault();
+        groupAddTag();
+      }}
+    >
+      <input placeholder="add tag to all…" bind:value={newTag} onblur={groupAddTag} />
+    </form>
+    <div class="sep"></div>
+    {#if confirmDelete}
+      <button class="item danger" onclick={() => run(() => group.forEach((n) => store.remove(n.id)))}>Really delete {group.length} (goes to trash)</button>
+    {:else}
+      <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> Delete {group.length} notes…</button>
+    {/if}
+  {:else if target.kind === "edge"}
+    {@const t = target}
+    <div class="section">{store.byId(t.from)?.title || "Untitled"} → {store.byId(t.to)?.title || "Untitled"}</div>
+    <button class="item danger" onclick={() => run(() => store.removeDependency(t.to, t.from))}>Remove link</button>
+  {:else if target.kind === "background"}
+    {@const t = target}
+    <button class="item" onclick={() => run(() => oncreate(t.wx, t.wy))}>New note here</button>
+    <button class="item" disabled={!store.clipboard} onclick={() => run(() => onpaste(t.wx, t.wy))}>Paste <kbd>⌘V</kbd></button>
+  {/if}
+</div>
+
+<style>
+  .ctx {
+    position: fixed;
+    z-index: 60;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 4px;
+    background: var(--bg3);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    font-size: 13px;
+    outline: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    text-align: left;
+    padding: 5px 10px;
+    border: none;
+    background: transparent;
+    color: var(--color);
+    border-radius: 4px;
+  }
+  .item:hover {
+    background: #ffffff10;
+    color: var(--color2);
+  }
+  .item.danger:hover {
+    color: var(--red);
+  }
+  .item:disabled {
+    opacity: 0.4;
+  }
+  kbd {
+    margin-left: auto;
+    font-family: inherit;
+    font-size: 11px;
+    color: var(--color-dim);
+  }
+  .check {
+    padding-left: 6px;
+  }
+  .mark {
+    width: 12px;
+    display: inline-flex;
+    justify-content: center;
+    color: var(--accent2);
+  }
+  .check.some .mark {
+    color: var(--color-dim);
+  }
+  .pip,
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c);
+    flex: none;
+  }
+  .section {
+    padding: 6px 10px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tags {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+  .new-tag {
+    padding: 2px 6px 4px;
+  }
+  .new-tag input {
+    width: 100%;
+    font-size: 12px;
+    padding: 3px 8px;
+  }
+  .sep {
+    height: 1px;
+    margin: 4px 6px;
+    background: var(--border2);
+  }
+</style>

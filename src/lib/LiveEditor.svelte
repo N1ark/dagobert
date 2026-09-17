@@ -1,0 +1,381 @@
+<script lang="ts">
+  import { tick } from "svelte";
+  import { store } from "./store.svelte";
+  import type { Note } from "./types";
+  import Markdown from "./Markdown.svelte";
+  import MentionPopup from "./MentionPopup.svelte";
+  import { command } from "./editor";
+  import { caretCoords } from "./wikilinks";
+  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode } from "./blocks";
+
+  /**
+   * Obsidian-style live preview: the body is shown rendered, block by block.
+   * The block holding the cursor is swapped for a textarea with its raw markdown.
+   */
+  let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
+
+  let container = $state<HTMLDivElement | null>(null);
+  let textarea = $state<HTMLTextAreaElement | null>(null);
+  let mentionPopup = $state<MentionPopup | null>(null);
+
+  const blocks = $derived(splitBlocks(note.body));
+  /** Index of the block being edited, or null when everything is rendered. */
+  let active = $state<number | null>(null);
+  /** Raw text of the active block while it's being edited. */
+  let draft = $state("");
+  let mention = $state<{ start: number; query: string; left: number; top: number } | null>(null);
+  /** Caret to apply once the textarea mounts. */
+  let pendingCaret: number | null = null;
+
+  const activeIsCode = $derived(isCode(draft));
+
+  function edited() {
+    store.touch(note.id);
+  }
+
+  function setBody(body: string) {
+    if (body !== note.body) {
+      note.body = body;
+      edited();
+    }
+  }
+
+  /** Blocks with the active slot replaced by the draft (empty drafts drop out). */
+  function withDraft(): string[] {
+    const next = [...blocks];
+    if (active !== null) next[active] = draft;
+    return next;
+  }
+
+  /** Write the draft into the body. Returns the resulting block list. */
+  function commit(): string[] {
+    if (active === null) return blocks;
+    const body = joinBlocks(withDraft());
+    setBody(body);
+    return splitBlocks(body);
+  }
+
+  /** Start editing block `index` (of the current body) with the caret at `caret`. */
+  async function activate(index: number, caret: number | "end" = "end") {
+    const list = commit();
+    active = null;
+    if (!list.length) return appendBlock();
+    const i = Math.max(0, Math.min(index, list.length - 1));
+    draft = list[i];
+    active = i;
+    pendingCaret = caret === "end" ? draft.length : Math.min(caret, draft.length);
+    await tick();
+    focusCaret();
+  }
+
+  function focusCaret() {
+    const el = textarea;
+    if (!el) return;
+    el.focus();
+    if (pendingCaret !== null) {
+      el.setSelectionRange(pendingCaret, pendingCaret);
+      pendingCaret = null;
+    }
+    autosize();
+  }
+
+  function deactivate() {
+    if (active === null) return;
+    commit();
+    active = null;
+    draft = "";
+    mention = null;
+  }
+
+  function autosize() {
+    const el = textarea;
+    if (!el) return;
+    el.style.height = "0";
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  /** Start a fresh paragraph after the last block ("virtual" until it has text). */
+  async function appendBlock() {
+    const list = commit();
+    active = null;
+    draft = "";
+    active = list.length;
+    pendingCaret = 0;
+    await tick();
+    focusCaret();
+  }
+
+  /** Move editing to a neighbouring block, accounting for the active one being dropped if empty. */
+  function moveBy(delta: -1 | 1) {
+    if (active === null) return;
+    const dropped = draft.trim() === "" && active < blocks.length ? 1 : 0;
+    const target = delta < 0 ? active - 1 : active + 1 - dropped;
+    activate(target, delta < 0 ? "end" : 0);
+  }
+
+  // ---- rendered block interactions -----------------------------------------
+
+  /** Best-effort: place the caret in the raw text near the clicked rendered text. */
+  function caretFromClick(e: MouseEvent, raw: string): number {
+    const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
+    const node = range?.startContainer;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return raw.length;
+    const text = node.textContent ?? "";
+    const off = range!.startOffset;
+    // Search for the words around the click in the raw block.
+    for (let len = 16; len >= 3; len -= 3) {
+      const before = text.slice(Math.max(0, off - len), off);
+      if (before.trim().length < 2) continue;
+      const at = raw.indexOf(before);
+      if (at >= 0) return at + before.length;
+    }
+    const after = text.slice(off, off + 12);
+    const at = after.trim() ? raw.indexOf(after) : -1;
+    return at >= 0 ? at : raw.length;
+  }
+
+  function onBlockClick(e: MouseEvent, i: number) {
+    const target = e.target as HTMLElement;
+    if (target.closest("a")) return; // links are handled by <Markdown>
+    if (target instanceof HTMLInputElement && target.type === "checkbox") {
+      e.preventDefault();
+      const boxes = [...(target.closest(".block")?.querySelectorAll('input[type="checkbox"]') ?? [])];
+      const next = [...blocks];
+      next[i] = toggleCheckbox(blocks[i], boxes.indexOf(target));
+      setBody(joinBlocks(next));
+      return;
+    }
+    activate(i, caretFromClick(e, blocks[i]));
+  }
+
+  function onContainerClick(e: MouseEvent) {
+    if (e.target === container) appendBlock();
+  }
+
+  // ---- textarea ------------------------------------------------------------
+
+  async function onInput() {
+    const el = textarea!;
+    draft = el.value;
+    autosize();
+    // A blank line inside the draft splits it into several blocks; keep the
+    // caret in the right one.
+    const parts = splitBlocks(draft);
+    if (parts.length > 1) {
+      const { index, offset } = locate(draft, el.selectionStart);
+      activate(active! + index, offset);
+      return;
+    }
+    // Live-sync so the card preview and search see edits. An empty draft is
+    // not synced (it can't be represented in markdown) until we leave it.
+    if (draft.trim() !== "") {
+      const caret = el.selectionStart;
+      setBody(joinBlocks(withDraft()));
+      await tick();
+      // The textarea may have been re-mounted (virtual block became real).
+      if (textarea !== el) {
+        pendingCaret = caret;
+        focusCaret();
+      }
+    }
+    updateMention();
+  }
+
+  function lineOf(text: string, pos: number) {
+    return { first: text.lastIndexOf("\n", pos - 1) === -1, last: text.indexOf("\n", pos) === -1 };
+  }
+
+  function onKey(e: KeyboardEvent) {
+    const el = e.target as HTMLTextAreaElement;
+    if (mention) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        mention = null;
+        return;
+      }
+      if (mentionPopup?.handleKey(e)) {
+        e.preventDefault();
+        return;
+      }
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      deactivate();
+      return;
+    }
+    const { first, last } = lineOf(el.value, el.selectionStart);
+    if (e.key === "ArrowUp" && first && active! > 0) {
+      e.preventDefault();
+      moveBy(-1);
+      return;
+    }
+    if (e.key === "ArrowDown" && last && active! < blocks.length - 1) {
+      e.preventDefault();
+      moveBy(1);
+      return;
+    }
+    if (e.key === "Backspace" && el.selectionStart === 0 && el.selectionEnd === 0 && active! > 0) {
+      // Merge this block into the previous one.
+      e.preventDefault();
+      const prevIdx = active! - 1;
+      const prev = blocks[prevIdx];
+      const merged = draft.trim() ? prev + "\n" + draft : prev;
+      const next = [...blocks];
+      next.splice(prevIdx, 2, merged);
+      active = null;
+      setBody(joinBlocks(next));
+      activate(prevIdx, prev.length);
+      return;
+    }
+    const next = command(e, { text: el.value, start: el.selectionStart, end: el.selectionEnd });
+    if (next) {
+      e.preventDefault();
+      el.value = next.text;
+      el.setSelectionRange(next.start, next.end);
+      onInput().then(() => textarea?.setSelectionRange(next.start, next.end));
+    }
+  }
+
+  // ---- @ mentions ----------------------------------------------------------
+
+  const MENTION_RE = /(^|[\s(])@([^\s@\[\]]*)$/;
+
+  function updateMention() {
+    const el = textarea;
+    if (!el || el.selectionStart !== el.selectionEnd) return (mention = null);
+    const caret = el.selectionStart;
+    const m = MENTION_RE.exec(el.value.slice(Math.max(0, caret - 80), caret));
+    if (!m) return (mention = null);
+    const start = caret - m[2].length - 1;
+    const c = caretCoords(el, start);
+    mention = { start, query: m[2], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+  }
+
+  function insertLink(title: string) {
+    const el = textarea;
+    if (!el || !mention) return;
+    const end = el.selectionStart;
+    const insert = `[[${title}]] `;
+    el.value = el.value.slice(0, mention.start) + insert + el.value.slice(end);
+    const pos = mention.start + insert.length;
+    mention = null;
+    el.setSelectionRange(pos, pos);
+    onInput();
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
+  function createAndLink(title: string) {
+    oncreatelink(title);
+    insertLink(title);
+  }
+
+  /** Public: start editing at the end (used when a note is brand new). */
+  export function focusEnd() {
+    if (blocks.length) activate(blocks.length - 1, "end");
+    else appendBlock();
+  }
+</script>
+
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+<div class="live" bind:this={container} onclick={onContainerClick}>
+  {#each blocks as block, i (i)}
+    {#if active === i}
+      <div class="block editing" class:code={activeIsCode}>
+        <textarea
+          bind:this={textarea}
+          value={draft}
+          oninput={onInput}
+          onkeydown={onKey}
+          onkeyup={(e) => {
+            if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
+          }}
+          onclick={updateMention}
+          onblur={() => setTimeout(() => (mention = null), 150)}
+          spellcheck="false"
+          rows="1"
+        ></textarea>
+      </div>
+    {:else}
+      <div class="block" onclick={(e) => onBlockClick(e, i)}>
+        <Markdown source={block} />
+      </div>
+    {/if}
+  {/each}
+  {#if active !== null && active >= blocks.length}
+    <div class="block editing" class:code={activeIsCode}>
+      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onblur={() => setTimeout(() => (mention = null), 150)} spellcheck="false" rows="1"></textarea>
+    </div>
+  {/if}
+  {#if !blocks.length && active === null}
+    <div class="block placeholder" onclick={() => appendBlock()}>Write in markdown… click to start. <span class="hint">⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block</span></div>
+  {/if}
+  {#if mention}
+    <MentionPopup bind:this={mentionPopup} query={mention.query} left={mention.left} top={mention.top} excludeId={note.id} onpick={(n) => insertLink(n.title)} oncreate={createAndLink} />
+  {/if}
+  <div class="tail" onclick={() => appendBlock()}></div>
+</div>
+
+<style>
+  .live {
+    position: relative;
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 16px 4px;
+    cursor: text;
+  }
+  .block {
+    position: relative;
+    padding: 2px 8px;
+    margin: 0 -8px;
+  }
+  .block:hover:not(.editing) {
+    background: #ffffff05;
+  }
+  .block :global(.markdown > :first-child) {
+    margin-top: 0.3em;
+  }
+  .block :global(.markdown > :last-child) {
+    margin-bottom: 0.3em;
+  }
+  .block :global(.markdown input[type="checkbox"]) {
+    pointer-events: auto;
+    cursor: pointer;
+  }
+  .editing {
+    background: #ffffff06;
+  }
+  textarea {
+    display: block;
+    width: 100%;
+    resize: none;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    padding: 0.3em 0;
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.55;
+    overflow: hidden;
+  }
+  .code textarea {
+    font-family: var(--mono);
+    font-size: 13px;
+  }
+  .placeholder {
+    color: #555;
+    font-style: italic;
+  }
+  .hint {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    font-style: normal;
+    color: #444;
+  }
+  .tail {
+    min-height: 48px;
+  }
+</style>
