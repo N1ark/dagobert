@@ -77,6 +77,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
   the panel's title field stays a raw `<input>`.
+- `src/lib/QuickOpen.svelte` — `⌘K` palette (App owns `showQuickOpen`; not in
+  standalone windows). Matching lives in `fuzzy.ts` (`fuzzyMatch`: prefix > word-start
+  > substring > subsequence; `parseQuery`: `#tag` filter, `>` command mode). Commands
+  come from App's `paletteActions` prop so the palette stays dumb.
 - `src/lib/TrashDialog.svelte` — modal listing `trash/` with restore / delete forever / empty.
 - `src/lib/LinkPicker.svelte` — search dropdown used for adding deps/dependents.
 - `src/lib/workflows.ts` — `DEFAULT_WORKFLOW` (todo → done, id `""`, never stored)
@@ -116,7 +120,7 @@ from the CLI, so the browser shim is the practical way to check interactions.
   The backend owns `note.file` — the frontend never sets it.
 - Wheel: plain scroll pans, `ctrl`/`meta`+wheel (pinch) zooms. Wheel listener is
   attached manually with `passive: false`.
-- Keyboard: `⌘N` new note, `⌘F` search, `⌘O` open folder, `Esc` deselect,
+- Keyboard: `⌘N` new note, `⌘K` quick open, `⌘F` search, `⌘O` open folder, `Esc` deselect,
   `⌫` removes a selected edge. Global handlers ignore events from inputs/textareas.
   In the body editor: `⌘B` bold, `⌘I` italic, `⌘E`/`` ⌘` `` code, `⌘K` link,
   `⌘⇧X` strike, `⌘H` ==highlight==, Enter continues lists, Tab/⇧Tab indents.

@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- Quick open (`⌘K`): fuzzy-jump to any note, `#tag` to narrow, `>` for commands,
+  `⌘↩` opens the note in a new window, "Create …" when nothing matches.
+
 ## [0.1.0] - 2026-09-17
 
 Initial version.

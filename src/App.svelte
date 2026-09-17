@@ -5,6 +5,8 @@
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
   import TrashDialog from "./lib/TrashDialog.svelte";
+  import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
+  import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import { backend } from "./lib/backend";
   import Plus from "phosphor-svelte/lib/Plus";
   import Tag from "phosphor-svelte/lib/Tag";
@@ -39,6 +41,8 @@
   let query = $state("");
   let searchEl = $state<HTMLInputElement | null>(null);
   let showTrash = $state(false);
+  let showQuickOpen = $state(false);
+  let showWorkflows = $state(false);
 
   // Notes that pass the search box AND the tag filter; null when neither is active.
   const matches = $derived.by(() => {
@@ -69,6 +73,33 @@
   }
   store.jump = jump;
 
+  /** World coords of the visible canvas centre (for creating notes from the palette). */
+  function viewCenter() {
+    const r = document.querySelector(".canvas")?.getBoundingClientRect();
+    const vp = store.viewport;
+    const w = r?.width ?? window.innerWidth;
+    const h = r?.height ?? window.innerHeight;
+    return { x: (w / 2 - vp.x) / vp.zoom - 110, y: (h / 2 - vp.y) / vp.zoom - 20 };
+  }
+
+  function createTitled(title: string) {
+    const c = viewCenter();
+    const n = store.create(Math.round(c.x), Math.round(c.y), { title });
+    jump(n.id);
+  }
+
+  const paletteActions = $derived.by((): Action[] => {
+    const sel = store.selected;
+    return [
+      { label: "New note", hint: "⌘N", run: () => canvas?.createAtCenter() },
+      { label: "Fit to view", run: () => canvas?.fitAll() },
+      { label: "Open trash", run: () => (showTrash = true) },
+      { label: "Manage workflows", run: () => (showWorkflows = true) },
+      { label: "Open folder…", hint: "⌘O", run: () => store.pickAndOpen() },
+      ...(sel ? [{ label: `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}`, run: () => store.setDone(sel.id, !store.isDone(sel)) }] : []),
+    ];
+  });
+
   function onSearchKey(e: KeyboardEvent) {
     if (e.key === "Enter" && matches?.size) {
       jump([...matches][0]);
@@ -89,6 +120,9 @@
     if (e.key === "n" && store.path) {
       e.preventDefault();
       canvas?.createAtCenter();
+    } else if (e.key === "k" && store.path) {
+      e.preventDefault();
+      showQuickOpen = !showQuickOpen;
     } else if (e.key === "f" && store.path) {
       e.preventDefault();
       searchEl?.focus();
@@ -144,7 +178,7 @@
       </div>
       <input
         class="search"
-        placeholder="Search notes…  (⌘F)"
+        placeholder="Search notes…  (⌘F · ⌘K to jump)"
         bind:value={query}
         bind:this={searchEl}
         onkeydown={onSearchKey}
@@ -196,6 +230,14 @@
       {/if}
     </div>
   </div>
+{/if}
+
+{#if showQuickOpen}
+  <QuickOpen actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
+{/if}
+
+{#if showWorkflows}
+  <WorkflowEditor onclose={() => (showWorkflows = false)} />
 {/if}
 
 {#if showTrash}
