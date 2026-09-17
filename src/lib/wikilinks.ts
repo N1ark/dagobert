@@ -19,21 +19,19 @@ function escapeHtml(s: string) {
  * are left untouched.
  */
 export function renderWikilinks(md: string): string {
-  // Split out code so we don't touch `[[x]]` inside it.
-  return md
-    .split(/(```[\s\S]*?```|`[^`\n]*`)/)
-    .map((part, i) =>
-      i % 2 === 1
-        ? part
-        : part.replace(WIKI_RE, (_, title: string) => {
-            const n = resolve(title);
-            const label = escapeHtml(title.trim());
-            return n
-              ? `<a class="wikilink" href="#note-${n.id}">${label}</a>`
-              : `<span class="wikilink missing" title="No note with this title">${label}</span>`;
-          }),
-    )
-    .join("");
+  // Ranges covered by code spans/fences; links inside them are left alone.
+  // (Links may themselves contain backticks, so we can't just split on code.)
+  const code: [number, number][] = [];
+  for (const m of md.matchAll(/```[\s\S]*?```|`[^`\n]*`/g)) code.push([m.index, m.index + m[0].length]);
+  const inCode = (i: number) => code.some(([a, b]) => i >= a && i < b);
+  return md.replace(WIKI_RE, (m, title: string, offset: number) => {
+    if (inCode(offset)) return m;
+    const n = resolve(title);
+    const label = escapeHtml(title.trim());
+    return n
+      ? `<a class="wikilink" href="#note-${n.id}">${label}</a>`
+      : `<span class="wikilink missing" title="No note with this title">${label}</span>`;
+  });
 }
 
 /** The note id a clicked element points at, if it's a wikilink. */
