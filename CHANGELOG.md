@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-17
+
 ### Added
 - Undo / redo (`⌘Z` / `⇧⌘Z`, also in the ⌘K palette) for moves, resizes, links,
   tags, status/workflow changes, edits, creates, deletes and restores. Actions done
