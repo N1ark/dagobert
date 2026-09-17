@@ -4,8 +4,10 @@
   import NodeCard from "./NodeCard.svelte";
   import ContextMenu, { type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
+  import { layout } from "./layout";
+  import Minimap from "./Minimap.svelte";
 
-  let { matches = null }: { matches?: Set<string> | null } = $props();
+  let { matches = null, focus = true }: { matches?: Set<string> | null; focus?: boolean } = $props();
 
   const NODE_W = 220;
   const MIN_W = 140;
@@ -18,6 +20,9 @@
   const MAX_ZOOM = 2.5;
 
   let container: HTMLDivElement;
+  // Canvas size in screen px (for the minimap's viewport rectangle).
+  let viewW = $state(0);
+  let viewH = $state(0);
   let heights = $state<Record<string, number>>({});
   let selectedEdge = $state<{ from: string; to: string } | null>(null);
   let linking = $state<{ from: string; x: number; y: number; over: string | null } | null>(null);
@@ -35,17 +40,46 @@
 
   const vp = $derived(store.viewport);
 
+  /** The selected node plus everything upstream and downstream of it. */
+  const chain = $derived.by(() => {
+    if (!focus || !store.selectedId || store.multi.length > 1) return null;
+    const set = new Set<string>([store.selectedId]);
+    const up = [store.selectedId];
+    while (up.length) {
+      const n = store.byId(up.pop()!);
+      for (const d of n?.deps ?? []) if (!set.has(d)) {
+        set.add(d);
+        up.push(d);
+      }
+    }
+    const down = [store.selectedId];
+    while (down.length) {
+      const id = down.pop()!;
+      for (const n of store.notes) if (n.deps.includes(id) && !set.has(n.id)) {
+        set.add(n.id);
+        down.push(n.id);
+      }
+    }
+    return set;
+  });
+
+  /** Search/tag filter wins; otherwise the focus chain; null = nothing dimmed. */
+  const visible = $derived(matches ?? chain);
+  const softDim = $derived(matches === null && chain !== null);
+
   const edges = $derived.by(() => {
-    const out: { from: string; to: string; d: string; dim: boolean }[] = [];
+    const out: { from: string; to: string; d: string; dim: boolean; chain: boolean }[] = [];
     for (const n of store.notes) {
       for (const dep of n.deps) {
         const s = store.byId(dep);
         if (!s) continue;
+        const inSet = visible === null || (visible.has(dep) && visible.has(n.id));
         out.push({
           from: dep,
           to: n.id,
           d: path(rightOf(s), leftOf(n)),
-          dim: matches !== null && !(matches.has(dep) && matches.has(n.id)),
+          dim: !inSet,
+          chain: chain !== null && inSet && matches === null,
         });
       }
     }
@@ -81,6 +115,120 @@
     store.saveViewport();
   }
 
+  /** Pan just enough that the note is fully on screen (with a margin). */
+  export function ensureVisible(id: string) {
+    const n = store.byId(id);
+    if (!n) return;
+    const r = container.getBoundingClientRect();
+    const m = 40;
+    const left = n.x * vp.zoom + vp.x;
+    const top = n.y * vp.zoom + vp.y;
+    const right = left + widthOf(n) * vp.zoom;
+    const bottom = top + h(id) * vp.zoom;
+    let dx = 0, dy = 0;
+    if (left < m) dx = m - left;
+    else if (right > r.width - m) dx = r.width - m - right;
+    if (top < m) dy = m - top;
+    else if (bottom > r.height - m) dy = r.height - m - bottom;
+    if (!dx && !dy) return;
+    vp.x += dx;
+    vp.y += dy;
+    store.saveViewport();
+  }
+
+  // ---- keyboard navigation -------------------------------------------------
+
+  function centerOf(n: Note) {
+    return { x: n.x + widthOf(n) / 2, y: n.y + h(n.id) / 2 };
+  }
+
+  /** Of `candidates`, the one whose centre is closest in y to `from`. */
+  function closestByY(from: Note, candidates: Note[]): Note | null {
+    const cy = centerOf(from).y;
+    let best: Note | null = null, bestD = Infinity;
+    for (const c of candidates) {
+      const d = Math.abs(centerOf(c).y - cy);
+      if (d < bestD) (best = c), (bestD = d);
+    }
+    return best;
+  }
+
+  /** Nearest node strictly above/below; overlapping x ranges are preferred. */
+  function verticalNeighbour(from: Note, dir: -1 | 1): Note | null {
+    const c = centerOf(from);
+    let best: Note | null = null, bestScore = Infinity;
+    for (const n of store.notes) {
+      if (n.id === from.id) continue;
+      const nc = centerOf(n);
+      if ((nc.y - c.y) * dir <= 0) continue;
+      const overlaps = n.x < from.x + widthOf(from) && n.x + widthOf(n) > from.x;
+      // Overlapping columns score by vertical distance; others pay a penalty.
+      const score = Math.abs(nc.y - c.y) + (overlaps ? 0 : 100000 + Math.abs(nc.x - c.x));
+      if (score < bestScore) (best = n), (bestScore = score);
+    }
+    return best;
+  }
+
+  /** Node nearest the viewport centre. */
+  function nearestToCenter(): Note | null {
+    const r = container.getBoundingClientRect();
+    const w = toWorld(r.left + r.width / 2, r.top + r.height / 2);
+    let best: Note | null = null, bestD = Infinity;
+    for (const n of store.notes) {
+      const c = centerOf(n);
+      const d = Math.hypot(c.x - w.x, c.y - w.y);
+      if (d < bestD) (best = n), (bestD = d);
+    }
+    return best;
+  }
+
+  function go(n: Note | null) {
+    if (!n) return;
+    store.select(n.id);
+    selectedEdge = null;
+    ensureVisible(n.id);
+  }
+
+  /** Arrow/Tab navigation between nodes. Returns true when handled. */
+  function navigate(e: KeyboardEvent): boolean {
+    const cur = store.selectedId ? store.byId(store.selectedId) : null;
+    const byY = (a: Note, b: Note) => centerOf(a).y - centerOf(b).y;
+    if (!cur) {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        go(nearestToCenter());
+        return true;
+      }
+      return false;
+    }
+    switch (e.key) {
+      case "ArrowLeft":
+        go(closestByY(cur, store.dependencies(cur.id)));
+        return true;
+      case "ArrowRight":
+        go(closestByY(cur, store.dependents(cur.id)));
+        return true;
+      case "ArrowUp":
+        go(verticalNeighbour(cur, -1));
+        return true;
+      case "ArrowDown":
+        go(verticalNeighbour(cur, 1));
+        return true;
+      case "Tab": {
+        // Cycle through dependents (⇧: dependencies) in vertical order.
+        const list = (e.shiftKey ? store.dependencies(cur.id) : store.dependents(cur.id)).sort(byY);
+        if (!list.length) return true;
+        const cy = centerOf(cur).y;
+        const i = list.findIndex((n) => centerOf(n).y > cy);
+        go(list[i === -1 ? 0 : i]);
+        return true;
+      }
+      case "Enter":
+        store.focusTitle++;
+        return true;
+    }
+    return false;
+  }
+
   /** Create a note at the centre of the current view. */
   export function createAtCenter() {
     const r = container.getBoundingClientRect();
@@ -110,6 +258,30 @@
     vp.x = (r.width - (maxX - minX) * zoom) / 2 - minX * zoom;
     vp.y = (r.height - (maxY - minY) * zoom) / 2 - minY * zoom;
     store.saveViewport();
+  }
+
+  /**
+   * Auto-layout. With a multi-selection, only that subgraph is tidied,
+   * anchored at its current top-left; otherwise everything is.
+   */
+  export function tidy() {
+    const subset = store.multi.length > 1 ? store.notes.filter((n) => store.multi.includes(n.id)) : store.notes;
+    if (!subset.length) return;
+    const ids = new Set(subset.map((n) => n.id));
+    const originX = Math.min(...subset.map((n) => n.x));
+    const originY = Math.min(...subset.map((n) => n.y));
+    const positions = layout(
+      subset.map((n) => ({ id: n.id, deps: n.deps.filter((d) => ids.has(d)), width: widthOf(n), height: h(n.id) })),
+      { originX, originY },
+    );
+    for (const n of subset) {
+      const p = positions.get(n.id);
+      if (!p || (p.x === n.x && p.y === n.y)) continue;
+      n.x = p.x;
+      n.y = p.y;
+      store.touch(n.id, { immediate: true, silent: true });
+    }
+    fitAll();
   }
 
   // ---- pointer handling ----------------------------------------------------
@@ -350,6 +522,10 @@
       duplicateSelected();
       return;
     }
+    if (!mod && !e.altKey && navigate(e)) {
+      e.preventDefault();
+      return;
+    }
     if ((e.key === "Delete" || e.key === "Backspace") && selectedEdge) {
       store.removeDependency(selectedEdge.to, selectedEdge.from);
       selectedEdge = null;
@@ -383,7 +559,10 @@
   class="canvas"
   class:panning={isPanning}
   class:linking={!!linking}
+  class:soft-dim={softDim}
   bind:this={container}
+  bind:clientWidth={viewW}
+  bind:clientHeight={viewH}
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
@@ -405,7 +584,7 @@
       </defs>
       {#each edges as edge (edge.from + ">" + edge.to)}
         {@const sel = selectedEdge?.from === edge.from && selectedEdge?.to === edge.to}
-        {@const near = store.selectedId === edge.from || store.selectedId === edge.to}
+        {@const near = edge.chain || store.selectedId === edge.from || store.selectedId === edge.to}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <g
           class="edge"
@@ -443,7 +622,7 @@
         width={widthOf(note)}
         selected={store.selectedId === note.id}
         grouped={store.multi.length > 1 && store.multi.includes(note.id)}
-        dim={matches !== null && !matches.has(note.id)}
+        dim={visible !== null && !visible.has(note.id)}
         linkTarget={linking?.over === note.id}
         onresize={(h) => (heights[note.id] = h)}
       />
@@ -457,6 +636,10 @@
     ></div>
   {/if}
 
+  {#if store.notes.length > 1}
+    <Minimap {widthOf} heightOf={h} {viewW} {viewH} />
+  {/if}
+
   {#if menu}
     <ContextMenu x={menu.x} y={menu.y} target={menu.target} onclose={() => (menu = null)} oncreate={createAt} onpaste={(wx, wy) => {
       const n = store.paste(wx, wy);
@@ -468,6 +651,7 @@
     <div class="empty">
       <p>Double-click anywhere to create a note.</p>
       <p class="sub">Drag from a note's <span class="dot"></span> handle onto another note to make that one depend on it.</p>
+      <p class="sub">Arrow keys walk the graph (← dependencies, → dependents), Enter edits the title.</p>
     </div>
   {/if}
 </div>
@@ -541,6 +725,13 @@
   }
   .edge.dim {
     opacity: 0.15;
+  }
+  /* Focus-chain dimming is gentler than search dimming. */
+  .soft-dim .edge.dim {
+    opacity: 0.3;
+  }
+  .soft-dim :global(.node.dim) {
+    opacity: 0.3;
   }
   .link-preview {
     fill: none;

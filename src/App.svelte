@@ -12,12 +12,22 @@
   import Tag from "phosphor-svelte/lib/Tag";
   import Trash from "phosphor-svelte/lib/Trash";
   import CornersOut from "phosphor-svelte/lib/CornersOut";
+  import TreeStructure from "phosphor-svelte/lib/TreeStructure";
+  import Crosshair from "phosphor-svelte/lib/Crosshair";
   import X from "phosphor-svelte/lib/X";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
   const params = new URLSearchParams(location.search);
   const standaloneId = params.get("note");
   const standalonePath = params.get("path");
+
+  // Focus mode: dim everything outside the selected note's chain.
+  const FOCUS_KEY = "dagobert.focus";
+  let focus = $state(localStorage.getItem(FOCUS_KEY) !== "0");
+  function toggleFocus() {
+    focus = !focus;
+    localStorage.setItem(FOCUS_KEY, focus ? "1" : "0");
+  }
 
   const PANEL_KEY = "dagobert.panelWidth";
   let panelW = $state(Number(localStorage.getItem(PANEL_KEY)) || 440);
@@ -93,6 +103,7 @@
     return [
       { label: "New note", hint: "⌘N", run: () => canvas?.createAtCenter() },
       { label: "Fit to view", run: () => canvas?.fitAll() },
+      { label: "Tidy layout", run: () => canvas?.tidy() },
       { label: "Open trash", run: () => (showTrash = true) },
       { label: "Manage workflows", run: () => (showWorkflows = true) },
       { label: "Open folder…", hint: "⌘O", run: () => store.pickAndOpen() },
@@ -192,11 +203,13 @@
       </span>
       <TagMenu />
       <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
+      <button class="ghost" class:on={focus} onclick={toggleFocus} title="Focus: dim notes outside the selected note's chain"><Crosshair size={15} /> Focus</button>
+      <button class="ghost" onclick={() => canvas?.tidy()} title="Auto-layout (selection, or everything)"><TreeStructure size={15} /> Tidy</button>
       <button class="ghost" onclick={() => canvas?.fitAll()} title="Fit all notes in view"><CornersOut size={15} /> Fit</button>
       <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
     </div>
     <div class="main" style="--panel-w:{panelW}px">
-      <Canvas bind:this={canvas} {matches} />
+      <Canvas bind:this={canvas} {matches} {focus} />
       {#if store.selected}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div class="resizer" class:active={!!resizing} onpointerdown={onResizeDown} onpointermove={onResizeMove} onpointerup={onResizeUp} onpointercancel={onResizeUp}></div>
@@ -311,6 +324,9 @@
   }
   .spacer {
     flex: 1;
+  }
+  .toolbar button.on {
+    color: var(--accent2);
   }
   .stats {
     font-size: 12px;

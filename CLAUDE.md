@@ -43,6 +43,15 @@ from the CLI, so the browser shim is the practical way to check interactions.
   note. Trash state: `trash`, `loadTrash`, `restoreNote`, `purge`.
 - `src/lib/Canvas.svelte` — pan/zoom/drag/link interactions and edge rendering.
   Exposes `focusNode`, `createAtCenter`, `fitAll` via `bind:this`.
+- `src/lib/layout.ts` — pure layered layout (`layout(nodes, opts)`): longest-path
+  layering, barycenter ordering sweeps, columns centred on the tallest, components
+  stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
+  when `store.multi.length > 1`, anchored at the selection's top-left). Test:
+  `node tests/layout.test.mjs`.
+- `src/lib/Minimap.svelte` — bottom-right overview (180×120). Bounds = all notes ∪
+  the viewport, padded, so the view box always stays inside the map. Click/drag
+  pans (stopPropagation keeps the canvas from panning too). Collapsed state in
+  localStorage `dagobert.minimap`. Hidden when fewer than 2 notes.
 - `src/lib/NodeCard.svelte` — a node. Reports its height via `onresize` so edges
   can anchor at mid-height (don't use `bind:` with a fallback — Svelte 5 throws).
 - `src/lib/NotePanel.svelte` — right-hand editor. Re-keyed per note id in `App.svelte`
@@ -112,7 +121,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
   notes whose stage vanished (`updateWorkflow`); deleting one reverts its notes to Todo.
 - "Ready" = not done and every dep is done. Shown with a purple ring; counted in toolbar.
 - Canvas dimming: `App.svelte` computes `matches` = search terms AND tag filter
-  (tag filter is OR across selected tags); `null` means nothing is filtered.
+  (tag filter is OR across selected tags); `null` means nothing is filtered. When
+  `matches` is null and Focus is on (`focus` prop, localStorage `dagobert.focus`),
+  Canvas dims everything outside the selected note's `chain` (ancestors +
+  descendants) at a softer opacity (`.soft-dim`). `visible = matches ?? chain`.
 - Tag colours are project-wide (`tag_colors` in `dagobert.json`), not per note.
   The default colour is not stored (`setTagColor` deletes the entry).
 - Timestamps are ISO strings generated in the frontend; Rust treats them as opaque.
@@ -122,6 +134,11 @@ from the CLI, so the browser shim is the practical way to check interactions.
   attached manually with `passive: false`.
 - Keyboard: `⌘N` new note, `⌘K` quick open, `⌘F` search, `⌘O` open folder, `Esc` deselect,
   `⌫` removes a selected edge. Global handlers ignore events from inputs/textareas.
+  Canvas navigation (`navigate` in `Canvas.svelte`): `←`/`→` = closest-by-y
+  dependency/dependent, `↑`/`↓` = nearest node above/below (overlapping x preferred),
+  `Tab`/`⇧Tab` = next dependent/dependency in y order, `Enter` bumps
+  `store.focusTitle` (NotePanel focuses the title). With nothing selected, any arrow
+  picks the node nearest the view centre. `ensureVisible` pans minimally.
   In the body editor: `⌘B` bold, `⌘I` italic, `⌘E`/`` ⌘` `` code, `⌘K` link,
   `⌘⇧X` strike, `⌘H` ==highlight==, Enter continues lists, Tab/⇧Tab indents.
 - Multiple windows: `App.svelte` reads `?note=`/`?path=` and renders just
@@ -160,5 +177,5 @@ from the CLI, so the browser shim is the practical way to check interactions.
 ## Not done / ideas
 
 - No file watching: external edits to the folder need a reopen.
-- No multi-select, undo, or auto-layout.
+- No undo.
 - Fonts (Inter, Fira Code) are used only if installed locally; nothing is fetched.
