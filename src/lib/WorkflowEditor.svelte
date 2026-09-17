@@ -11,6 +11,7 @@
   let selectedId = $state<string | null>(store.workflows[0]?.id ?? null);
   const wf = $derived(store.workflows.find((w) => w.id === selectedId) ?? null);
   const usage = $derived(wf ? store.notes.filter((n) => n.workflow === wf.id).length : 0);
+  const TEMPLATE_HINT = "Default body for new notes. Placeholders: {{date}}, {{title}}.";
 
   function commit(w: Workflow) {
     // Stage names must be unique and non-empty.
@@ -65,7 +66,7 @@
     </header>
     <div class="cols">
       <nav>
-        <button class="ghost item" class:active={selectedId === null} disabled>Todo <span class="sub">built-in</span></button>
+        <button class="ghost item" class:active={selectedId === null} onclick={() => (selectedId = null)}>Todo <span class="sub">built-in</span></button>
         {#each store.workflows as w (w.id)}
           <button class="ghost item" class:active={w.id === selectedId} onclick={() => (selectedId = w.id)}>{w.name || "Unnamed"}</button>
         {/each}
@@ -96,11 +97,17 @@
             <span class="usage">{usage} note{usage === 1 ? "" : "s"}</span>
             <button class="ghost danger" onclick={() => remove(wf)}>Delete workflow</button>
           </div>
+          <h4>Template</h4>
+          <p class="help">{TEMPLATE_HINT}</p>
+          <textarea class="template" rows="6" bind:value={wf.template} onchange={() => commit(wf)} placeholder="## Checklist&#10;- [ ] …" spellcheck="false"></textarea>
         {:else}
           <p class="help">
             The built-in <b>Todo</b> workflow is just <i>todo → done</i>. Create a workflow to track
             richer progress, e.g. <i>todo → in progress → under review → merged</i>.
           </p>
+          <h4>Template</h4>
+          <p class="help">{TEMPLATE_HINT}</p>
+          <textarea class="template" rows="6" bind:value={store.defaultTemplate} onchange={() => store.saveMeta()} placeholder="- [ ] …" spellcheck="false"></textarea>
         {/if}
       </section>
     </div>
@@ -152,10 +159,6 @@
   .item {
     text-align: left;
     color: var(--color);
-  }
-  .item:disabled {
-    opacity: 1;
-    color: var(--color-dim);
   }
   .item.active {
     background: #ffffff10;
@@ -240,5 +243,23 @@
   }
   .actions button {
     font-size: 12px;
+  }
+  h4 {
+    margin: 16px 0 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-dim);
+  }
+  h4 + .help {
+    margin-top: 4px;
+  }
+  .template {
+    width: 100%;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
   }
 </style>

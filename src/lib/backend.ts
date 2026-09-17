@@ -26,7 +26,7 @@ const channel = inTauri ? null : new BroadcastChannel("dagobert");
 const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta } = {
   notes: new Map(),
   trash: [],
-  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [] },
+  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [], default_template: "" },
 };
 
 export const backend = {

@@ -101,6 +101,9 @@ pub struct Workflow {
     pub id: String,
     pub name: String,
     pub stages: Vec<Stage>,
+    /// Default body for new notes on this workflow.
+    #[serde(default)]
+    pub template: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,6 +131,9 @@ pub struct Meta {
     /// User-defined workflows (the default todo/done one is implicit).
     #[serde(default)]
     pub workflows: Vec<Workflow>,
+    /// Default body for new notes on the built-in Todo workflow.
+    #[serde(default)]
+    pub default_template: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -384,6 +390,7 @@ pub struct MetaPatch {
     pub viewport: Option<Viewport>,
     pub tag_colors: Option<BTreeMap<String, String>>,
     pub workflows: Option<Vec<Workflow>>,
+    pub default_template: Option<String>,
 }
 
 pub fn read_meta(root: &Path) -> Meta {
@@ -403,6 +410,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(w) = patch.workflows {
         meta.workflows = w;
+    }
+    if let Some(t) = patch.default_template {
+        meta.default_template = t;
     }
     write_meta(root, &meta)
 }
@@ -467,11 +477,23 @@ mod tests {
         assert_eq!(p.meta.viewport.zoom, 1.0, "fresh project has a usable zoom");
         let mut tag_colors = BTreeMap::new();
         tag_colors.insert("a".to_string(), "#61afef".to_string());
-        save_meta(&dir, MetaPatch { viewport: Some(Viewport { x: 1.0, y: 2.0, zoom: 0.5 }), tag_colors: None, workflows: None }).unwrap();
-        save_meta(&dir, MetaPatch { viewport: None, tag_colors: Some(tag_colors), workflows: None }).unwrap();
+        save_meta(&dir, MetaPatch { viewport: Some(Viewport { x: 1.0, y: 2.0, zoom: 0.5 }), ..Default::default() }).unwrap();
+        let wf = Workflow {
+            id: "pr".into(),
+            name: "PR".into(),
+            stages: vec![Stage { name: "todo".into(), done: false }, Stage { name: "merged".into(), done: true }],
+            template: "## Checklist\n- [ ] tests".into(),
+        };
+        save_meta(&dir, MetaPatch { tag_colors: Some(tag_colors), workflows: Some(vec![wf]), default_template: Some("- [ ] ".into()), ..Default::default() }).unwrap();
         let m = open(&dir).unwrap().meta;
         assert_eq!(m.viewport.zoom, 0.5, "patching tag colours keeps the viewport");
         assert_eq!(m.tag_colors["a"], "#61afef");
+        assert_eq!(m.workflows[0].template, "## Checklist\n- [ ] tests");
+        assert_eq!(m.default_template, "- [ ] ");
+        // Old files without templates still load.
+        let legacy: Meta = serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
+        assert_eq!(legacy.workflows[0].template, "");
+        assert_eq!(legacy.default_template, "");
 
         // Soft delete: goes to trash/, stamped, and comes back on restore.
         let trashed = delete_note(&dir, &renamed.file, "2026-09-16T11:00:00.000Z").unwrap().unwrap();
