@@ -1,4 +1,4 @@
-import { backend, type SyncMessage } from "./backend";
+import { backend, type ProjectChange, type SyncMessage } from "./backend";
 import type { MetaPatch, Note, Viewport, Workflow } from "./types";
 import { DEFAULT_WORKFLOW } from "./workflows";
 import { DEFAULT_TAG_COLOR } from "./tags";
@@ -215,6 +215,7 @@ class Store {
       localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
       localStorage.setItem(LAST_KEY, p.path);
       this.error = null;
+      backend.watchProject(p.path).catch((e) => this.fail(e));
     } catch (e) {
       this.fail(e);
     }
@@ -228,6 +229,7 @@ class Store {
 
   close() {
     this.flushAll();
+    void backend.unwatchProject();
     localStorage.removeItem(LAST_KEY);
     this.path = null;
     this.notes = [];
@@ -491,6 +493,47 @@ class Store {
     } else if (msg.type === "meta") {
       if (msg.meta.tag_colors) this.tagColors = msg.meta.tag_colors;
       if (msg.meta.workflows) this.workflows = msg.meta.workflows;
+    }
+  }
+
+  /** Apply a change made on disk outside the app (from the file watcher). */
+  async applyExternal(change: ProjectChange) {
+    if (change.kind === "note") {
+      const incoming = change.note;
+      if (this.#deleted.has(incoming.id)) return;
+      const local = this.byId(incoming.id);
+      // Our own pending save wins over the disk version.
+      if (local && this.#saveTimers.has(local.id)) return;
+      // Match by id, so an external rename updates `file` rather than duplicating.
+      if (local) Object.assign(local, incoming);
+      else this.notes.push(incoming);
+      this.#dropDanglingDeps();
+    } else if (change.kind === "note-removed") {
+      const local = this.notes.find((n) => n.file === change.file);
+      if (!local) return;
+      // The file is already gone; just forget it (no trash, no #deleted).
+      const t = this.#saveTimers.get(local.id);
+      if (t) clearTimeout(t);
+      this.#saveTimers.delete(local.id);
+      if (this.selectedId === local.id) this.selectedId = null;
+      this.multi = this.multi.filter((x) => x !== local.id);
+      this.notes = this.notes.filter((n) => n.id !== local.id);
+      this.#dropDanglingDeps();
+    } else if (change.kind === "meta") {
+      if (!this.path) return;
+      try {
+        const meta = await backend.readMeta(this.path);
+        this.tagColors = meta.tag_colors ?? {};
+        this.workflows = meta.workflows ?? [];
+      } catch (e) {
+        this.fail(e);
+      }
+    }
+  }
+
+  #dropDanglingDeps() {
+    for (const n of this.notes) {
+      if (n.deps.some((d) => !this.byId(d))) n.deps = n.deps.filter((d) => this.byId(d));
     }
   }
 

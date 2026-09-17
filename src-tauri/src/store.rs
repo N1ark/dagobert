@@ -9,9 +9,9 @@ use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-const NOTES_DIR: &str = "notes";
+pub const NOTES_DIR: &str = "notes";
 const TRASH_DIR: &str = "trash";
-const META_FILE: &str = "dagobert.json";
+pub const META_FILE: &str = "dagobert.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
@@ -137,7 +137,7 @@ pub struct Project {
     pub meta: Meta,
 }
 
-fn notes_dir(root: &Path) -> PathBuf {
+pub fn notes_dir(root: &Path) -> PathBuf {
     root.join(NOTES_DIR)
 }
 
@@ -185,7 +185,7 @@ fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
     }
 }
 
-fn parse_note(text: &str, file: &str) -> Result<Note, String> {
+pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
     let rest = text
         .strip_prefix("---\n")
         .or_else(|| text.strip_prefix("---\r\n"))

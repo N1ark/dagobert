@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- File watching: edits made to `notes/*.md` or `dagobert.json` outside the app (another
+  editor, git, sync) show up live. The app's own writes are ignored for one second so
+  they don't echo back.
+
 ## [0.1.0] - 2026-09-17
 
 Initial version.
