@@ -28,6 +28,13 @@ from the CLI, so the browser shim is the practical way to check interactions.
   round it out. Commands: `open_project`, `save_note`, `delete_note`, `list_trash`,
   `restore_note`, `purge_trash`, `save_meta`. Has round-trip tests. `lib.rs` just exposes these commands.
 
+- `src-tauri/src/watch.rs` — file watcher (`notify` + `notify-debouncer-mini`, 300 ms).
+  `watch_project`/`unwatch_project` commands; emits `project-changed` events
+  (`{kind: "note", note} | {kind: "note-removed", file} | {kind: "meta"}`). `AppState`
+  (Tauri managed state) holds the watcher and `Recent`: every writing command marks the
+  path it touched, and events for paths marked < 1 s ago are dropped so our own saves
+  don't echo. The frontend applies events in `store.applyExternal` (matching notes by
+  id, so external renames just update `file`; a pending local save wins over disk).
 - `src/lib/backend.ts` — wraps `invoke`; falls back to an in-memory mock when
   `window.__TAURI_INTERNALS__` is absent. All Tauri calls go through here, including
   cross-window sync (`broadcast`/`subscribe`: Tauri events, BroadcastChannel in the
@@ -119,6 +126,12 @@ from the CLI, so the browser shim is the practical way to check interactions.
   custom ones show a status pill (click = `store.advance`, wraps around). Switching
   workflow maps done → first done stage, else first stage. Editing a workflow repairs
   notes whose stage vanished (`updateWorkflow`); deleting one reverts its notes to Todo.
+- Templates: `Workflow.template` and `Meta.default_template` (for Todo), edited in
+  `WorkflowEditor`. `store.create` fills `body` from `templateFor(workflow)` via
+  `renderTemplate` only when `init.body` is undefined (clones/pastes pass a body).
+  `isEmpty` treats a body equal to its template as blank so accidental notes are still
+  discarded; `setWorkflow` swaps in the new template only when the body is blank by
+  that definition.
 - "Ready" = not done and every dep is done. Shown with a purple ring; counted in toolbar.
 - Canvas dimming: `App.svelte` computes `matches` = search terms AND tag filter
   (tag filter is OR across selected tags); `null` means nothing is filtered. When
@@ -176,6 +189,5 @@ from the CLI, so the browser shim is the practical way to check interactions.
 
 ## Not done / ideas
 
-- No file watching: external edits to the folder need a reopen.
-- No undo.
+- No undo (in progress).
 - Fonts (Inter, Fira Code) are used only if installed locally; nothing is fetched.

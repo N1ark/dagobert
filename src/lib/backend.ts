@@ -12,6 +12,9 @@ import type { Meta, MetaPatch, Note, Project } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
+/** A change on disk reported by the Rust file watcher. */
+export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" };
+
 /** Cross-window sync messages. */
 export type SyncMessage =
   | { type: "note"; note: Note }
@@ -23,7 +26,7 @@ const channel = inTauri ? null : new BroadcastChannel("dagobert");
 const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta } = {
   notes: new Map(),
   trash: [],
-  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [] },
+  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [], default_template: "" },
 };
 
 export const backend = {
@@ -103,6 +106,35 @@ export const backend = {
       return;
     }
     return invoke("save_meta", { path, meta });
+  },
+
+  // ---- file watching ---------------------------------------------------------
+
+  async watchProject(path: string): Promise<void> {
+    if (!inTauri) return;
+    return invoke("watch_project", { path });
+  },
+
+  async unwatchProject(): Promise<void> {
+    if (!inTauri) return;
+    return invoke("unwatch_project");
+  },
+
+  async readMeta(path: string): Promise<Meta> {
+    if (!inTauri) return mock.meta;
+    return invoke<Meta>("read_meta", { path });
+  },
+
+  /** Receive external changes to the open project. Returns an unsubscribe function. */
+  onProjectChanged(cb: (change: ProjectChange) => void): () => void {
+    if (!inTauri) return () => {};
+    let un: (() => void) | null = null;
+    let cancelled = false;
+    listen<ProjectChange>("project-changed", (e) => cb(e.payload)).then((u) => (cancelled ? u() : (un = u)));
+    return () => {
+      cancelled = true;
+      un?.();
+    };
   },
 
   // ---- windows & sync --------------------------------------------------------

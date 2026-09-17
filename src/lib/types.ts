@@ -38,6 +38,8 @@ export interface Workflow {
   id: string;
   name: string;
   stages: Stage[];
+  /** Default body for new notes on this workflow. */
+  template: string;
 }
 
 export interface Meta {
@@ -46,6 +48,8 @@ export interface Meta {
   tag_colors: Record<string, string>;
   /** User-defined workflows; the default todo/done one is implicit. */
   workflows: Workflow[];
+  /** Default body for new notes on the built-in Todo workflow. */
+  default_template: string;
 }
 
 /** Partial meta update; absent fields keep their stored value. */

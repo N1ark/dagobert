@@ -18,6 +18,13 @@ All notable changes to Dagobert are documented here. The format follows
   `Enter` edits the title. The view pans only when the target is off screen.
 - Minimap in the canvas corner showing every note and the current viewport; click
   or drag it to pan. Collapsible; shown once there are two or more notes.
+- File watching: edits made to `notes/*.md` or `dagobert.json` outside the app (another
+  editor, git, sync) show up live. The app's own writes are ignored for one second so
+  they don't echo back.
+- Note templates: each workflow (and the built-in Todo) can define a default body for
+  new notes, with `{{date}}` and `{{title}}` placeholders. Switching a note's workflow
+  while its body is untouched swaps in the new template. Edit them in the workflow
+  editor (⚙ in the note panel).
 
 ## [0.1.0] - 2026-09-17
 

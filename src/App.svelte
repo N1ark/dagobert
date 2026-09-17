@@ -146,6 +146,7 @@
 
   onMount(() => {
     const unsub = backend.subscribe((m) => store.applySync(m));
+    const unwatch = backend.onProjectChanged((c) => store.applyExternal(c));
     if (standaloneId && standalonePath) {
       store.open(standalonePath).then(() => store.select(standaloneId));
     } else {
@@ -160,6 +161,7 @@
     document.addEventListener("visibilitychange", onHide);
     return () => {
       unsub();
+      unwatch();
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", flush);
       window.removeEventListener("pagehide", flush);

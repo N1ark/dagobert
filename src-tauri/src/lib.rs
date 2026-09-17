@@ -1,7 +1,10 @@
 mod store;
+mod watch;
 
-use std::path::Path;
-use store::{MetaPatch, Note, Project};
+use std::path::{Path, PathBuf};
+use store::{Meta, MetaPatch, Note, Project};
+use tauri::{AppHandle, Manager, State};
+use watch::AppState;
 
 #[tauri::command]
 fn open_project(path: String) -> Result<Project, String> {
@@ -9,18 +12,30 @@ fn open_project(path: String) -> Result<Project, String> {
 }
 
 #[tauri::command]
-fn save_note(path: String, note: Note) -> Result<Note, String> {
-    store::save_note(Path::new(&path), note)
+fn save_note(state: State<AppState>, path: String, note: Note) -> Result<Note, String> {
+    let root = Path::new(&path);
+    // Mark both the old and the (possibly renamed) new file so the watcher
+    // ignores this write.
+    if !note.file.is_empty() {
+        state.recent.mark(store::notes_dir(root).join(&note.file));
+    }
+    let saved = store::save_note(root, note)?;
+    state.recent.mark(store::notes_dir(root).join(&saved.file));
+    Ok(saved)
 }
 
 #[tauri::command]
-fn delete_note(path: String, file: String, deleted_at: String) -> Result<Option<Note>, String> {
-    store::delete_note(Path::new(&path), &file, &deleted_at)
+fn delete_note(state: State<AppState>, path: String, file: String, deleted_at: String) -> Result<Option<Note>, String> {
+    let root = Path::new(&path);
+    state.recent.mark(store::notes_dir(root).join(&file));
+    store::delete_note(root, &file, &deleted_at)
 }
 
 #[tauri::command]
-fn discard_note(path: String, file: String) -> Result<(), String> {
-    store::discard_note(Path::new(&path), &file)
+fn discard_note(state: State<AppState>, path: String, file: String) -> Result<(), String> {
+    let root = Path::new(&path);
+    state.recent.mark(store::notes_dir(root).join(&file));
+    store::discard_note(root, &file)
 }
 
 #[tauri::command]
@@ -29,8 +44,11 @@ fn list_trash(path: String) -> Result<Vec<Note>, String> {
 }
 
 #[tauri::command]
-fn restore_note(path: String, file: String) -> Result<Note, String> {
-    store::restore_note(Path::new(&path), &file)
+fn restore_note(state: State<AppState>, path: String, file: String) -> Result<Note, String> {
+    let root = Path::new(&path);
+    let restored = store::restore_note(root, &file)?;
+    state.recent.mark(store::notes_dir(root).join(&restored.file));
+    Ok(restored)
 }
 
 #[tauri::command]
@@ -39,8 +57,25 @@ fn purge_trash(path: String, file: Option<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn save_meta(path: String, meta: MetaPatch) -> Result<(), String> {
-    store::save_meta(Path::new(&path), meta)
+fn read_meta(path: String) -> Meta {
+    store::read_meta(Path::new(&path))
+}
+
+#[tauri::command]
+fn save_meta(state: State<AppState>, path: String, meta: MetaPatch) -> Result<(), String> {
+    let root = Path::new(&path);
+    state.recent.mark(root.join(store::META_FILE));
+    store::save_meta(root, meta)
+}
+
+#[tauri::command]
+fn watch_project(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
+    watch::start(app, &state, PathBuf::from(path))
+}
+
+#[tauri::command]
+fn unwatch_project(state: State<AppState>) {
+    watch::stop(&state);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,6 +83,10 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .setup(|app| {
+            app.manage(AppState::default());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             open_project,
             save_note,
@@ -56,7 +95,10 @@ pub fn run() {
             list_trash,
             restore_note,
             purge_trash,
-            save_meta
+            read_meta,
+            save_meta,
+            watch_project,
+            unwatch_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

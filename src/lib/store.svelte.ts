@@ -1,6 +1,6 @@
-import { backend, type SyncMessage } from "./backend";
+import { backend, type ProjectChange, type SyncMessage } from "./backend";
 import type { MetaPatch, Note, Viewport, Workflow } from "./types";
-import { DEFAULT_WORKFLOW } from "./workflows";
+import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR } from "./tags";
 
 const RECENT_KEY = "dagobert.recent";
@@ -29,6 +29,8 @@ class Store {
   viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 });
   tagColors = $state<Record<string, string>>({});
   workflows = $state<Workflow[]>([]);
+  /** Template for new notes on the built-in Todo workflow. */
+  defaultTemplate = $state("");
   /** Tags currently used to filter the canvas (OR semantics). */
   tagFilter = $state<string[]>([]);
   selectedId = $state<string | null>(null);
@@ -121,13 +123,29 @@ class Store {
   }
 
   /** Switch a note to another workflow, keeping done-ness where possible. */
+  /** Raw template for a workflow id (null = built-in Todo). */
+  templateFor(workflowId: string | null): string {
+    return workflowId ? (this.workflows.find((w) => w.id === workflowId)?.template ?? "") : this.defaultTemplate;
+  }
+
+  /** True when the body is empty or is just an untouched template. */
+  #bodyIsBlank(n: Note): boolean {
+    const b = n.body.trim();
+    if (!b) return true;
+    const tpl = this.templateFor(n.workflow);
+    return b === tpl.trim() || b === renderTemplate(tpl, n.title).trim();
+  }
+
   setWorkflow(id: string, workflowId: string | null) {
     const n = this.byId(id);
     if (!n) return;
     const wasDone = this.isDone(n);
+    const blank = this.#bodyIsBlank(n);
     n.workflow = workflowId;
     const stages = this.workflowOf(n).stages;
     n.status = (wasDone ? stages.find((s) => s.done) ?? stages[0] : stages[0]).name;
+    // An untouched body picks up the new workflow's template.
+    if (blank) n.body = renderTemplate(this.templateFor(workflowId), n.title);
     this.touch(id, { immediate: true });
   }
 
@@ -140,6 +158,7 @@ class Store {
         { name: "in progress", done: false },
         { name: "done", done: true },
       ],
+      template: "",
     };
     this.workflows.push(wf);
     this.saveMeta();
@@ -204,6 +223,7 @@ class Store {
       const v = p.meta.viewport;
       this.tagColors = p.meta.tag_colors ?? {};
       this.workflows = p.meta.workflows ?? [];
+      this.defaultTemplate = p.meta.default_template ?? "";
       this.tagFilter = [];
       this.viewport = {
         x: Number.isFinite(v.x) ? v.x : 0,
@@ -217,6 +237,7 @@ class Store {
       localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
       localStorage.setItem(LAST_KEY, p.path);
       this.error = null;
+      backend.watchProject(p.path).catch((e) => this.fail(e));
     } catch (e) {
       this.fail(e);
     }
@@ -230,6 +251,7 @@ class Store {
 
   close() {
     this.flushAll();
+    void backend.unwatchProject();
     localStorage.removeItem(LAST_KEY);
     this.path = null;
     this.notes = [];
@@ -268,6 +290,8 @@ class Store {
       file: "",
       ...init,
     };
+    // New notes start from their workflow's template; clones/pastes pass a body.
+    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow), note.title);
     this.notes.push(note);
     this.save(note.id, true);
     return note;
@@ -275,7 +299,7 @@ class Store {
 
   /** A note with nothing in it — typically an accidental double-click. */
   isEmpty(n: Note): boolean {
-    return !n.title.trim() && !n.body.trim() && !n.tags.length && !n.deps.length && !this.dependents(n.id).length;
+    return !n.title.trim() && this.#bodyIsBlank(n) && !n.tags.length && !n.deps.length && !this.dependents(n.id).length;
   }
 
   select(id: string | null) {
@@ -493,6 +517,49 @@ class Store {
     } else if (msg.type === "meta") {
       if (msg.meta.tag_colors) this.tagColors = msg.meta.tag_colors;
       if (msg.meta.workflows) this.workflows = msg.meta.workflows;
+      if (msg.meta.default_template !== undefined) this.defaultTemplate = msg.meta.default_template;
+    }
+  }
+
+  /** Apply a change made on disk outside the app (from the file watcher). */
+  async applyExternal(change: ProjectChange) {
+    if (change.kind === "note") {
+      const incoming = change.note;
+      if (this.#deleted.has(incoming.id)) return;
+      const local = this.byId(incoming.id);
+      // Our own pending save wins over the disk version.
+      if (local && this.#saveTimers.has(local.id)) return;
+      // Match by id, so an external rename updates `file` rather than duplicating.
+      if (local) Object.assign(local, incoming);
+      else this.notes.push(incoming);
+      this.#dropDanglingDeps();
+    } else if (change.kind === "note-removed") {
+      const local = this.notes.find((n) => n.file === change.file);
+      if (!local) return;
+      // The file is already gone; just forget it (no trash, no #deleted).
+      const t = this.#saveTimers.get(local.id);
+      if (t) clearTimeout(t);
+      this.#saveTimers.delete(local.id);
+      if (this.selectedId === local.id) this.selectedId = null;
+      this.multi = this.multi.filter((x) => x !== local.id);
+      this.notes = this.notes.filter((n) => n.id !== local.id);
+      this.#dropDanglingDeps();
+    } else if (change.kind === "meta") {
+      if (!this.path) return;
+      try {
+        const meta = await backend.readMeta(this.path);
+        this.tagColors = meta.tag_colors ?? {};
+        this.workflows = meta.workflows ?? [];
+        this.defaultTemplate = meta.default_template ?? "";
+      } catch (e) {
+        this.fail(e);
+      }
+    }
+  }
+
+  #dropDanglingDeps() {
+    for (const n of this.notes) {
+      if (n.deps.some((d) => !this.byId(d))) n.deps = n.deps.filter((d) => this.byId(d));
     }
   }
 
@@ -549,6 +616,7 @@ class Store {
     if (this.#metaDirty.settings) {
       patch.tag_colors = $state.snapshot(this.tagColors);
       patch.workflows = $state.snapshot(this.workflows);
+      patch.default_template = this.defaultTemplate;
     }
     this.#metaDirty = { viewport: false, settings: false };
     return patch;
@@ -567,7 +635,7 @@ class Store {
     const patch = this.#metaPatch();
     if (!Object.keys(patch).length) return;
     backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
-    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows } });
+    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template } });
   }
 
   /** Tag colours / workflows changed. */
