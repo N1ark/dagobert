@@ -14,6 +14,8 @@ All notable changes to Dagobert are documented here. The format follows
 - Keyboard navigation on the canvas: `←`/`→` move to a dependency/dependent, `↑`/`↓`
   to the nearest note above/below, `Tab`/`⇧Tab` cycle dependents/dependencies,
   `Enter` edits the title. The view pans only when the target is off screen.
+- Minimap in the canvas corner showing every note and the current viewport; click
+  or drag it to pan. Collapsible; shown once there are two or more notes.
 
 ## [0.1.0] - 2026-09-17
 

@@ -48,6 +48,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
   stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
   when `store.multi.length > 1`, anchored at the selection's top-left). Test:
   `node tests/layout.test.mjs`.
+- `src/lib/Minimap.svelte` — bottom-right overview (180×120). Bounds = all notes ∪
+  the viewport, padded, so the view box always stays inside the map. Click/drag
+  pans (stopPropagation keeps the canvas from panning too). Collapsed state in
+  localStorage `dagobert.minimap`. Hidden when fewer than 2 notes.
 - `src/lib/NodeCard.svelte` — a node. Reports its height via `onresize` so edges
   can anchor at mid-height (don't use `bind:` with a fallback — Svelte 5 throws).
 - `src/lib/NotePanel.svelte` — right-hand editor. Re-keyed per note id in `App.svelte`
@@ -169,5 +173,5 @@ from the CLI, so the browser shim is the practical way to check interactions.
 ## Not done / ideas
 
 - No file watching: external edits to the folder need a reopen.
-- No multi-select, undo, or auto-layout.
+- No undo.
 - Fonts (Inter, Fira Code) are used only if installed locally; nothing is fetched.

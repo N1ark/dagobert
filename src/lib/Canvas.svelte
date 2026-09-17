@@ -5,6 +5,7 @@
   import ContextMenu, { type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
   import { layout } from "./layout";
+  import Minimap from "./Minimap.svelte";
 
   let { matches = null, focus = true }: { matches?: Set<string> | null; focus?: boolean } = $props();
 
@@ -19,6 +20,9 @@
   const MAX_ZOOM = 2.5;
 
   let container: HTMLDivElement;
+  // Canvas size in screen px (for the minimap's viewport rectangle).
+  let viewW = $state(0);
+  let viewH = $state(0);
   let heights = $state<Record<string, number>>({});
   let selectedEdge = $state<{ from: string; to: string } | null>(null);
   let linking = $state<{ from: string; x: number; y: number; over: string | null } | null>(null);
@@ -557,6 +561,8 @@
   class:linking={!!linking}
   class:soft-dim={softDim}
   bind:this={container}
+  bind:clientWidth={viewW}
+  bind:clientHeight={viewH}
   onpointerdown={onPointerDown}
   onpointermove={onPointerMove}
   onpointerup={onPointerUp}
@@ -628,6 +634,10 @@
       class="marquee"
       style="left:{Math.min(marquee.x0, marquee.x1)}px; top:{Math.min(marquee.y0, marquee.y1)}px; width:{Math.abs(marquee.x1 - marquee.x0)}px; height:{Math.abs(marquee.y1 - marquee.y0)}px"
     ></div>
+  {/if}
+
+  {#if store.notes.length > 1}
+    <Minimap {widthOf} heightOf={h} {viewW} {viewH} />
   {/if}
 
   {#if menu}
