@@ -2,7 +2,11 @@
 
 Tracked work. Move items to CHANGELOG.md (Unreleased) as they land.
 
-## In progress (v0.2.0)
+## Next
+
+(nothing scheduled — pick from "Later")
+
+## Shipped in v0.2.0
 
 - [x] Undo / redo (`⌘Z` / `⇧⌘Z`) for moves, deletes, links, tags, status, bulk edits
 - [x] File watching: pick up external edits to `notes/` and `dagobert.json`
