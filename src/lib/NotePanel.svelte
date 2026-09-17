@@ -39,6 +39,13 @@
   $effect(() => {
     if (!note.title && titleEl) titleEl.focus();
   });
+  // Enter on the canvas asks for the title field.
+  $effect(() => {
+    if (store.focusTitle && titleEl) {
+      titleEl.focus();
+      titleEl.select();
+    }
+  });
 
   function edited() {
     store.touch(note.id);

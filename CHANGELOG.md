@@ -11,6 +11,9 @@ All notable changes to Dagobert are documented here. The format follows
   dependents right); with a multi-selection only that subgraph is arranged.
 - **Focus** toggle: selecting a note softly dims everything that isn't upstream or
   downstream of it, and highlights the chain's edges. Remembered across launches.
+- Keyboard navigation on the canvas: `←`/`→` move to a dependency/dependent, `↑`/`↓`
+  to the nearest note above/below, `Tab`/`⇧Tab` cycle dependents/dependencies,
+  `Enter` edits the title. The view pans only when the target is off screen.
 
 ## [0.1.0] - 2026-09-17
 

@@ -126,6 +126,11 @@ from the CLI, so the browser shim is the practical way to check interactions.
   attached manually with `passive: false`.
 - Keyboard: `⌘N` new note, `⌘F` search, `⌘O` open folder, `Esc` deselect,
   `⌫` removes a selected edge. Global handlers ignore events from inputs/textareas.
+  Canvas navigation (`navigate` in `Canvas.svelte`): `←`/`→` = closest-by-y
+  dependency/dependent, `↑`/`↓` = nearest node above/below (overlapping x preferred),
+  `Tab`/`⇧Tab` = next dependent/dependency in y order, `Enter` bumps
+  `store.focusTitle` (NotePanel focuses the title). With nothing selected, any arrow
+  picks the node nearest the view centre. `ensureVisible` pans minimally.
   In the body editor: `⌘B` bold, `⌘I` italic, `⌘E`/`` ⌘` `` code, `⌘K` link,
   `⌘⇧X` strike, `⌘H` ==highlight==, Enter continues lists, Tab/⇧Tab indents.
 - Multiple windows: `App.svelte` reads `?note=`/`?path=` and renders just

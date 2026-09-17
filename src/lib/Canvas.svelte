@@ -111,6 +111,120 @@
     store.saveViewport();
   }
 
+  /** Pan just enough that the note is fully on screen (with a margin). */
+  export function ensureVisible(id: string) {
+    const n = store.byId(id);
+    if (!n) return;
+    const r = container.getBoundingClientRect();
+    const m = 40;
+    const left = n.x * vp.zoom + vp.x;
+    const top = n.y * vp.zoom + vp.y;
+    const right = left + widthOf(n) * vp.zoom;
+    const bottom = top + h(id) * vp.zoom;
+    let dx = 0, dy = 0;
+    if (left < m) dx = m - left;
+    else if (right > r.width - m) dx = r.width - m - right;
+    if (top < m) dy = m - top;
+    else if (bottom > r.height - m) dy = r.height - m - bottom;
+    if (!dx && !dy) return;
+    vp.x += dx;
+    vp.y += dy;
+    store.saveViewport();
+  }
+
+  // ---- keyboard navigation -------------------------------------------------
+
+  function centerOf(n: Note) {
+    return { x: n.x + widthOf(n) / 2, y: n.y + h(n.id) / 2 };
+  }
+
+  /** Of `candidates`, the one whose centre is closest in y to `from`. */
+  function closestByY(from: Note, candidates: Note[]): Note | null {
+    const cy = centerOf(from).y;
+    let best: Note | null = null, bestD = Infinity;
+    for (const c of candidates) {
+      const d = Math.abs(centerOf(c).y - cy);
+      if (d < bestD) (best = c), (bestD = d);
+    }
+    return best;
+  }
+
+  /** Nearest node strictly above/below; overlapping x ranges are preferred. */
+  function verticalNeighbour(from: Note, dir: -1 | 1): Note | null {
+    const c = centerOf(from);
+    let best: Note | null = null, bestScore = Infinity;
+    for (const n of store.notes) {
+      if (n.id === from.id) continue;
+      const nc = centerOf(n);
+      if ((nc.y - c.y) * dir <= 0) continue;
+      const overlaps = n.x < from.x + widthOf(from) && n.x + widthOf(n) > from.x;
+      // Overlapping columns score by vertical distance; others pay a penalty.
+      const score = Math.abs(nc.y - c.y) + (overlaps ? 0 : 100000 + Math.abs(nc.x - c.x));
+      if (score < bestScore) (best = n), (bestScore = score);
+    }
+    return best;
+  }
+
+  /** Node nearest the viewport centre. */
+  function nearestToCenter(): Note | null {
+    const r = container.getBoundingClientRect();
+    const w = toWorld(r.left + r.width / 2, r.top + r.height / 2);
+    let best: Note | null = null, bestD = Infinity;
+    for (const n of store.notes) {
+      const c = centerOf(n);
+      const d = Math.hypot(c.x - w.x, c.y - w.y);
+      if (d < bestD) (best = n), (bestD = d);
+    }
+    return best;
+  }
+
+  function go(n: Note | null) {
+    if (!n) return;
+    store.select(n.id);
+    selectedEdge = null;
+    ensureVisible(n.id);
+  }
+
+  /** Arrow/Tab navigation between nodes. Returns true when handled. */
+  function navigate(e: KeyboardEvent): boolean {
+    const cur = store.selectedId ? store.byId(store.selectedId) : null;
+    const byY = (a: Note, b: Note) => centerOf(a).y - centerOf(b).y;
+    if (!cur) {
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+        go(nearestToCenter());
+        return true;
+      }
+      return false;
+    }
+    switch (e.key) {
+      case "ArrowLeft":
+        go(closestByY(cur, store.dependencies(cur.id)));
+        return true;
+      case "ArrowRight":
+        go(closestByY(cur, store.dependents(cur.id)));
+        return true;
+      case "ArrowUp":
+        go(verticalNeighbour(cur, -1));
+        return true;
+      case "ArrowDown":
+        go(verticalNeighbour(cur, 1));
+        return true;
+      case "Tab": {
+        // Cycle through dependents (⇧: dependencies) in vertical order.
+        const list = (e.shiftKey ? store.dependencies(cur.id) : store.dependents(cur.id)).sort(byY);
+        if (!list.length) return true;
+        const cy = centerOf(cur).y;
+        const i = list.findIndex((n) => centerOf(n).y > cy);
+        go(list[i === -1 ? 0 : i]);
+        return true;
+      }
+      case "Enter":
+        store.focusTitle++;
+        return true;
+    }
+    return false;
+  }
+
   /** Create a note at the centre of the current view. */
   export function createAtCenter() {
     const r = container.getBoundingClientRect();
@@ -404,6 +518,10 @@
       duplicateSelected();
       return;
     }
+    if (!mod && !e.altKey && navigate(e)) {
+      e.preventDefault();
+      return;
+    }
     if ((e.key === "Delete" || e.key === "Backspace") && selectedEdge) {
       store.removeDependency(selectedEdge.to, selectedEdge.from);
       selectedEdge = null;
@@ -523,6 +641,7 @@
     <div class="empty">
       <p>Double-click anywhere to create a note.</p>
       <p class="sub">Drag from a note's <span class="dot"></span> handle onto another note to make that one depend on it.</p>
+      <p class="sub">Arrow keys walk the graph (← dependencies, → dependents), Enter edits the title.</p>
     </div>
   {/if}
 </div>

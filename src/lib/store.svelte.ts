@@ -34,6 +34,8 @@ class Store {
   selectedId = $state<string | null>(null);
   /** Multi-selection on the canvas (may include `selectedId`). */
   multi = $state<string[]>([]);
+  /** Bumped to ask the panel to focus the title field (keyboard Enter). */
+  focusTitle = $state(0);
   recent = $state<string[]>(loadRecent());
   error = $state<string | null>(null);
 
