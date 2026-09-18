@@ -4,6 +4,7 @@
   import GitMerge from "phosphor-svelte/lib/GitMerge";
   import Circle from "phosphor-svelte/lib/Circle";
   import CheckCircle from "phosphor-svelte/lib/CheckCircle";
+  import CircleNotch from "phosphor-svelte/lib/CircleNotch";
 
   let {
     alias,
@@ -26,7 +27,11 @@
   let loading = $state(false);
   let error = $state<string | null>(null);
 
-  // Debounced fetch as the query changes; ignore stale responses.
+  /** The repo's recent items, used to filter locally while the search request is in flight. */
+  let recent = $state<IssueRef[]>([]);
+
+  // Debounced fetch as the query changes; ignore stale responses. Previous
+  // results stay on screen (filtered locally) so typing never feels blocked.
   let seq = 0;
   $effect(() => {
     const q = query;
@@ -34,9 +39,18 @@
     const my = ++seq;
     loading = true;
     error = null;
+    if (q.trim()) {
+      const ql = q.trim().toLowerCase();
+      const local = recent.filter((i) => i.title.toLowerCase().includes(ql) || String(i.number).startsWith(ql));
+      if (local.length) {
+        results = local;
+        active = 0;
+      }
+    }
     const t = setTimeout(async () => {
       try {
         const refs = await searchIssues(r, q);
+        if (!q.trim()) recent = refs;
         if (my === seq) {
           results = refs;
           active = 0;
@@ -46,7 +60,7 @@
       } finally {
         if (my === seq) loading = false;
       }
-    }, q ? 300 : 0);
+    }, q ? 250 : 0);
     return () => clearTimeout(t);
   });
 
@@ -70,7 +84,10 @@
 </script>
 
 <div class="issues" style="left:{left}px; top:{top}px" role="listbox">
-  <div class="head"><span class="alias">{alias}</span> → {repo}{#if loading}<span class="spin">…</span>{/if}</div>
+  <div class="head">
+    <span class="alias">{alias}</span> → {repo}
+    {#if loading}<span class="spin"><CircleNotch size={12} /></span>{/if}
+  </div>
   {#if error}
     <div class="msg err">{error}</div>
   {:else if !results.length && !loading}
@@ -114,6 +131,14 @@
   }
   .spin {
     margin-left: auto;
+    display: inline-flex;
+    color: var(--accent2);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .msg {
     padding: 6px 8px;

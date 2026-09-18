@@ -84,11 +84,12 @@ export async function searchIssues(repo: string, query: string): Promise<IssueRe
     ]);
     refs = one ? [one, ...rest.filter((r) => r.number !== one.number)] : rest;
   } else if (!q) {
-    refs = (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&per_page=10`)).map(toRef);
+    refs = (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=15`)).map(toRef);
   } else {
-    const r = await api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&per_page=10`);
+    const r = await api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`);
     refs = r.items.map(toRef);
   }
+  refs.sort((a, b) => b.updated.localeCompare(a.updated));
   cache.set(key, { at: Date.now(), refs });
   return refs;
 }
