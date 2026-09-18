@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Component } from "svelte";
+  import type { NativeIcon } from "@tauri-apps/api/menu";
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import InlineMd from "./InlineMd.svelte";
@@ -21,6 +22,8 @@
     menu?: string;
     /** Static label for the menu bar when `label` is dynamic. */
     menuLabel?: string;
+    /** macOS system image for the menu bar (AppKit named image). */
+    nativeIcon?: NativeIcon;
     enabled?: boolean;
   }
 

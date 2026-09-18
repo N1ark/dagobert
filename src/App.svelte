@@ -9,6 +9,7 @@
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
+  import { NativeIcon } from "@tauri-apps/api/menu";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
@@ -137,25 +138,25 @@
     const has = !!store.path;
     const a = (id: string, label: string, run: () => void, extra: Partial<Action> = {}): Action => ({ id, label, run: () => once(id, run), ...extra });
     return [
-      a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, menu: "File", enabled: has }),
-      a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, menu: "File" }),
+      a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, nativeIcon: NativeIcon.Add, menu: "File", enabled: has }),
+      a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, nativeIcon: NativeIcon.Folder, menu: "File" }),
       a("undo", "Undo", () => editUndo("undo"), { hint: "⌘Z", icon: ArrowCounterClockwise, menu: "Edit", enabled: has }),
       a("redo", "Redo", () => editUndo("redo"), { hint: "⇧⌘Z", icon: ArrowClockwise, menu: "Edit", enabled: has }),
-      a("toggle-done", sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done", () => { const n = store.selected; if (n) store.setDone(n.id, !store.isDone(n)); }, { icon: CheckSquare, menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking }),
-      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), { icon: ArrowSquareOut, menu: "Note", enabled: !!sel }),
-      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), { icon: FolderOpen, menu: "Note", enabled: !!sel }),
+      a("toggle-done", sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done", () => { const n = store.selected; if (n) store.setDone(n.id, !store.isDone(n)); }, { icon: CheckSquare, nativeIcon: NativeIcon.MenuOnState, menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking }),
+      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), { icon: ArrowSquareOut, nativeIcon: NativeIcon.MultipleDocuments, menu: "Note", enabled: !!sel }),
+      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), { icon: FolderOpen, nativeIcon: NativeIcon.RevealFreestanding, menu: "Note", enabled: !!sel }),
       a("copy-note", "Copy note", () => store.selectedId && store.copy(store.selectedId), { icon: Copy, menu: "Note", enabled: !!sel }),
       a("duplicate", "Duplicate note", () => duplicateSelected(), { hint: "⌘D", icon: CopySimple, menu: "Note", enabled: !!sel }),
       a("paste-note", "Paste note", () => pasteNote(), { icon: ClipboardText, menu: "Note", enabled: has && !!store.clipboard }),
-      a("quick-open", "Quick open", () => openPalette("notes"), { hint: "⌘K", icon: MagnifyingGlass, menu: "View", enabled: has }),
-      a("commands", "Command palette", () => openPalette("commands"), { hint: "⇧⌘K", icon: Terminal, menu: "View", enabled: has }),
+      a("quick-open", "Quick open", () => openPalette("notes"), { hint: "⌘K", icon: MagnifyingGlass, nativeIcon: NativeIcon.QuickLook, menu: "View", enabled: has }),
+      a("commands", "Command palette", () => openPalette("commands"), { hint: "⇧⌘K", icon: Terminal, nativeIcon: NativeIcon.Advanced, menu: "View", enabled: has }),
       a("search", "Search", () => (searchEl?.focus(), searchEl?.select()), { hint: "⌘F", icon: MagnifyingGlass, menu: "View", enabled: has }),
-      a("fit", "Fit to view", () => canvas?.fitAll(), { icon: CornersOut, menu: "View", enabled: has }),
-      a("tidy", "Tidy layout", () => canvas?.tidy(), { icon: TreeStructure, menu: "View", enabled: has }),
+      a("fit", "Fit to view", () => canvas?.fitAll(), { icon: CornersOut, nativeIcon: NativeIcon.EnterFullScreen, menu: "View", enabled: has }),
+      a("tidy", "Tidy layout", () => canvas?.tidy(), { icon: TreeStructure, nativeIcon: NativeIcon.FlowView, menu: "View", enabled: has }),
       a("focus", `${focus ? "Disable" : "Enable"} focus mode`, () => toggleFocus(), { icon: Crosshair, menu: "View", menuLabel: "Toggle focus mode", enabled: has }),
-      a("trash", "Open trash", () => (showTrash = true), { icon: Trash, menu: "Tools", enabled: has }),
-      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), { icon: Kanban, menu: "Tools", enabled: has }),
-      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), { icon: GithubLogo, menu: "Tools", enabled: has }),
+      a("trash", "Open trash", () => (showTrash = true), { icon: Trash, nativeIcon: NativeIcon.TrashFull, menu: "Tools", enabled: has }),
+      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), { icon: Kanban, nativeIcon: NativeIcon.ListView, menu: "Tools", enabled: has }),
+      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), { icon: GithubLogo, nativeIcon: NativeIcon.Network, menu: "Tools", enabled: has }),
     ];
   });
 
@@ -179,20 +180,12 @@
     if (n) jump(n.id);
   }
 
-  // Rebuild the native menu only when what it shows changes (main window only),
-  // and when the system appearance flips (icon tint).
+  // Rebuild the native menu only when what it shows changes (main window only).
   let menuSig = "";
-  let appearance = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
-  onMount(() => {
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const h = () => (appearance = mq.matches);
-    mq.addEventListener("change", h);
-    return () => mq.removeEventListener("change", h);
-  });
   $effect(() => {
     if (standaloneId) return;
     const actions = paletteActions;
-    const sig = `${appearance}|${menuSignature(actions)}`;
+    const sig = menuSignature(actions);
     if (sig === menuSig) return;
     menuSig = sig;
     setAppMenu(actions).catch((e) => console.error("menu", e));
