@@ -34,6 +34,7 @@ class Store {
   repos = $state<Record<string, string>>({});
   /** Template for new notes on the built-in Todo workflow. */
   defaultTemplate = $state("");
+  trackingTemplate = $state("");
   /** Tags currently used to filter the canvas (OR semantics). */
   tagFilter = $state<string[]>([]);
   selectedId = $state<string | null>(null);
@@ -140,8 +141,10 @@ class Store {
   setTracking(id: string, tracking: boolean) {
     const n = this.byId(id);
     if (!n || !!n.tracking === tracking) return;
+    const blank = this.#bodyIsBlank(n);
     n.tracking = tracking;
     if (tracking) n.workflow = null;
+    if (blank) n.body = renderTemplate(this.templateFor(n.workflow, tracking), n.title);
     this.touch(id, { immediate: true, label: "kind" });
   }
 
@@ -171,8 +174,9 @@ class Store {
   }
 
   /** Switch a note to another workflow, keeping done-ness where possible. */
-  /** Raw template for a workflow id (null = built-in Todo). */
-  templateFor(workflowId: string | null): string {
+  /** Raw template for a workflow id (null = built-in Todo) or a tracking issue. */
+  templateFor(workflowId: string | null, tracking = false): string {
+    if (tracking) return this.trackingTemplate;
     return workflowId ? (this.workflows.find((w) => w.id === workflowId)?.template ?? "") : this.defaultTemplate;
   }
 
@@ -180,7 +184,7 @@ class Store {
   #bodyIsBlank(n: Note): boolean {
     const b = n.body.trim();
     if (!b) return true;
-    const tpl = this.templateFor(n.workflow);
+    const tpl = this.templateFor(n.workflow, !!n.tracking);
     return b === tpl.trim() || b === renderTemplate(tpl, n.title).trim();
   }
 
@@ -272,6 +276,7 @@ class Store {
       this.tagColors = p.meta.tag_colors ?? {};
       this.workflows = p.meta.workflows ?? [];
       this.defaultTemplate = p.meta.default_template ?? "";
+      this.trackingTemplate = p.meta.tracking_template ?? "";
       this.repos = p.meta.repos ?? {};
       this.tagFilter = [];
       this.#history.clear();
@@ -343,7 +348,7 @@ class Store {
       ...init,
     };
     // New notes start from their workflow's template; clones/pastes pass a body.
-    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow), note.title);
+    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow, !!note.tracking), note.title);
     this.notes.push(note);
     this.#record("create", { id: note.id, before: null, after: $state.snapshot(note) });
     this.save(note.id, true);
@@ -582,6 +587,7 @@ class Store {
       if (msg.meta.tag_colors) this.tagColors = msg.meta.tag_colors;
       if (msg.meta.workflows) this.workflows = msg.meta.workflows;
       if (msg.meta.default_template !== undefined) this.defaultTemplate = msg.meta.default_template;
+      if (msg.meta.tracking_template !== undefined) this.trackingTemplate = msg.meta.tracking_template;
       if (msg.meta.repos) this.repos = msg.meta.repos;
     }
   }
@@ -617,6 +623,7 @@ class Store {
         this.tagColors = meta.tag_colors ?? {};
         this.workflows = meta.workflows ?? [];
         this.defaultTemplate = meta.default_template ?? "";
+        this.trackingTemplate = meta.tracking_template ?? "";
         this.repos = meta.repos ?? {};
       } catch (e) {
         this.fail(e);
@@ -784,6 +791,7 @@ class Store {
       patch.tag_colors = $state.snapshot(this.tagColors);
       patch.workflows = $state.snapshot(this.workflows);
       patch.default_template = this.defaultTemplate;
+      patch.tracking_template = this.trackingTemplate;
       patch.repos = $state.snapshot(this.repos);
     }
     this.#metaDirty = { viewport: false, settings: false };
@@ -803,7 +811,7 @@ class Store {
     const patch = this.#metaPatch();
     if (!Object.keys(patch).length) return;
     backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
-    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template, repos: patch.repos } });
+    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template, tracking_template: patch.tracking_template, repos: patch.repos } });
   }
 
   /** Tag colours / workflows changed. */

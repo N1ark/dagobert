@@ -114,7 +114,7 @@
       </span>
     {/if}
     {#if progress}
-      <span class="track-info">{progress.done}/{progress.total} dependencies done{progress.total ? "" : " — add dependencies to track"}</span>
+      <span class="track-info" title="dependencies done">{progress.done}/{progress.total}</span>
     {/if}
     <select
       class="wf"

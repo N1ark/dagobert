@@ -145,6 +145,9 @@ pub struct Meta {
     /// Default body for new notes on the built-in Todo workflow.
     #[serde(default)]
     pub default_template: String,
+    /// Template for new tracking issues.
+    #[serde(default)]
+    pub tracking_template: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -405,6 +408,7 @@ pub struct MetaPatch {
     pub workflows: Option<Vec<Workflow>>,
     pub repos: Option<BTreeMap<String, String>>,
     pub default_template: Option<String>,
+    pub tracking_template: Option<String>,
 }
 
 pub fn read_meta(root: &Path) -> Meta {
@@ -430,6 +434,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(t) = patch.default_template {
         meta.default_template = t;
+    }
+    if let Some(t) = patch.tracking_template {
+        meta.tracking_template = t;
     }
     write_meta(root, &meta)
 }
