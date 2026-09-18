@@ -15,11 +15,14 @@ if [[ "${1:-}" != "--skip-build" ]]; then
 fi
 [[ -d "$BUILT" ]] || { echo "no build at $BUILT" >&2; exit 1; }
 
-# Quit the running instance (if any) and wait for it to exit.
-if pgrep -xq Dagobert; then
+# Quit the running instance (if any) and wait for it to exit. The binary is
+# lowercase `dagobert`, so match on the bundle path rather than the name.
+running() { pgrep -f "$DEST/$APP/Contents/MacOS/" >/dev/null; }
+if running; then
   osascript -e 'tell application "Dagobert" to quit' >/dev/null 2>&1 || true
-  for _ in $(seq 1 50); do pgrep -xq Dagobert || break; sleep 0.1; done
-  pkill -x Dagobert 2>/dev/null || true
+  for _ in $(seq 1 50); do running || break; sleep 0.1; done
+  running && pkill -f "$DEST/$APP/Contents/MacOS/" || true
+  sleep 0.3
 fi
 
 rm -rf "$DEST/$APP"
