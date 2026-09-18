@@ -53,6 +53,7 @@
   let showTrash = $state(false);
   let showQuickOpen = $state(false);
   let showWorkflows = $state(false);
+  let settingsSection = $state<"workflows" | "github">("workflows");
 
   // Notes that pass the search box AND the tag filter; null when neither is active.
   const matches = $derived.by(() => {
@@ -107,7 +108,8 @@
       { label: "Fit to view", run: () => canvas?.fitAll() },
       { label: "Tidy layout", run: () => canvas?.tidy() },
       { label: "Open trash", run: () => (showTrash = true) },
-      { label: "Manage workflows", run: () => (showWorkflows = true) },
+      { label: "Manage workflows", run: () => ((settingsSection = "workflows"), (showWorkflows = true)) },
+      { label: "GitHub repos…", run: () => ((settingsSection = "github"), (showWorkflows = true)) },
       { label: "Open folder…", hint: "⌘O", run: () => store.pickAndOpen() },
       ...(sel ? [{ label: `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}`, run: () => store.setDone(sel.id, !store.isDone(sel)) }] : []),
     ];
@@ -254,7 +256,7 @@
 {/if}
 
 {#if showWorkflows}
-  <WorkflowEditor onclose={() => (showWorkflows = false)} />
+  <WorkflowEditor section={settingsSection} onclose={() => (showWorkflows = false)} />
 {/if}
 
 {#if showTrash}

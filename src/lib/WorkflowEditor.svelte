@@ -7,8 +7,25 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import ColorPicker from "./ColorPicker.svelte";
   import { stageColor } from "./workflows";
+  import { storedToken, setStoredToken } from "./github";
+  import GithubLogo from "phosphor-svelte/lib/GithubLogo";
 
-  let { onclose }: { onclose: () => void } = $props();
+  let { onclose, section = "workflows" }: { onclose: () => void; section?: "workflows" | "github" } = $props();
+
+  // svelte-ignore state_referenced_locally
+  let page = $state<"workflows" | "github">(section);
+  let ghToken = $state(storedToken());
+  let newAlias = $state("");
+  let newRepo = $state("");
+
+  function addRepo() {
+    const a = newAlias.trim();
+    const r = newRepo.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
+    if (!a || !/^[\w.-]+\/[\w.-]+$/.test(r)) return;
+    store.setRepo(a, r);
+    newAlias = "";
+    newRepo = "";
+  }
 
   let picking = $state<number | null>(null);
   let selectedId = $state<string | null>(store.workflows[0]?.id ?? null);
@@ -64,19 +81,53 @@
 <div class="backdrop" onclick={onclose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Workflows" tabindex="-1">
     <header>
-      <h3>Workflows</h3>
+      <h3>{page === "github" ? "GitHub" : "Workflows"}</h3>
       <button class="ghost" onclick={onclose} aria-label="close"><X size={16} /></button>
     </header>
     <div class="cols">
       <nav>
-        <button class="ghost item" class:active={selectedId === null} onclick={() => (selectedId = null)}>Todo <span class="sub">built-in</span></button>
+        <button class="ghost item" class:active={page === "workflows" && selectedId === null} onclick={() => ((page = "workflows"), (selectedId = null))}>Todo <span class="sub">built-in</span></button>
         {#each store.workflows as w (w.id)}
-          <button class="ghost item" class:active={w.id === selectedId} onclick={() => (selectedId = w.id)}>{w.name || "Unnamed"}</button>
+          <button class="ghost item" class:active={page === "workflows" && w.id === selectedId} onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || "Unnamed"}</button>
         {/each}
-        <button class="ghost add" onclick={add}><Plus size={13} /> New workflow</button>
+        <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> New workflow</button>
+        <div class="nav-sep"></div>
+        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}><GithubLogo size={14} /> GitHub</button>
       </nav>
       <section>
-        {#if wf}
+        {#if page === "github"}
+          <h4>Repositories</h4>
+          <p class="help">
+            Type <code>alias#</code> in a note to pick an issue or PR; <code>alias#123</code> then links to it.
+          </p>
+          <ul class="repos">
+            {#each Object.entries(store.repos) as [alias, repo] (alias)}
+              <li>
+                <span class="alias">{alias}</span>
+                <span class="arrow">→</span>
+                <span class="repo">{repo}</span>
+                <button class="ghost sm" onclick={() => store.setRepo(alias, null)} aria-label="remove {alias}"><X size={13} /></button>
+              </li>
+            {/each}
+          </ul>
+          <form
+            class="add-repo"
+            onsubmit={(e) => {
+              e.preventDefault();
+              addRepo();
+            }}
+          >
+            <input placeholder="alias" bind:value={newAlias} spellcheck="false" />
+            <input class="grow" placeholder="owner/repo" bind:value={newRepo} spellcheck="false" />
+            <button type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus size={13} /> Add</button>
+          </form>
+          <h4>Access token</h4>
+          <p class="help">
+            Optional. Needed for private repos and higher rate limits. If empty, the <code>gh</code> CLI's login is used
+            when available. Stored on this machine only, not in the project folder.
+          </p>
+          <input class="token" type="password" placeholder="ghp_…" bind:value={ghToken} onchange={() => setStoredToken(ghToken)} spellcheck="false" />
+        {:else if wf}
           <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder="Workflow name" />
           <p class="help">Stages in order. Tick the ones that count as done; click a dot to pick the pill colour.</p>
           <ol>
@@ -186,6 +237,58 @@
     font-size: 10px;
     color: var(--color-dim);
     margin-left: 4px;
+  }
+  .nav-sep {
+    height: 1px;
+    margin: 6px 4px;
+    background: var(--border2);
+  }
+  .repos {
+    list-style: none;
+    margin: 0 0 8px;
+    padding: 0;
+  }
+  .repos li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+    font-size: 13px;
+  }
+  .alias {
+    font-family: var(--mono);
+    color: var(--accent2);
+  }
+  .arrow {
+    color: var(--color-dim);
+  }
+  .repo {
+    flex: 1;
+    color: var(--color);
+  }
+  .add-repo {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .add-repo input {
+    width: 110px;
+    font-size: 13px;
+  }
+  .add-repo .grow {
+    flex: 1;
+  }
+  .token {
+    width: 100%;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  section code {
+    font-family: var(--mono);
+    font-size: 0.9em;
+    background: var(--code-bg);
+    padding: 1px 4px;
+    border-radius: 3px;
   }
   .add {
     margin-top: auto;

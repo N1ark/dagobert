@@ -27,7 +27,7 @@ const channel = inTauri ? null : new BroadcastChannel("dagobert");
 const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta } = {
   notes: new Map(),
   trash: [],
-  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [], default_template: "" },
+  meta: { viewport: { x: 0, y: 0, zoom: 1 }, tag_colors: {}, workflows: [], default_template: "", repos: {} },
 };
 
 export const backend = {
@@ -186,6 +186,12 @@ export const backend = {
   async revealNote(path: string, file: string) {
     if (!inTauri) return;
     await revealItemInDir(`${path}/notes/${file}`);
+  },
+
+  /** Token from `gh auth token`, if the GitHub CLI is logged in. */
+  async githubCliToken(): Promise<string | null> {
+    if (!inTauri) return null;
+    return (await invoke<string | null>("github_cli_token")) ?? null;
   },
 
   setWindowTitle(title: string) {

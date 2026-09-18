@@ -52,6 +52,8 @@ export interface Meta {
   workflows: Workflow[];
   /** Default body for new notes on the built-in Todo workflow. */
   default_template: string;
+  /** GitHub repo aliases: alias -> "owner/name". */
+  repos: Record<string, string>;
 }
 
 /** Partial meta update; absent fields keep their stored value. */

@@ -4,6 +4,8 @@
   import type { Note } from "./types";
   import Markdown from "./Markdown.svelte";
   import MentionPopup from "./MentionPopup.svelte";
+  import IssuePopup from "./IssuePopup.svelte";
+  import type { IssueRef } from "./github";
   import { command, pasteLink } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode } from "./blocks";
@@ -17,6 +19,9 @@
   let container = $state<HTMLDivElement | null>(null);
   let textarea = $state<HTMLTextAreaElement | null>(null);
   let mentionPopup = $state<MentionPopup | null>(null);
+  let issuePopup = $state<IssuePopup | null>(null);
+  /** Active `alias#query` GitHub picker. */
+  let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
 
   const blocks = $derived(splitBlocks(note.body));
   /** Index of the block being edited, or null when everything is rendered. */
@@ -85,6 +90,7 @@
     active = null;
     draft = "";
     mention = null;
+    issue = null;
   }
 
   function autosize() {
@@ -210,6 +216,17 @@
         return;
       }
     }
+    if (issue) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        issue = null;
+        return;
+      }
+      if (issuePopup?.handleKey(e)) {
+        e.preventDefault();
+        return;
+      }
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       deactivate();
@@ -251,16 +268,46 @@
   // ---- @ mentions ----------------------------------------------------------
 
   const MENTION_RE = /(^|[\s(])@([^\s@\[\]]*)$/;
+  /** `alias#query` right before the caret (alias must be a configured repo). */
+  const ISSUE_RE = /(^|[\s(])([\w.-]+)#([^\s#]*)$/;
 
   function updateMention() {
     const el = textarea;
-    if (!el || el.selectionStart !== el.selectionEnd) return (mention = null);
+    if (!el || el.selectionStart !== el.selectionEnd) return void (mention = issue = null);
     const caret = el.selectionStart;
-    const m = MENTION_RE.exec(el.value.slice(Math.max(0, caret - 80), caret));
-    if (!m) return (mention = null);
-    const start = caret - m[2].length - 1;
+    const before = el.value.slice(Math.max(0, caret - 80), caret);
+    const m = MENTION_RE.exec(before);
+    if (m) {
+      issue = null;
+      const start = caret - m[2].length - 1;
+      const c = caretCoords(el, start);
+      mention = { start, query: m[2], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+      return;
+    }
+    mention = null;
+    const g = ISSUE_RE.exec(before);
+    const repo = g && store.repos[g[2]];
+    if (!g || !repo) return void (issue = null);
+    const start = caret - g[3].length - g[2].length - 1;
     const c = caretCoords(el, start);
-    mention = { start, query: m[2], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+    issue = { start, alias: g[2], repo, query: g[3], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+  }
+
+  /** Replace `alias#query` with `alias#123`. */
+  function insertIssue(ref: IssueRef) {
+    const el = textarea;
+    if (!el || !issue) return;
+    const end = el.selectionStart;
+    const insert = `${issue.alias}#${ref.number} `;
+    el.value = el.value.slice(0, issue.start) + insert + el.value.slice(end);
+    const pos = issue.start + insert.length;
+    issue = null;
+    el.setSelectionRange(pos, pos);
+    onInput();
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
   }
 
   function insertLink(title: string) {
@@ -306,7 +353,7 @@
             if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
           }}
           onclick={updateMention}
-          onblur={() => setTimeout(() => (mention = null), 150)}
+          onblur={() => setTimeout(() => (mention = issue = null), 150)}
           spellcheck="false"
           rows="1"
         ></textarea>
@@ -319,11 +366,14 @@
   {/each}
   {#if active !== null && active >= blocks.length}
     <div class="block editing" class:code={activeIsCode}>
-      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onpaste={onPaste} onblur={() => setTimeout(() => (mention = null), 150)} spellcheck="false" rows="1"></textarea>
+      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onpaste={onPaste} onblur={() => setTimeout(() => (mention = issue = null), 150)} spellcheck="false" rows="1"></textarea>
     </div>
   {/if}
   {#if !blocks.length && active === null}
     <div class="block placeholder" onclick={() => appendBlock()}>Write in markdown… click to start. <span class="hint">⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block</span></div>
+  {/if}
+  {#if issue}
+    <IssuePopup bind:this={issuePopup} alias={issue.alias} repo={issue.repo} query={issue.query} left={issue.left} top={issue.top} onpick={insertIssue} />
   {/if}
   {#if mention}
     <MentionPopup bind:this={mentionPopup} query={mention.query} left={mention.left} top={mention.top} excludeId={note.id} onpick={(n) => insertLink(n.title)} oncreate={createAndLink} />

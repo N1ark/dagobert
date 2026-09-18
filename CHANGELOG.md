@@ -7,6 +7,10 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- GitHub integration: configure repo aliases (⚙ → GitHub, or ⌘K "GitHub repos…"),
+  then type `alias#` in a note to pick an issue/PR by title or number; `alias#123`
+  renders as a link to GitHub. Uses the `gh` CLI login or a pasted token for private
+  repos.
 - Workflow stages can have a custom colour (workflow editor → click the dot next to a
   stage); "automatic" keeps the grey / yellow / green default.
 - "Reveal in Finder" in the node context menu.

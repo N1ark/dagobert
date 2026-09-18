@@ -134,6 +134,9 @@ pub struct Meta {
     /// User-defined workflows (the default todo/done one is implicit).
     #[serde(default)]
     pub workflows: Vec<Workflow>,
+    /// GitHub repo aliases: alias -> "owner/name".
+    #[serde(default)]
+    pub repos: BTreeMap<String, String>,
     /// Default body for new notes on the built-in Todo workflow.
     #[serde(default)]
     pub default_template: String,
@@ -393,6 +396,7 @@ pub struct MetaPatch {
     pub viewport: Option<Viewport>,
     pub tag_colors: Option<BTreeMap<String, String>>,
     pub workflows: Option<Vec<Workflow>>,
+    pub repos: Option<BTreeMap<String, String>>,
     pub default_template: Option<String>,
 }
 
@@ -413,6 +417,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(w) = patch.workflows {
         meta.workflows = w;
+    }
+    if let Some(r) = patch.repos {
+        meta.repos = r;
     }
     if let Some(t) = patch.default_template {
         meta.default_template = t;

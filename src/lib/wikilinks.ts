@@ -18,13 +18,36 @@ function escapeHtml(s: string) {
  * `href="#note-<id>"`; unresolved ones become a marked span. Code spans/fences
  * are left untouched.
  */
-export function renderWikilinks(md: string): string {
-  // Ranges covered by code spans/fences; links inside them are left alone.
-  // (Links may themselves contain backticks, so we can't just split on code.)
+/** `alias#123` for a configured GitHub repo alias. */
+const REPO_REF_RE = /(^|[^\w/[`#])([\w.-]+)#(\d+)\b(?![^\[]*\]\()/g;
+
+/** Start/end offsets of code spans and fences in `md`. */
+function codeRanges(md: string): (i: number) => boolean {
   const code: [number, number][] = [];
   for (const m of md.matchAll(/```[\s\S]*?```|`[^`\n]*`/g)) code.push([m.index, m.index + m[0].length]);
-  const inCode = (i: number) => code.some(([a, b]) => i >= a && i < b);
-  return md.replace(WIKI_RE, (m, title: string, offset: number) => {
+  return (i) => code.some(([a, b]) => i >= a && i < b);
+}
+
+/** Turn `alias#123` into a GitHub link when `alias` is a configured repo. */
+function renderRepoRefs(md: string): string {
+  if (!Object.keys(store.repos).length) return md;
+  const inCode = codeRanges(md);
+  return md.replace(REPO_REF_RE, (m, pre: string, alias: string, num: string, offset: number) => {
+    const repo = store.repos[alias];
+    if (!repo || inCode(offset + pre.length)) return m;
+    return `${pre}<a class="ghref" href="https://github.com/${repo}/issues/${num}" title="${repo}#${num}">${alias}#${num}</a>`;
+  });
+}
+
+/**
+ * Replace wikilinks (and `alias#123` repo refs) with anchors before markdown
+ * parsing. Resolved links get `href="#note-<id>"`; unresolved ones become a
+ * marked span. Code spans/fences are left untouched. (Links may themselves
+ * contain backticks, so we can't just split on code.)
+ */
+export function renderWikilinks(md: string): string {
+  const inCode = codeRanges(md);
+  const out = md.replace(WIKI_RE, (m, title: string, offset: number) => {
     if (inCode(offset)) return m;
     const n = resolve(title);
     const label = escapeHtml(title.trim());
@@ -32,6 +55,7 @@ export function renderWikilinks(md: string): string {
       ? `<a class="wikilink" href="#note-${n.id}">${label}</a>`
       : `<span class="wikilink missing" title="No note with this title">${label}</span>`;
   });
+  return renderRepoRefs(out);
 }
 
 /** The note id a clicked element points at, if it's a wikilink. */

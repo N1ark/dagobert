@@ -78,6 +78,17 @@ fn unwatch_project(state: State<AppState>) {
     watch::stop(&state);
 }
 
+/// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
+#[tauri::command]
+fn github_cli_token() -> Option<String> {
+    let out = std::process::Command::new("gh").args(["auth", "token"]).output().ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let t = String::from_utf8(out.stdout).ok()?.trim().to_string();
+    if t.is_empty() { None } else { Some(t) }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -97,6 +108,7 @@ pub fn run() {
             purge_trash,
             read_meta,
             save_meta,
+            github_cli_token,
             watch_project,
             unwatch_project
         ])

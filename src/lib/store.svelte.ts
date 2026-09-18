@@ -30,6 +30,8 @@ class Store {
   viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 });
   tagColors = $state<Record<string, string>>({});
   workflows = $state<Workflow[]>([]);
+  /** GitHub repo aliases: alias -> "owner/name". */
+  repos = $state<Record<string, string>>({});
   /** Template for new notes on the built-in Todo workflow. */
   defaultTemplate = $state("");
   /** Tags currently used to filter the canvas (OR semantics). */
@@ -94,6 +96,14 @@ class Store {
   setTagColor(tag: string, color: string | null) {
     if (color && color !== DEFAULT_TAG_COLOR) this.tagColors[tag] = color;
     else delete this.tagColors[tag];
+    this.saveMeta();
+  }
+
+  setRepo(alias: string, repo: string | null) {
+    const a = alias.trim();
+    if (!a) return;
+    if (repo && repo.trim()) this.repos[a] = repo.trim();
+    else delete this.repos[a];
     this.saveMeta();
   }
 
@@ -238,6 +248,7 @@ class Store {
       this.tagColors = p.meta.tag_colors ?? {};
       this.workflows = p.meta.workflows ?? [];
       this.defaultTemplate = p.meta.default_template ?? "";
+      this.repos = p.meta.repos ?? {};
       this.tagFilter = [];
       this.#history.clear();
       this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
@@ -547,6 +558,7 @@ class Store {
       if (msg.meta.tag_colors) this.tagColors = msg.meta.tag_colors;
       if (msg.meta.workflows) this.workflows = msg.meta.workflows;
       if (msg.meta.default_template !== undefined) this.defaultTemplate = msg.meta.default_template;
+      if (msg.meta.repos) this.repos = msg.meta.repos;
     }
   }
 
@@ -581,6 +593,7 @@ class Store {
         this.tagColors = meta.tag_colors ?? {};
         this.workflows = meta.workflows ?? [];
         this.defaultTemplate = meta.default_template ?? "";
+        this.repos = meta.repos ?? {};
       } catch (e) {
         this.fail(e);
       }
@@ -747,6 +760,7 @@ class Store {
       patch.tag_colors = $state.snapshot(this.tagColors);
       patch.workflows = $state.snapshot(this.workflows);
       patch.default_template = this.defaultTemplate;
+      patch.repos = $state.snapshot(this.repos);
     }
     this.#metaDirty = { viewport: false, settings: false };
     return patch;
@@ -765,7 +779,7 @@ class Store {
     const patch = this.#metaPatch();
     if (!Object.keys(patch).length) return;
     backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
-    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template } });
+    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template, repos: patch.repos } });
   }
 
   /** Tag colours / workflows changed. */

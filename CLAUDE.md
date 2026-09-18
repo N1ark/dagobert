@@ -100,6 +100,12 @@ from the CLI, so the browser shim is the practical way to check interactions.
   `renameLinks` (rewrites bodies when a title is committed in the panel), and
   `caretCoords` (mirror-div caret measurement for the `@` popup). Test `blocks.ts`
   and `editor.ts` with a node script (`node file.mjs` importing the .ts works).
+- `src/lib/github.ts` — GitHub REST client (`searchIssues`, 60 s cache, token from
+  localStorage `dagobert.githubToken` or `gh auth token` via the `github_cli_token`
+  command). `IssuePopup.svelte` is the `alias#query` picker in `LiveEditor` (same
+  `handleKey` pattern as mentions). Repo aliases live in `Meta.repos` (`store.repos`,
+  `setRepo`); `renderRepoRefs` in `wikilinks.ts` auto-links `alias#123` at render time
+  (class `.ghref`), so the raw markdown stays plain.
 - `src/lib/MentionPopup.svelte` — the `@` autocomplete in `LiveEditor`; parent
   forwards keys via `handleKey`. Offers "Create …" when no title matches.
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
@@ -114,6 +120,8 @@ from the CLI, so the browser shim is the practical way to check interactions.
 - `src/lib/workflows.ts` — `DEFAULT_WORKFLOW` (todo → done, id `""`, never stored)
   and `stageColor`. `WorkflowEditor.svelte` is the modal for managing custom workflows.
 - `src/lib/tags.ts` — tag colour palette (site's code-hue colours; index 0 is the default).
+- `src/lib/WorkflowEditor.svelte` doubles as the settings dialog: `section` prop
+  picks "workflows" or "github".
 - `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow
   stage colours; `allowAuto` adds a "clear" swatch). `TagColorPicker.svelte` wraps it; `TagMenu.svelte` — toolbar
   popover listing all tags (click name = toggle filter, click dot = recolour).
