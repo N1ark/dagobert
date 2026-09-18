@@ -163,7 +163,7 @@
 
   <section class="links">
     {#each [
-      { label: "Depends on", items: deps, exclude: new Set([note.id, ...depIds]), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" },
+      { label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set([note.id, ...depIds]), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" },
       { label: "Blocks", items: dependents, exclude: new Set([note.id, ...dependentIds]), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" },
     ] as g (g.key)}
       <div class="group">
