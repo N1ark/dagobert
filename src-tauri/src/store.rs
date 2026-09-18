@@ -112,6 +112,9 @@ pub struct Stage {
     /// Whether a note at this stage counts as done (for readiness etc).
     #[serde(default)]
     pub done: bool,
+    /// Optional CSS colour for the status pill; `None` = automatic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 impl Default for Viewport {
@@ -481,7 +484,7 @@ mod tests {
         let wf = Workflow {
             id: "pr".into(),
             name: "PR".into(),
-            stages: vec![Stage { name: "todo".into(), done: false }, Stage { name: "merged".into(), done: true }],
+            stages: vec![Stage { name: "todo".into(), done: false, color: None }, Stage { name: "merged".into(), done: true, color: Some("#61afef".into()) }],
             template: "## Checklist\n- [ ] tests".into(),
         };
         save_meta(&dir, MetaPatch { tag_colors: Some(tag_colors), workflows: Some(vec![wf]), default_template: Some("- [ ] ".into()), ..Default::default() }).unwrap();

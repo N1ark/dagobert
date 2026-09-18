@@ -113,7 +113,8 @@ from the CLI, so the browser shim is the practical way to check interactions.
 - `src/lib/workflows.ts` — `DEFAULT_WORKFLOW` (todo → done, id `""`, never stored)
   and `stageColor`. `WorkflowEditor.svelte` is the modal for managing custom workflows.
 - `src/lib/tags.ts` — tag colour palette (site's code-hue colours; index 0 is the default).
-- `src/lib/TagColorPicker.svelte` — swatch popover; `TagMenu.svelte` — toolbar
+- `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow
+  stage colours; `allowAuto` adds a "clear" swatch). `TagColorPicker.svelte` wraps it; `TagMenu.svelte` — toolbar
   popover listing all tags (click name = toggle filter, click dot = recolour).
   Tag chips share the global `.tag-chip` class with `--tag` set to the colour.
 - `assets/` — source SVGs: `logo.svg` (rounded background; the app icon) and
@@ -134,7 +135,8 @@ from the CLI, so the browser shim is the practical way to check interactions.
 - Progress: a note has `workflow` (id, `null` = built-in Todo) and `status` (stage
   name). Done-ness is derived — `store.isDone(note)` checks whether the current stage
   has `done: true` — never read a `done` field. Default-workflow notes show a checkbox;
-  custom ones show a status pill (click = `store.advance`, wraps around). Switching
+  custom ones show a status pill (click = `store.advance`, wraps around). Pill colour:
+  `Stage.color` if set, else `stageColor`'s automatic grey/yellow/green. Switching
   workflow maps done → first done stage, else first stage. Editing a workflow repairs
   notes whose stage vanished (`updateWorkflow`); deleting one reverts its notes to Todo.
 - Templates: `Workflow.template` and `Meta.default_template` (for Todo), edited in

@@ -7,6 +7,8 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Workflow stages can have a custom colour (workflow editor → click the dot next to a
+  stage); "automatic" keeps the grey / yellow / green default.
 - "Reveal in Finder" in the node context menu.
 - Pasting a URL over selected text in the editor turns the selection into a link.
 

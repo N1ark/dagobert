@@ -32,6 +32,8 @@ export interface Stage {
   name: string;
   /** Whether a note at this stage counts as done. */
   done: boolean;
+  /** Optional colour for the status pill; null = automatic. */
+  color?: string | null;
 }
 
 export interface Workflow {

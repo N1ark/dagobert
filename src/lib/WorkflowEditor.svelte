@@ -5,9 +5,12 @@
   import ArrowUp from "phosphor-svelte/lib/ArrowUp";
   import ArrowDown from "phosphor-svelte/lib/ArrowDown";
   import Plus from "phosphor-svelte/lib/Plus";
+  import ColorPicker from "./ColorPicker.svelte";
+  import { stageColor } from "./workflows";
 
   let { onclose }: { onclose: () => void } = $props();
 
+  let picking = $state<number | null>(null);
   let selectedId = $state<string | null>(store.workflows[0]?.id ?? null);
   const wf = $derived(store.workflows.find((w) => w.id === selectedId) ?? null);
   const usage = $derived(wf ? store.notes.filter((n) => n.workflow === wf.id).length : 0);
@@ -75,11 +78,26 @@
       <section>
         {#if wf}
           <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder="Workflow name" />
-          <p class="help">Stages in order. Tick the ones that count as done.</p>
+          <p class="help">Stages in order. Tick the ones that count as done; click a dot to pick the pill colour.</p>
           <ol>
             {#each wf.stages as stage, i (i)}
               <li>
                 <span class="n">{i + 1}</span>
+                <span class="dot-wrap">
+                  <button class="dot" style="--c:{stageColor(wf, stage.name)}" title="Pill colour" aria-label="colour of {stage.name}" onclick={() => (picking = picking === i ? null : i)}></button>
+                  {#if picking === i}
+                    <ColorPicker
+                      value={stage.color ?? null}
+                      allowAuto
+                      onpick={(c) => {
+                        stage.color = c;
+                        commit(wf);
+                      }}
+                      onclose={() => (picking = null)}
+                      label="stage colour"
+                    />
+                  {/if}
+                </span>
                 <input class="stage" bind:value={stage.name} onchange={() => commit(wf)} />
                 <label class="done" title="Counts as done">
                   <input type="checkbox" bind:checked={stage.done} onchange={() => commit(wf)} />
@@ -206,6 +224,22 @@
     font-size: 11px;
     color: var(--color-dim);
     text-align: right;
+  }
+  .dot-wrap {
+    position: relative;
+    display: flex;
+  }
+  .dot {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: var(--c);
+  }
+  .dot:hover {
+    background: var(--c);
+    box-shadow: 0 0 0 2px var(--color2);
   }
   .stage {
     flex: 1;
