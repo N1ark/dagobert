@@ -34,8 +34,11 @@
   const progress = $derived(note.tracking ? store.progress(note) : null);
   let titleEl = $state<HTMLInputElement | null>(null);
 
-  const deps = $derived(store.dependencies(note.id));
-  const dependents = $derived(store.dependents(note.id));
+  // Longest titles first: flex-wrap packs greedily, so first-fit-decreasing
+  // ends up with the fewest rows.
+  const packed = (notes: Note[]) => [...notes].sort((a, b) => b.title.length - a.title.length || a.title.localeCompare(b.title));
+  const deps = $derived(packed(store.dependencies(note.id)));
+  const dependents = $derived(packed(store.dependents(note.id)));
   const depIds = $derived(new Set(note.deps));
   const dependentIds = $derived(new Set(dependents.map((d) => d.id)));
 
