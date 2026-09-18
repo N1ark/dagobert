@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { searchIssues, type IssueRef } from "./github";
+  import { searchIssues, recentIssues, type IssueRef } from "./github";
   import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
   import GitMerge from "phosphor-svelte/lib/GitMerge";
   import Circle from "phosphor-svelte/lib/Circle";
@@ -29,6 +29,10 @@
 
   /** The repo's recent items, used to filter locally while the search request is in flight. */
   let recent = $state<IssueRef[]>([]);
+  $effect(() => {
+    const r = repo;
+    recentIssues(r).then((refs) => (recent = refs)).catch(() => {});
+  });
 
   // Debounced fetch as the query changes; ignore stale responses. Previous
   // results stay on screen (filtered locally) so typing never feels blocked.
@@ -43,14 +47,13 @@
       const ql = q.trim().toLowerCase();
       const local = recent.filter((i) => i.title.toLowerCase().includes(ql) || String(i.number).startsWith(ql));
       if (local.length) {
-        results = local;
+        results = local.slice(0, 15);
         active = 0;
       }
     }
     const t = setTimeout(async () => {
       try {
         const refs = await searchIssues(r, q);
-        if (!q.trim()) recent = refs;
         if (my === seq) {
           results = refs;
           active = 0;

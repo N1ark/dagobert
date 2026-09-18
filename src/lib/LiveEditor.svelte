@@ -285,6 +285,17 @@
       return;
     }
     mention = null;
+    // Once open, the picker stays anchored so the query may contain spaces;
+    // it closes on Escape, a pick, a newline, or the caret leaving the query.
+    if (issue) {
+      const from = issue.start + issue.alias.length + 1;
+      const typed = el.value.slice(from, caret);
+      if (caret >= from && el.value.slice(issue.start, from) === `${issue.alias}#` && !typed.includes("\n") && !/\s{2}$/.test(typed)) {
+        issue.query = typed;
+        return;
+      }
+      issue = null;
+    }
     const g = ISSUE_RE.exec(before);
     const repo = g && store.repos[g[2]];
     if (!g || !repo) return void (issue = null);

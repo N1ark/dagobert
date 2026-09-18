@@ -67,31 +67,52 @@ function toRef(r: RawIssue): IssueRef {
 }
 
 const cache = new Map<string, { at: number; refs: IssueRef[] }>();
-const TTL = 60_000;
+const TTL = 5 * 60_000;
 
-/** Issues + PRs of `repo` ("owner/name") matching `query` (recent ones when empty). */
-export async function searchIssues(repo: string, query: string): Promise<IssueRef[]> {
-  const q = query.trim();
-  const key = `${repo} ${q}`;
+async function cached(key: string, fetcher: () => Promise<IssueRef[]>): Promise<IssueRef[]> {
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL) return hit.refs;
-  let refs: IssueRef[];
-  if (/^\d+$/.test(q)) {
-    // A bare number: fetch that one directly, plus whatever search finds.
-    const [one, rest] = await Promise.all([
-      api<RawIssue>(`/repos/${repo}/issues/${q}`).then(toRef).catch(() => null),
-      api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q}`)}&per_page=8`).then((r) => r.items.map(toRef)).catch(() => []),
-    ]);
-    refs = one ? [one, ...rest.filter((r) => r.number !== one.number)] : rest;
-  } else if (!q) {
-    refs = (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=15`)).map(toRef);
-  } else {
-    const r = await api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`);
-    refs = r.items.map(toRef);
-  }
-  refs.sort((a, b) => b.updated.localeCompare(a.updated));
+  const refs = await fetcher();
   cache.set(key, { at: Date.now(), refs });
   return refs;
+}
+
+/** The 100 most recently updated issues + PRs of a repo (one request, cached). */
+export function recentIssues(repo: string): Promise<IssueRef[]> {
+  return cached(`recent ${repo}`, async () =>
+    (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100`)).map(toRef),
+  );
+}
+
+function matches(ref: IssueRef, q: string): boolean {
+  const ql = q.toLowerCase();
+  return ref.title.toLowerCase().includes(ql) || String(ref.number).startsWith(ql);
+}
+
+/**
+ * Issues + PRs of `repo` matching `query`, newest first. Substring-filters the
+ * recent list locally (GitHub's search only matches whole words), and merges in
+ * server search results for older items.
+ */
+export async function searchIssues(repo: string, query: string): Promise<IssueRef[]> {
+  const q = query.trim();
+  const recent = await recentIssues(repo);
+  if (!q) return recent.slice(0, 15);
+  const local = recent.filter((r) => matches(r, q));
+  const extra = await cached(`search ${repo} ${q}`, async () => {
+    const jobs: Promise<IssueRef[]>[] = [];
+    if (/^\d+$/.test(q)) jobs.push(api<RawIssue>(`/repos/${repo}/issues/${q}`).then((r) => [toRef(r)]).catch(() => []));
+    jobs.push(
+      api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`)
+        .then((r) => r.items.map(toRef))
+        .catch(() => []),
+    );
+    return (await Promise.all(jobs)).flat();
+  });
+  const seen = new Set(local.map((r) => r.number));
+  const merged = [...local, ...extra.filter((r) => !seen.has(r.number))];
+  merged.sort((a, b) => b.updated.localeCompare(a.updated));
+  return merged.slice(0, 15);
 }
 
 /** GitHub URL for `alias#number` given the configured repo. */
