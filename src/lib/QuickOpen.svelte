@@ -160,17 +160,18 @@
                 <InlineMd source={n.title} fallback="Untitled" />
               {/if}
             </span>
-            <span class="meta">
+            <span class="tags">
               {#each n.tags.slice(0, 3) as tag (tag)}
                 <span class="tag-chip tag" style="--tag:{store.tagColor(tag)}">{tag}</span>
               {/each}
-              {#if n.workflow !== null}
-                <span class="status" style="--c:{stageColor(wf, n.status)}"><span class="pip"></span>{n.status}</span>
-              {:else if store.isDone(n)}
-                <span class="status" style="--c:var(--green)"><span class="pip"></span>done</span>
-              {/if}
             </span>
-            {#if i === active}<span class="kbd" title="⌘↩ opens in a new window"><ArrowSquareOut size={12} /></span>{/if}
+            <span class="spacer"></span>
+            {#if n.workflow !== null && !n.tracking}
+              <span class="status" style="--c:{stageColor(wf, n.status)}"><span class="pip"></span>{n.status}</span>
+            {:else if store.isDone(n)}
+              <span class="status" style="--c:var(--green)"><span class="pip"></span>done</span>
+            {/if}
+            <span class="kbd slot" class:show={i === active} title="⌘↩ opens in a new window"><ArrowSquareOut size={12} /></span>
           </button>
         {:else if row.kind === "action"}
           <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
@@ -256,7 +257,7 @@
     color: var(--color2);
   }
   .title {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -270,11 +271,24 @@
     color: var(--accent2);
     font-weight: 600;
   }
-  .meta {
+  .tags {
     display: flex;
     align-items: center;
     gap: 4px;
     flex: none;
+  }
+  .spacer {
+    flex: 1;
+  }
+  /* Reserve the icon's width so hovering never shifts the row. */
+  .slot {
+    width: 14px;
+    display: inline-flex;
+    justify-content: flex-end;
+    visibility: hidden;
+  }
+  .slot.show {
+    visibility: visible;
   }
   .tag {
     font-size: 10px;
