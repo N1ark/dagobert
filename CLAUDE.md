@@ -11,6 +11,7 @@ npm run dev                                    # UI only in a browser, in-memory
 npm run check                                  # svelte-check (must be 0 errors / 0 warnings)
 npm test                                       # tests/*.test.mjs (pure TS modules) + cargo test
 npm run tauri build
+npm run install:app                            # release build → quit running app → replace in /Applications → relaunch
 npm run version -- X.Y.Z                       # sync versions, roll CHANGELOG, commit + tag
 ```
 

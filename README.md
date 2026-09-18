@@ -45,4 +45,5 @@ npm run dev           # UI only, in a browser (in-memory backend)
 npm run check         # svelte-check
 cargo test --manifest-path src-tauri/Cargo.toml
 npm run tauri build   # release bundle
+npm run install:app   # build + replace /Applications/Dagobert.app + relaunch
 ```
