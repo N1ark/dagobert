@@ -7,7 +7,13 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
-- `⇧⌘K` opens the palette directly in command mode.
+- macOS menu bar (File / Edit / Note / View / Tools) built from the same action list as
+  the command palette, with shortcuts.
+- Command palette actions have icons.
+
+### Changed
+- Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
+  is gone.
 - Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
   no checkbox/status — it shows a radial ring with `done/total` of its dependencies
   and counts as done once they all are.

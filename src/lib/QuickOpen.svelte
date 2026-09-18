@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { Component } from "svelte";
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import InlineMd from "./InlineMd.svelte";
@@ -10,9 +11,17 @@
   import Terminal from "phosphor-svelte/lib/Terminal";
 
   export interface Action {
+    id: string;
     label: string;
     hint?: string;
+    /** Phosphor icon component. */
+    icon?: Component<any>;
     run: () => void;
+    /** Menu section (File / Edit / Note / View / Tools). */
+    menu?: string;
+    /** Static label for the menu bar when `label` is dynamic. */
+    menuLabel?: string;
+    enabled?: boolean;
   }
 
   /**
@@ -24,17 +33,17 @@
     onjump,
     oncreate,
     onclose,
-    initial = "",
+    mode = "notes",
   }: {
-    initial?: string;
+    /** "notes" = quick switcher, "commands" = command palette. */
+    mode?: "notes" | "commands";
     actions: Action[];
     onjump: (id: string) => void;
     oncreate: (title: string) => void;
     onclose: () => void;
   } = $props();
 
-  // svelte-ignore state_referenced_locally
-  let query = $state(initial);
+  let query = $state("");
   let active = $state(0);
   let input = $state<HTMLInputElement | null>(null);
   let list = $state<HTMLDivElement | null>(null);
@@ -44,8 +53,9 @@
   type Row = { kind: "note"; note: Note; indices: number[] } | { kind: "action"; action: Action } | { kind: "create"; title: string };
 
   const rows = $derived.by((): Row[] => {
-    if (parsed.mode === "commands") {
+    if (mode === "commands") {
       return actions
+        .filter((a) => a.enabled !== false)
         .map((action) => ({ action, m: fuzzyMatch(parsed.text, action.label) }))
         .filter((x) => x.m.score > 0)
         .sort((a, b) => b.m.score - a.m.score)
@@ -127,12 +137,13 @@
 <div class="backdrop" onclick={onclose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Quick open" tabindex="-1">
     <div class="field">
-      {#if parsed.mode === "commands"}
+      {#if mode === "commands"}
         <Terminal size={16} />
       {:else}
         <MagnifyingGlass size={16} />
       {/if}
-      <input bind:this={input} bind:value={query} onkeydown={onKey} placeholder="Jump to a note…  #tag to filter, > for commands" spellcheck="false" />
+      <input bind:this={input} bind:value={query} onkeydown={onKey} placeholder={mode === "commands" ? "Run a command…" : "Jump to a note…  #tag to filter"} spellcheck="false" />
+      <span class="mode">{mode === "commands" ? "⇧⌘K" : "⌘K"}</span>
     </div>
     <div class="list" bind:this={list}>
       {#each rows as row, i (row.kind === "note" ? row.note.id : row.kind === "action" ? "a:" + row.action.label : "create")}
@@ -161,6 +172,7 @@
           </button>
         {:else if row.kind === "action"}
           <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
+            <span class="aicon">{#if row.action.icon}<row.action.icon size={14} />{/if}</span>
             <span class="title">{row.action.label}</span>
             {#if row.action.hint}<span class="kbd">{row.action.hint}</span>{/if}
           </button>
@@ -170,7 +182,7 @@
           </button>
         {/if}
       {:else}
-        <div class="empty">{parsed.mode === "commands" ? "No matching command" : "No notes yet"}</div>
+        <div class="empty">{mode === "commands" ? "No matching command" : "No notes yet"}</div>
       {/each}
     </div>
     <footer>
@@ -277,6 +289,18 @@
     height: 5px;
     border-radius: 50%;
     background: var(--c);
+  }
+  .aicon {
+    width: 16px;
+    display: inline-flex;
+    justify-content: center;
+    color: var(--color-dim);
+    flex: none;
+  }
+  .mode {
+    flex: none;
+    font-size: 11px;
+    color: var(--color-dim);
   }
   .kbd {
     flex: none;

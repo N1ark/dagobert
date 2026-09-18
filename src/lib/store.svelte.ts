@@ -678,7 +678,12 @@ class Store {
     this.redoDepth = this.#history.redo.length;
   }
 
+  #lastUndoAt = 0;
+
   async undo() {
+    // A menu accelerator and the keydown handler can both fire for one ⌘Z.
+    if (Date.now() - this.#lastUndoAt < 150) return;
+    this.#lastUndoAt = Date.now();
     this.#flushRecord();
     const e = this.#history.popUndo();
     if (!e) return;
@@ -688,6 +693,8 @@ class Store {
   }
 
   async redo() {
+    if (Date.now() - this.#lastUndoAt < 150) return;
+    this.#lastUndoAt = Date.now();
     const e = this.#history.popRedo();
     if (!e) return;
     await this.#apply(e.diffs, "redo");

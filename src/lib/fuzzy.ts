@@ -69,10 +69,9 @@ function range(a: number, b: number): number[] {
 }
 
 /** Parse the palette query into its mode and the text to match. */
-export function parseQuery(raw: string): { mode: "notes" | "commands"; text: string; tag: string | null } {
+export function parseQuery(raw: string): { text: string; tag: string | null } {
   const s = raw.trimStart();
-  if (s.startsWith(">")) return { mode: "commands", text: s.slice(1).trim(), tag: null };
   const m = /^#(\S*)\s*(.*)$/.exec(s);
-  if (m) return { mode: "notes", text: m[2].trim(), tag: m[1].toLowerCase() };
-  return { mode: "notes", text: s.trim(), tag: null };
+  if (m) return { text: m[2].trim(), tag: m[1].toLowerCase() };
+  return { text: s.trim(), tag: null };
 }

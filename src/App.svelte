@@ -8,12 +8,25 @@
   import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import { backend } from "./lib/backend";
+  import { setAppMenu, menuSignature } from "./lib/menu";
   import Plus from "phosphor-svelte/lib/Plus";
+  import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
+  import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
+  import TreeStructure from "phosphor-svelte/lib/TreeStructure";
+  import Crosshair from "phosphor-svelte/lib/Crosshair";
+  import MagnifyingGlass from "phosphor-svelte/lib/MagnifyingGlass";
+  import Terminal from "phosphor-svelte/lib/Terminal";
+  import FolderOpen from "phosphor-svelte/lib/FolderOpen";
+  import GithubLogo from "phosphor-svelte/lib/GithubLogo";
+  import Kanban from "phosphor-svelte/lib/Kanban";
+  import CheckSquare from "phosphor-svelte/lib/CheckSquare";
+  import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
+  import Copy from "phosphor-svelte/lib/Copy";
+  import ClipboardText from "phosphor-svelte/lib/ClipboardText";
+  import CopySimple from "phosphor-svelte/lib/CopySimple";
   import Tag from "phosphor-svelte/lib/Tag";
   import Trash from "phosphor-svelte/lib/Trash";
   import CornersOut from "phosphor-svelte/lib/CornersOut";
-  import TreeStructure from "phosphor-svelte/lib/TreeStructure";
-  import Crosshair from "phosphor-svelte/lib/Crosshair";
   import X from "phosphor-svelte/lib/X";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
@@ -52,8 +65,26 @@
   let searchEl = $state<HTMLInputElement | null>(null);
   let showTrash = $state(false);
   let showQuickOpen = $state(false);
-  /** Text the palette opens with ("" = notes, ">" = commands). */
-  let quickOpenInitial = $state("");
+  /** Which pane the palette shows. */
+  let paletteMode = $state<"notes" | "commands">("notes");
+
+  /** Run an action at most once per keystroke: the menu accelerator and the
+   *  window keydown handler can both fire for the same key. */
+  const lastRun = new Map<string, number>();
+  function once(id: string, fn: () => void) {
+    const now = Date.now();
+    if (now - (lastRun.get(id) ?? 0) < 150) return;
+    lastRun.set(id, now);
+    fn();
+  }
+
+  function openPalette(mode: "notes" | "commands") {
+    if (showQuickOpen && paletteMode === mode) showQuickOpen = false;
+    else {
+      paletteMode = mode;
+      showQuickOpen = true;
+    }
+  }
   let showWorkflows = $state(false);
   let settingsSection = $state<"workflows" | "github">("workflows");
 
@@ -103,18 +134,60 @@
 
   const paletteActions = $derived.by((): Action[] => {
     const sel = store.selected;
+    const has = !!store.path;
+    const a = (id: string, label: string, run: () => void, extra: Partial<Action> = {}): Action => ({ id, label, run: () => once(id, run), ...extra });
     return [
-      { label: "New note", hint: "⌘N", run: () => canvas?.createAtCenter() },
-      { label: "Undo", hint: "⌘Z", run: () => store.undo() },
-      { label: "Redo", hint: "⇧⌘Z", run: () => store.redo() },
-      { label: "Fit to view", run: () => canvas?.fitAll() },
-      { label: "Tidy layout", run: () => canvas?.tidy() },
-      { label: "Open trash", run: () => (showTrash = true) },
-      { label: "Manage workflows", run: () => ((settingsSection = "workflows"), (showWorkflows = true)) },
-      { label: "GitHub repos…", run: () => ((settingsSection = "github"), (showWorkflows = true)) },
-      { label: "Open folder…", hint: "⌘O", run: () => store.pickAndOpen() },
-      ...(sel ? [{ label: `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}`, run: () => store.setDone(sel.id, !store.isDone(sel)) }] : []),
+      a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, menu: "File", enabled: has }),
+      a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, menu: "File" }),
+      a("undo", "Undo", () => editUndo("undo"), { hint: "⌘Z", icon: ArrowCounterClockwise, menu: "Edit", enabled: has }),
+      a("redo", "Redo", () => editUndo("redo"), { hint: "⇧⌘Z", icon: ArrowClockwise, menu: "Edit", enabled: has }),
+      a("toggle-done", sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done", () => { const n = store.selected; if (n) store.setDone(n.id, !store.isDone(n)); }, { icon: CheckSquare, menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking }),
+      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), { icon: ArrowSquareOut, menu: "Note", enabled: !!sel }),
+      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), { icon: FolderOpen, menu: "Note", enabled: !!sel }),
+      a("copy-note", "Copy note", () => store.selectedId && store.copy(store.selectedId), { icon: Copy, menu: "Note", enabled: !!sel }),
+      a("duplicate", "Duplicate note", () => duplicateSelected(), { hint: "⌘D", icon: CopySimple, menu: "Note", enabled: !!sel }),
+      a("paste-note", "Paste note", () => pasteNote(), { icon: ClipboardText, menu: "Note", enabled: has && !!store.clipboard }),
+      a("quick-open", "Quick open", () => openPalette("notes"), { hint: "⌘K", icon: MagnifyingGlass, menu: "View", enabled: has }),
+      a("commands", "Command palette", () => openPalette("commands"), { hint: "⇧⌘K", icon: Terminal, menu: "View", enabled: has }),
+      a("search", "Search", () => (searchEl?.focus(), searchEl?.select()), { hint: "⌘F", icon: MagnifyingGlass, menu: "View", enabled: has }),
+      a("fit", "Fit to view", () => canvas?.fitAll(), { icon: CornersOut, menu: "View", enabled: has }),
+      a("tidy", "Tidy layout", () => canvas?.tidy(), { icon: TreeStructure, menu: "View", enabled: has }),
+      a("focus", `${focus ? "Disable" : "Enable"} focus mode`, () => toggleFocus(), { icon: Crosshair, menu: "View", menuLabel: "Toggle focus mode", enabled: has }),
+      a("trash", "Open trash", () => (showTrash = true), { icon: Trash, menu: "Tools", enabled: has }),
+      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), { icon: Kanban, menu: "Tools", enabled: has }),
+      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), { icon: GithubLogo, menu: "Tools", enabled: has }),
     ];
+  });
+
+  /** Undo/redo from the menu: native inside text fields, ours elsewhere. */
+  function editUndo(kind: "undo" | "redo") {
+    const el = document.activeElement as HTMLElement | null;
+    if (el && el.closest("input, textarea, [contenteditable]")) document.execCommand(kind);
+    else if (kind === "undo") store.undo();
+    else store.redo();
+  }
+
+  function duplicateSelected() {
+    if (!store.selectedId) return;
+    const n = store.duplicate(store.selectedId);
+    if (n) jump(n.id);
+  }
+
+  function pasteNote() {
+    const c = viewCenter();
+    const n = store.paste(Math.round(c.x), Math.round(c.y));
+    if (n) jump(n.id);
+  }
+
+  // Rebuild the native menu only when what it shows changes (main window only).
+  let menuSig = "";
+  $effect(() => {
+    if (standaloneId) return;
+    const actions = paletteActions;
+    const sig = menuSignature(actions);
+    if (sig === menuSig) return;
+    menuSig = sig;
+    setAppMenu(actions).catch((e) => console.error("menu", e));
   });
 
   function onSearchKey(e: KeyboardEvent) {
@@ -134,26 +207,13 @@
   function onKey(e: KeyboardEvent) {
     const mod = e.metaKey || e.ctrlKey;
     if (!mod || standaloneId) return;
-    if (e.key === "n" && store.path) {
-      e.preventDefault();
-      canvas?.createAtCenter();
-    } else if (e.key.toLowerCase() === "k" && store.path) {
-      // ⌘K = notes, ⇧⌘K = straight to the command list.
-      e.preventDefault();
-      const initial = e.shiftKey ? ">" : "";
-      if (showQuickOpen && quickOpenInitial === initial) showQuickOpen = false;
-      else {
-        quickOpenInitial = initial;
-        showQuickOpen = true;
-      }
-    } else if (e.key === "f" && store.path) {
-      e.preventDefault();
-      searchEl?.focus();
-      searchEl?.select();
-    } else if (e.key === "o") {
-      e.preventDefault();
-      store.pickAndOpen();
-    }
+    const k = e.key.toLowerCase();
+    const id = k === "n" ? "new-note" : k === "k" ? (e.shiftKey ? "commands" : "quick-open") : k === "f" ? "search" : k === "o" ? "open-folder" : null;
+    if (!id) return;
+    const action = paletteActions.find((a) => a.id === id);
+    if (!action || action.enabled === false) return;
+    e.preventDefault();
+    action.run();
   }
 
   onMount(() => {
@@ -260,8 +320,8 @@
 {/if}
 
 {#if showQuickOpen}
-  {#key quickOpenInitial}
-    <QuickOpen initial={quickOpenInitial} actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
+  {#key paletteMode}
+    <QuickOpen mode={paletteMode} actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
   {/key}
 {/if}
 

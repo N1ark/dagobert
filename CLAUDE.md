@@ -108,6 +108,15 @@ from the CLI, so the browser shim is the practical way to check interactions.
   (class `.ghref`), so the raw markdown stays plain.
 - `src/lib/MentionPopup.svelte` — the `@` autocomplete in `LiveEditor`; parent
   forwards keys via `handleKey`. Offers "Create …" when no title matches.
+- `src/lib/menu.ts` — builds the native app menu from `paletteActions` in
+  `App.svelte` (each `Action` has `id`, `menu` section, optional `menuLabel`,
+  `hint` → accelerator). Rebuilt only when `menuSignature` changes; menu closures
+  must read live state (`store.selected`) rather than captured values. Because a
+  menu accelerator and the window `keydown` handler can both fire for one key,
+  actions run through `once(id, fn)` (150 ms dedupe) and `store.undo/redo` dedupe
+  themselves. Edit menu keeps the native Cut/Copy/Paste/SelectAll items; menu
+  Undo/Redo call `execCommand` inside text fields and the store elsewhere.
+- `src/lib/QuickOpen.svelte` takes `mode: "notes" | "commands"` (⌘K vs ⇧⌘K).
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
   the panel's title field stays a raw `<input>`.
