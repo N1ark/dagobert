@@ -1,4 +1,5 @@
 import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { sfSymbolImage } from "./sfsymbol";
 import { inTauri } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
 
@@ -38,12 +39,14 @@ export async function setAppMenu(actions: Action[]) {
     if (!a.menu) continue;
     (groups.get(a.menu) ?? groups.set(a.menu, []).get(a.menu)!).push(a);
   }
-  // System template images (adapt to light/dark on their own).
+  // SF Symbols, tinted for the current appearance (the menu bar follows the system).
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
   const items = async (list: Action[]): Promise<(MenuItem | IconMenuItem | PredefinedMenuItem)[]> =>
     Promise.all(
-      list.map((a) => {
+      list.map(async (a) => {
         const base = { id: a.id, text: a.menuLabel ?? a.label, accelerator: accelerator(a.hint), enabled: a.enabled !== false, action: () => a.run() };
-        return a.nativeIcon ? IconMenuItem.new({ ...base, icon: a.nativeIcon }) : MenuItem.new(base);
+        const icon = a.symbol ? await sfSymbolImage(a.symbol, dark) : null;
+        return icon ? IconMenuItem.new({ ...base, icon }) : MenuItem.new(base);
       }),
     );
 

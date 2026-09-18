@@ -1,4 +1,5 @@
 mod store;
+mod symbols;
 mod watch;
 
 use std::path::{Path, PathBuf};
@@ -78,6 +79,12 @@ fn unwatch_project(state: State<AppState>) {
     watch::stop(&state);
 }
 
+/// First SF Symbol from `names` that exists, as PNG bytes (macOS only).
+#[tauri::command]
+fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
+    names.iter().find_map(|n| symbols::sf_symbol_png(n, point_size))
+}
+
 /// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
 #[tauri::command]
 fn github_cli_token() -> Option<String> {
@@ -109,6 +116,7 @@ pub fn run() {
             read_meta,
             save_meta,
             github_cli_token,
+            sf_symbol,
             watch_project,
             unwatch_project
         ])

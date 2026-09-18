@@ -116,8 +116,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
   actions run through `once(id, fn)` (150 ms dedupe) and `store.undo/redo` dedupe
   themselves. Edit menu keeps the native Cut/Copy/Paste/SelectAll items; menu
   Undo/Redo call `execCommand` inside text fields and the store elsewhere.
-- Menu bar icons are AppKit named images (`nativeIcon: NativeIcon.*` on an
-  `Action`); Phosphor icons are only used in-app.
+- Menu bar icons are SF Symbols: `Action.symbol` lists candidate names; the Rust
+  `sf_symbol` command (`symbols.rs`, objc2-app-kit) renders the first that exists to
+  PNG, and `sfsymbol.ts` centres/tints it on a canvas for the current appearance
+  (menu rebuilt when appearance flips). Phosphor icons are only used in-app.
 - `src/lib/QuickOpen.svelte` takes `mode: "notes" | "commands"` (⌘K vs ⇧⌘K).
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);

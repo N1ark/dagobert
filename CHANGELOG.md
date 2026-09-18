@@ -9,7 +9,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 - macOS menu bar (File / Edit / Note / View / Tools) built from the same action list as
   the command palette, with shortcuts.
-- Command palette actions have icons; the menu bar uses macOS system icons.
+- Command palette actions have icons; the menu bar uses SF Symbols.
 
 ### Changed
 - Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
