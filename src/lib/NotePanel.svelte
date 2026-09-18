@@ -371,20 +371,17 @@
   .links {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
     padding: 0 16px 8px 22px;
     border-bottom: 1px solid var(--border);
   }
   .group {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 3px;
   }
   .label {
-    flex: none;
-    width: 78px;
-    padding-top: 3px;
+    white-space: nowrap;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
@@ -396,8 +393,6 @@
     opacity: 0.7;
   }
   .chips {
-    flex: 1;
-    min-width: 0;
     display: flex;
     flex-wrap: wrap;
     gap: 3px;
@@ -447,7 +442,7 @@
   }
   .picker {
     width: 100%;
-    padding-left: 86px;
+    margin-top: 2px;
   }
   .body {
     flex: 1;
