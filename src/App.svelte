@@ -179,12 +179,20 @@
     if (n) jump(n.id);
   }
 
-  // Rebuild the native menu only when what it shows changes (main window only).
+  // Rebuild the native menu only when what it shows changes (main window only),
+  // and when the system appearance flips (icon tint).
   let menuSig = "";
+  let appearance = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
+  onMount(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const h = () => (appearance = mq.matches);
+    mq.addEventListener("change", h);
+    return () => mq.removeEventListener("change", h);
+  });
   $effect(() => {
     if (standaloneId) return;
     const actions = paletteActions;
-    const sig = menuSignature(actions);
+    const sig = `${appearance}|${menuSignature(actions)}`;
     if (sig === menuSig) return;
     menuSig = sig;
     setAppMenu(actions).catch((e) => console.error("menu", e));

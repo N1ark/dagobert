@@ -1,4 +1,5 @@
-import { Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { iconImage } from "./iconRaster";
 import { inTauri } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
 
@@ -38,17 +39,21 @@ export async function setAppMenu(actions: Action[]) {
     if (!a.menu) continue;
     (groups.get(a.menu) ?? groups.set(a.menu, []).get(a.menu)!).push(a);
   }
-  const items = async (list: Action[]): Promise<(MenuItem | PredefinedMenuItem)[]> =>
+  // Menu icons follow the system appearance (the menu bar isn't themed by us).
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const tint = dark ? "#e0e0e0" : "#333333";
+  const items = async (list: Action[]): Promise<(MenuItem | IconMenuItem | PredefinedMenuItem)[]> =>
     Promise.all(
-      list.map((a) =>
-        MenuItem.new({
-          id: a.id,
-          text: a.menuLabel ?? a.label,
-          accelerator: accelerator(a.hint),
-          enabled: a.enabled !== false,
-          action: () => a.run(),
-        }),
-      ),
+      list.map(async (a) => {
+        const base = { id: a.id, text: a.menuLabel ?? a.label, accelerator: accelerator(a.hint), enabled: a.enabled !== false, action: () => a.run() };
+        if (!a.icon) return MenuItem.new(base);
+        try {
+          return await IconMenuItem.new({ ...base, icon: await iconImage(a.icon, tint, 32) });
+        } catch (e) {
+          console.warn("menu icon", a.id, e);
+          return MenuItem.new(base);
+        }
+      }),
     );
 
   const app = await Submenu.new({

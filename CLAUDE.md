@@ -116,6 +116,9 @@ from the CLI, so the browser shim is the practical way to check interactions.
   actions run through `once(id, fn)` (150 ms dedupe) and `store.undo/redo` dedupe
   themselves. Edit menu keeps the native Cut/Copy/Paste/SelectAll items; menu
   Undo/Redo call `execCommand` inside text fields and the store elsewhere.
+- `src/lib/iconRaster.ts` — renders a Phosphor Svelte icon off-screen → SVG →
+  canvas → RGBA `Image` for `IconMenuItem`s (cached per icon/colour). Tint follows
+  the system appearance, and the menu rebuilds when it flips.
 - `src/lib/QuickOpen.svelte` takes `mode: "notes" | "commands"` (⌘K vs ⇧⌘K).
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
