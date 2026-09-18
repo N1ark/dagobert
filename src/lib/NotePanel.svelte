@@ -11,6 +11,7 @@
   import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import X from "phosphor-svelte/lib/X";
+  import Plus from "phosphor-svelte/lib/Plus";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import GearSix from "phosphor-svelte/lib/GearSix";
 
@@ -20,6 +21,7 @@
   let confirmDelete = $state(false);
   let picking = $state<string | null>(null);
   let editingWorkflows = $state(false);
+  let adding = $state<string | null>(null);
   // Panel is re-keyed per note, so the initial value is exactly what we want.
   // svelte-ignore state_referenced_locally
   let titleBefore = note.title;
@@ -160,40 +162,37 @@
   </div>
 
   <section class="links">
-    <div class="group">
-      <h4>Depends on <span class="count">{deps.length}</span></h4>
-      <ul>
-        {#each deps as d (d.id)}
-          <li>
-            <button class="ghost jump" class:done={store.isDone(d)} onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
-            <button class="ghost x" onclick={() => store.removeDependency(note.id, d.id)} aria-label="remove"><X size={12} /></button>
-          </li>
-        {/each}
-      </ul>
-      <LinkPicker
-        exclude={new Set([note.id, ...depIds])}
-        filter={(n) => !store.wouldCycle(note.id, n.id)}
-        placeholder="add a dependency…"
-        onpick={(id) => store.addDependency(note.id, id)}
-      />
-    </div>
-    <div class="group">
-      <h4>Blocks <span class="count">{dependents.length}</span></h4>
-      <ul>
-        {#each dependents as d (d.id)}
-          <li>
-            <button class="ghost jump" class:done={store.isDone(d)} onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
-            <button class="ghost x" onclick={() => store.removeDependency(d.id, note.id)} aria-label="remove"><X size={12} /></button>
-          </li>
-        {/each}
-      </ul>
-      <LinkPicker
-        exclude={new Set([note.id, ...dependentIds])}
-        filter={(n) => !store.wouldCycle(n.id, note.id)}
-        placeholder="add a dependent…"
-        onpick={(id) => store.addDependency(id, note.id)}
-      />
-    </div>
+    {#each [
+      { label: "Depends on", items: deps, exclude: new Set([note.id, ...depIds]), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" },
+      { label: "Blocks", items: dependents, exclude: new Set([note.id, ...dependentIds]), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" },
+    ] as g (g.key)}
+      <div class="group">
+        <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
+        <div class="chips">
+          {#each g.items as d (d.id)}
+            <span class="chip" class:done={store.isDone(d)}>
+              <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
+              <button class="ghost x" onclick={() => g.remove(d.id)} aria-label="remove"><X size={11} /></button>
+            </span>
+          {/each}
+          <button class="ghost add" class:open={adding === g.key} onclick={() => (adding = adding === g.key ? null : g.key)} title={g.placeholder}><Plus size={11} /></button>
+        </div>
+        {#if adding === g.key}
+          <div class="picker">
+            <LinkPicker
+              exclude={g.exclude}
+              filter={g.filter}
+              placeholder={g.placeholder}
+              autofocus
+              onpick={(id) => {
+                g.add(id);
+                adding = null;
+              }}
+            />
+          </div>
+        {/if}
+      </div>
+    {/each}
   </section>
 
   {#if mentionedIn.length}
@@ -210,7 +209,7 @@
   </div>
 
   <footer>
-    <span class="file" title={note.file}>{note.file}</span>
+    <button class="ghost file" title="Reveal in Finder" onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
     {#if confirmDelete}
       <button class="danger" onclick={() => store.remove(note.id)}>Really delete</button>
       <button class="ghost" onclick={() => (confirmDelete = false)}>Cancel</button>
@@ -370,14 +369,22 @@
     width: 90px;
   }
   .links {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 12px;
-    padding: 0 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 16px 8px 22px;
     border-bottom: 1px solid var(--border);
   }
-  .group h4 {
-    margin: 0 0 6px;
+  .group {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .label {
+    flex: none;
+    width: 78px;
+    padding-top: 3px;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
@@ -388,34 +395,59 @@
     font-weight: 400;
     opacity: 0.7;
   }
-  .group ul {
-    list-style: none;
-    margin: 0 0 6px;
-    padding: 0;
-    max-height: 140px;
-    overflow-y: auto;
-  }
-  .group li {
+  .chips {
+    flex: 1;
+    min-width: 0;
     display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
     align-items: center;
   }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border-radius: 999px;
+    background: #ffffff0a;
+    font-size: 12px;
+  }
+  .chip.done {
+    opacity: 0.55;
+  }
+  .chip.done .jump {
+    text-decoration: line-through;
+  }
   .jump {
-    flex: 1;
-    text-align: left;
-    padding: 3px 6px;
+    padding: 1px 4px 1px 8px;
     color: var(--color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
+    border: none;
   }
-  .jump.done {
-    text-decoration: line-through;
+  .chip .x {
+    padding: 1px 5px 1px 1px;
+    border: none;
+    opacity: 0.5;
+  }
+  .chip .x:hover {
+    opacity: 1;
+  }
+  .add {
+    padding: 2px 5px;
+    border: 1px dashed var(--border2);
+    border-radius: 999px;
     color: var(--color-dim);
   }
-  .group .x {
-    padding: 2px 6px;
-    font-size: 13px;
+  .add:hover,
+  .add.open {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  .picker {
+    width: 100%;
+    padding-left: 86px;
   }
   .body {
     flex: 1;
@@ -450,12 +482,15 @@
   }
   .file {
     flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+    padding: 2px 4px;
     font-family: var(--mono);
     font-size: 11px;
     color: #555;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  }
+  .file:hover {
+    color: var(--accent2);
   }
   footer button {
     font-size: 12px;

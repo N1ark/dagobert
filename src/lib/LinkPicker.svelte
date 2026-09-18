@@ -8,12 +8,18 @@
     filter,
     placeholder,
     onpick,
+    autofocus = false,
   }: {
     exclude: Set<string>;
     filter: (n: Note) => boolean;
     placeholder: string;
     onpick: (id: string) => void;
+    autofocus?: boolean;
   } = $props();
+
+  $effect(() => {
+    if (autofocus) input?.focus();
+  });
 
   let query = $state("");
   let open = $state(false);
