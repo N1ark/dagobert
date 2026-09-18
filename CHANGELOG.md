@@ -7,6 +7,7 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- `⇧⌘K` opens the palette directly in command mode.
 - Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
   no checkbox/status — it shows a radial ring with `done/total` of its dependencies
   and counts as done once they all are.

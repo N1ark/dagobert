@@ -111,7 +111,7 @@ from the CLI, so the browser shim is the practical way to check interactions.
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
   the panel's title field stays a raw `<input>`.
-- `src/lib/QuickOpen.svelte` — `⌘K` palette (App owns `showQuickOpen`; not in
+- `src/lib/QuickOpen.svelte` — `⌘K` (`⇧⌘K` = command mode) palette (App owns `showQuickOpen`; not in
   standalone windows). Matching lives in `fuzzy.ts` (`fuzzyMatch`: prefix > word-start
   > substring > subsequence; `parseQuery`: `#tag` filter, `>` command mode). Commands
   come from App's `paletteActions` prop so the palette stays dumb.

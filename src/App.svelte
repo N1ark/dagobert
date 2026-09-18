@@ -52,6 +52,8 @@
   let searchEl = $state<HTMLInputElement | null>(null);
   let showTrash = $state(false);
   let showQuickOpen = $state(false);
+  /** Text the palette opens with ("" = notes, ">" = commands). */
+  let quickOpenInitial = $state("");
   let showWorkflows = $state(false);
   let settingsSection = $state<"workflows" | "github">("workflows");
 
@@ -135,9 +137,15 @@
     if (e.key === "n" && store.path) {
       e.preventDefault();
       canvas?.createAtCenter();
-    } else if (e.key === "k" && store.path) {
+    } else if (e.key.toLowerCase() === "k" && store.path) {
+      // ⌘K = notes, ⇧⌘K = straight to the command list.
       e.preventDefault();
-      showQuickOpen = !showQuickOpen;
+      const initial = e.shiftKey ? ">" : "";
+      if (showQuickOpen && quickOpenInitial === initial) showQuickOpen = false;
+      else {
+        quickOpenInitial = initial;
+        showQuickOpen = true;
+      }
     } else if (e.key === "f" && store.path) {
       e.preventDefault();
       searchEl?.focus();
@@ -252,7 +260,9 @@
 {/if}
 
 {#if showQuickOpen}
-  <QuickOpen actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
+  {#key quickOpenInitial}
+    <QuickOpen initial={quickOpenInitial} actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
+  {/key}
 {/if}
 
 {#if showWorkflows}

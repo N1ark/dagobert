@@ -24,14 +24,17 @@
     onjump,
     oncreate,
     onclose,
+    initial = "",
   }: {
+    initial?: string;
     actions: Action[];
     onjump: (id: string) => void;
     oncreate: (title: string) => void;
     onclose: () => void;
   } = $props();
 
-  let query = $state("");
+  // svelte-ignore state_referenced_locally
+  let query = $state(initial);
   let active = $state(0);
   let input = $state<HTMLInputElement | null>(null);
   let list = $state<HTMLDivElement | null>(null);
