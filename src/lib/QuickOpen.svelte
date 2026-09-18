@@ -25,8 +25,8 @@
   }
 
   /**
-   * ⌘K palette. Plain text fuzzy-matches note titles, `#tag` narrows by tag,
-   * `>` lists commands from the `actions` prop.
+   * ⌘K quick switcher (fuzzy note titles, `#tag` narrows) or, with
+   * `mode="commands"`, the ⇧⌘K command palette over the `actions` prop.
    */
   let {
     actions,
@@ -187,10 +187,11 @@
     </div>
     <footer>
       <span><kbd>↑↓</kbd> navigate</span>
-      <span><kbd>↩</kbd> open</span>
-      <span><kbd>⌘↩</kbd> new window</span>
-      <span><kbd>#</kbd> tag</span>
-      <span><kbd>&gt;</kbd> commands</span>
+      <span><kbd>↩</kbd> {mode === "commands" ? "run" : "open"}</span>
+      {#if mode === "notes"}
+        <span><kbd>⌘↩</kbd> new window</span>
+        <span><kbd>#</kbd> tag</span>
+      {/if}
     </footer>
   </div>
 </div>
