@@ -93,7 +93,9 @@
     <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> Reveal in Finder</button>
     <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> Copy <kbd>⌘C</kbd></button>
     <button class="item" onclick={() => run(() => { const d = store.duplicate(note.id); if (d) store.select(d.id); })}>Duplicate <kbd>⌘D</kbd></button>
-    {#if note.workflow === null}
+    {#if note.tracking}
+      <div class="section">Tracking issue — {store.progress(note).done}/{store.progress(note).total} done</div>
+    {:else if note.workflow === null}
       <button class="item" onclick={() => run(() => store.advance(note.id))}>{store.isDone(note) ? "Mark as not done" : "Mark as done"}</button>
     {:else}
       <div class="section">Status</div>

@@ -4,6 +4,7 @@
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import Check from "phosphor-svelte/lib/Check";
+  import ProgressRing from "./ProgressRing.svelte";
 
   let {
     note,
@@ -29,7 +30,8 @@
   const ready = $derived(store.isReady(note));
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null);
+  const custom = $derived(note.workflow !== null && !note.tracking);
+  const progress = $derived(note.tracking ? store.progress(note) : null);
   // First non-empty line of the body, with block-level markers stripped so it
   // renders as inline markdown (bold, code, links…).
   const preview = $derived(
@@ -58,7 +60,9 @@
   bind:clientHeight={height}
 >
   <div class="head">
-    {#if !custom}
+    {#if progress}
+      <span class="ring-wrap" title="{progress.done} of {progress.total} dependencies done"><ProgressRing done={progress.done} total={progress.total} /></span>
+    {:else if !custom}
       <button class="check" class:on={done} onpointerdown={(e) => e.stopPropagation()} onclick={advance} title={done ? "Mark as not done" : "Mark as done"} aria-label="toggle done">
         {#if done}
           <Check size={11} weight="bold" />
@@ -67,8 +71,11 @@
     {/if}
     <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback="Untitled" /></div>
   </div>
-  {#if custom || note.tags.length}
+  {#if custom || progress || note.tags.length}
     <div class="tags">
+      {#if progress}
+        <span class="progress" class:complete={progress.total > 0 && progress.done === progress.total}>{progress.done}/{progress.total}</span>
+      {/if}
       {#if custom}
         <button class="status" style="--c:{stageColor(workflow, note.status)}" onpointerdown={(e) => e.stopPropagation()} onclick={advance} title="{workflow.name} — click to advance">
           <span class="pip"></span>{note.status}
@@ -159,6 +166,19 @@
   .done .title {
     text-decoration: line-through;
     color: var(--color-dim);
+  }
+  .ring-wrap {
+    display: inline-flex;
+    margin-top: 2px;
+  }
+  .progress {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--color-dim);
+    padding: 0 2px;
+  }
+  .progress.complete {
+    color: var(--green);
   }
   .status {
     display: inline-flex;

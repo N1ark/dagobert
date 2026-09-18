@@ -28,6 +28,9 @@ pub struct Note {
     /// Current stage name within the workflow.
     #[serde(default = "todo")]
     pub status: String,
+    /// A tracking issue: done when all its dependencies are done; no own status.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub tracking: bool,
     #[serde(default)]
     pub x: f64,
     #[serde(default)]
@@ -65,6 +68,8 @@ struct FrontMatter {
     workflow: Option<String>,
     #[serde(default)]
     status: Option<String>,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    tracking: bool,
     #[serde(default)]
     x: f64,
     #[serde(default)]
@@ -223,6 +228,7 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
         opened: fm.opened,
         workflow: fm.workflow,
         status: fm.status.unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
+        tracking: fm.tracking,
         x: fm.x,
         y: fm.y,
         width: fm.width,
@@ -244,6 +250,7 @@ fn serialize_note(note: &Note) -> Result<String, String> {
         done: false,
         workflow: note.workflow.clone(),
         status: Some(note.status.clone()),
+        tracking: note.tracking,
         x: note.x,
         y: note.y,
         width: note.width,
@@ -446,6 +453,7 @@ mod tests {
             opened: "2026-09-16T10:00:00.000Z".into(),
             workflow: None,
             status: "todo".into(),
+            tracking: false,
             x: 12.5,
             y: -3.0,
             width: None,

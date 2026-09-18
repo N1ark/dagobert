@@ -7,6 +7,9 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
+  no checkbox/status — it shows a radial ring with `done/total` of its dependencies
+  and counts as done once they all are.
 - GitHub integration: configure repo aliases (⚙ → GitHub, or ⌘K "GitHub repos…"),
   then type `alias#` in a note to pick an issue/PR by title or number; `alias#123`
   renders as a link to GitHub. Uses the `gh` CLI login or a pasted token for private

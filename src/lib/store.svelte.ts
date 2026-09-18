@@ -118,13 +118,37 @@ class Store {
   }
 
   isDone(note: Note): boolean {
+    if (note.tracking) {
+      const p = this.progress(note);
+      return p.total > 0 && p.done === p.total;
+    }
     return this.workflowOf(note).stages.find((s) => s.name === note.status)?.done ?? false;
+  }
+
+  /** Direct dependencies done / total (what a tracking issue's ring shows). */
+  progress(note: Note): { done: number; total: number } {
+    let done = 0, total = 0;
+    for (const d of note.deps) {
+      const dep = this.byId(d);
+      if (!dep) continue;
+      total++;
+      if (this.isDone(dep)) done++;
+    }
+    return { done, total };
+  }
+
+  setTracking(id: string, tracking: boolean) {
+    const n = this.byId(id);
+    if (!n || !!n.tracking === tracking) return;
+    n.tracking = tracking;
+    if (tracking) n.workflow = null;
+    this.touch(id, { immediate: true, label: "kind" });
   }
 
   /** Mark done (first done stage) or not done (first stage) in the note's own workflow. */
   setDone(id: string, done: boolean) {
     const n = this.byId(id);
-    if (!n) return;
+    if (!n || n.tracking) return;
     const stages = this.workflowOf(n).stages;
     const target = done ? stages.find((s) => s.done) ?? stages[stages.length - 1] : stages[0];
     this.setStatus(id, target.name);
@@ -140,7 +164,7 @@ class Store {
   /** Move to the next stage, wrapping around at the end. */
   advance(id: string) {
     const n = this.byId(id);
-    if (!n) return;
+    if (!n || n.tracking) return;
     const stages = this.workflowOf(n).stages;
     const i = stages.findIndex((s) => s.name === n.status);
     this.setStatus(id, stages[(i + 1) % stages.length].name);
@@ -208,7 +232,7 @@ class Store {
 
   /** True when every dependency of the note is done. */
   isReady(note: Note): boolean {
-    if (this.isDone(note)) return false;
+    if (note.tracking || this.isDone(note)) return false;
     return note.deps.every((d) => {
       const dep = this.byId(d);
       return dep ? this.isDone(dep) : true;
@@ -479,7 +503,7 @@ class Store {
     const workflow = src.workflow && this.workflows.some((w) => w.id === src.workflow) ? src.workflow : null;
     const stages = (this.workflows.find((w) => w.id === workflow) ?? DEFAULT_WORKFLOW).stages;
     const status = stages.some((s) => s.name === src.status) ? src.status : stages[0].name;
-    return this.create(Math.round(x), Math.round(y), { title: src.title, tags: [...src.tags], body: src.body, workflow, status, width: src.width ?? null });
+    return this.create(Math.round(x), Math.round(y), { title: src.title, tags: [...src.tags], body: src.body, workflow, status, tracking: !!src.tracking, width: src.width ?? null });
   }
 
   paste(x: number, y: number): Note | null {

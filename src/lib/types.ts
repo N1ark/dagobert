@@ -9,6 +9,8 @@ export interface Note {
   workflow: string | null;
   /** Current stage name within the workflow. */
   status: string;
+  /** Tracking issue: done when every dependency is done; has no status of its own. */
+  tracking?: boolean;
   x: number;
   y: number;
   /** Card width on the canvas; null/undefined means the default. */

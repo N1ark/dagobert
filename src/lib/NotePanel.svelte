@@ -8,6 +8,7 @@
   import WorkflowEditor from "./WorkflowEditor.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
+  import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import X from "phosphor-svelte/lib/X";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
@@ -27,7 +28,8 @@
 
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null);
+  const custom = $derived(note.workflow !== null && !note.tracking);
+  const progress = $derived(note.tracking ? store.progress(note) : null);
   let titleEl = $state<HTMLInputElement | null>(null);
 
   const deps = $derived(store.dependencies(note.id));
@@ -86,7 +88,9 @@
 
 <aside class="panel">
   <header>
-    {#if !custom}
+    {#if progress}
+      <span class="ring" title="{progress.done} of {progress.total} dependencies done"><ProgressRing done={progress.done} total={progress.total} size={16} /></span>
+    {:else if !custom}
       <label class="done" title={done ? "Mark as not done" : "Mark as done"}>
         <input type="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
@@ -109,8 +113,24 @@
         </select>
       </span>
     {/if}
-    <select class="wf" value={note.workflow ?? ""} onchange={(e) => store.setWorkflow(note.id, e.currentTarget.value || null)} title="Workflow">
+    {#if progress}
+      <span class="track-info">{progress.done}/{progress.total} dependencies done{progress.total ? "" : " — add dependencies to track"}</span>
+    {/if}
+    <select
+      class="wf"
+      value={note.tracking ? "tracking" : (note.workflow ?? "")}
+      onchange={(e) => {
+        const v = e.currentTarget.value;
+        if (v === "tracking") store.setTracking(note.id, true);
+        else {
+          store.setTracking(note.id, false);
+          store.setWorkflow(note.id, v || null);
+        }
+      }}
+      title="Kind"
+    >
       <option value="">Todo</option>
+      <option value="tracking">Tracking issue</option>
       {#each store.workflows as wf (wf.id)}
         <option value={wf.id}>{wf.name}</option>
       {/each}
@@ -269,6 +289,13 @@
   }
   select:focus {
     border-color: var(--accent);
+  }
+  .ring {
+    display: inline-flex;
+  }
+  .track-info {
+    font-size: 12px;
+    color: var(--color-dim);
   }
   .status-wrap {
     display: inline-flex;

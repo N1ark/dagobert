@@ -154,6 +154,9 @@ from the CLI, so the browser shim is the practical way to check interactions.
   `isEmpty` treats a body equal to its template as blank so accidental notes are still
   discarded; `setWorkflow` swaps in the new template only when the body is blank by
   that definition.
+- Tracking issues: `note.tracking` (frontmatter `tracking: true`, omitted when false).
+  `isDone` = all direct deps done (and at least one dep); `setDone`/`advance` are
+  no-ops; never "ready". `store.progress(note)` feeds `ProgressRing.svelte`.
 - "Ready" = not done and every dep is done. Shown with a purple ring; counted in toolbar.
 - Canvas dimming: `App.svelte` computes `matches` = search terms AND tag filter
   (tag filter is OR across selected tags); `null` means nothing is filtered. When
