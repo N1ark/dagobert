@@ -293,7 +293,7 @@
   function onPointerDown(e: PointerEvent) {
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest("button, input, textarea")) return;
+    if (target.closest("button, input, textarea, a")) return; // links: let the click through (no capture)
     const id = nodeIdAt(target);
     container.setPointerCapture(e.pointerId);
 
