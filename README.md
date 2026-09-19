@@ -1,40 +1,20 @@
 # Dagobert
 
-A lightweight note-taking app where notes form a DAG. Each note is also a task:
-it can depend on other notes, and it is "ready" once everything it depends on is done.
+A lightweight note-taking and task-tracking app where notes form a DAG. Each note is also a task: it can depend on other notes, and it is "ready" once everything it depends on is done.
 
-Built with Tauri 2 + Svelte 5.
+This is a personal project! It is Obsidian inspired (each file is a local Markdown file), but with a focus on task management, and to fit my own needs.
 
-## Usage
+> [!NOTE]
+> This is a work in progress. It is also mostly LLM assisted because I don't want to spend too much time making the app, I'd rather just use it! 
+> Contributions of any kind are welcome :3
 
-- **Open a folder** — any folder works (à la Obsidian). Notes are stored as
-  `notes/<slug>.md` with YAML frontmatter; canvas state lives in `dagobert.json`.
-- **Double-click** the canvas (or `⌘N` / `+ Note`) to create a note.
-- **Drag** a note to move it; drag the background (or two-finger scroll) to pan;
-  `⌘`/`ctrl` + scroll (or pinch) to zoom. Positions and viewport are remembered.
-- **Link notes** by dragging from a note's right-hand handle onto another note —
-  the target then depends on the source. Or search for dependencies/dependents
-  from the note panel. Cycles are refused.
-- **Click an edge** to select it, then `⌫` to remove it (or double-click it).
-- `⌘F` searches title, tags and body; `Enter` jumps to the first match.
+## Tasks
 
-## Note format
+There are several types of tasks:
 
-```markdown
----
-id: 3f2a9c1d0e
-title: Design the schema
-tags: [backend, design]
-created: 2026-09-16T10:00:00.000Z
-modified: 2026-09-16T10:00:00.000Z
-opened: 2026-09-16T10:00:00.000Z
-done: false
-x: 120
-y: 80
-deps: [a1b2c3d4e5]   # ids of notes this one depends on
----
-Markdown body…
-```
+- Regular "to-do", which is just a note you can check as done.
+- Tracking tasks, whose progress is derived from the progress of their dependencies (they can't be marked as done manually).
+- Any other format you need! The app lets you define a task format with whatever steps you need. For instance, a "PR" task with "todo", "review", "review-comments".
 
 ## Development
 
