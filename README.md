@@ -16,6 +16,11 @@ There are several types of tasks:
 - Tracking tasks, whose progress is derived from the progress of their dependencies (they can't be marked as done manually).
 - Any other format you need! The app lets you define a task format with whatever steps you need. For instance, a "PR" task with "todo", "review", "review-comments".
 
+## Releases
+
+Bump with `npm run version -- X.Y.Z` and push to `main`; CI publishes a GitHub release
+with macOS DMGs (unsigned — right-click → Open on first launch).
+
 ## Development
 
 ```sh

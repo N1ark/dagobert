@@ -16,11 +16,19 @@ npm run lint                                   # eslint (ts + svelte) and cargo 
 npm run tauri build
 npm run install:app                            # release build → quit running app → replace in /Applications → relaunch
 npm run version -- X.Y.Z                       # sync versions, roll CHANGELOG, commit + tag
+                                               # pushing that to main makes the Release workflow publish a GitHub release (DMGs)
 ```
 
 Verifying UI changes: `npm run dev`, open http://localhost:1420 in a browser, click
 "Open a folder…" (returns a mock project). The native window can't be screenshotted
 from the CLI, so the browser shim is the practical way to check interactions.
+
+CI (`.github/workflows/ci.yml`) runs format:check, lint, check, test and the Vite
+build on every PR and on main (concurrency-cancelled per ref, macOS runner because
+of AppKit). `release.yml` runs on main when version files change: if no GitHub
+release exists for `package.json`'s version it builds DMGs (arm64 + x86_64) with
+`tauri-action` and publishes one, using that version's CHANGELOG section as notes.
+Builds are unsigned.
 
 ## Layout
 

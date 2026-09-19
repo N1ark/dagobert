@@ -1,0 +1,97 @@
+name: Release
+
+# Publishes a GitHub release with the packaged app whenever the version in
+# package.json has no release yet (i.e. after `npm run version -- X.Y.Z` lands on main).
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - src-tauri/tauri.conf.json
+      - src-tauri/Cargo.toml
+      - CHANGELOG.md
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  version:
+    name: Detect version change
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=$(node -p "require('./package.json').version")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release v$v already exists"; echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publishing v$v"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build & publish (${{ matrix.name }})
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS (Apple Silicon)
+            os: macos-latest
+            target: aarch64-apple-darwin
+          - name: macOS (Intel)
+            os: macos-13
+            target: x86_64-apple-darwin
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Release notes from CHANGELOG
+        id: notes
+        run: |
+          v="${{ needs.version.outputs.version }}"
+          # Everything under "## [v]" up to the next "## [" heading.
+          awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Release v$v" > notes.md
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v${{ needs.version.outputs.version }}
+          releaseName: Dagobert v${{ needs.version.outputs.version }}
+          releaseBodyFile: notes.md
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }} --bundles dmg
