@@ -69,7 +69,10 @@ button {
   border-radius: var(--radius);
   padding: 5px 10px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 button > svg {
   flex: none;

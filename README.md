@@ -5,7 +5,7 @@ A lightweight note-taking and task-tracking app where notes form a DAG. Each not
 This is a personal project! It is Obsidian inspired (each file is a local Markdown file), but with a focus on task management, and to fit my own needs.
 
 > [!NOTE]
-> This is a work in progress. It is also mostly LLM assisted because I don't want to spend too much time making the app, I'd rather just use it! 
+> This is a work in progress. It is also mostly LLM assisted because I don't want to spend too much time making the app, I'd rather just use it!
 > Contributions of any kind are welcome :3
 
 ## Tasks

@@ -77,7 +77,13 @@
     <ul class="results">
       {#each results as n, i (n.id)}
         <li>
-          <button class="ghost" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => pick(n.id)} onmouseenter={() => (active = i)}>
+          <button
+            class="ghost"
+            class:active={i === active}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => pick(n.id)}
+            onmouseenter={() => (active = i)}
+          >
             <span class="t" class:done={store.isDone(n)}><InlineMd source={n.title} fallback="Untitled" /></span>
             {#if n.tags.length}<span class="tags">{n.tags.join(", ")}</span>{/if}
           </button>

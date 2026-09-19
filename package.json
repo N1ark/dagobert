@@ -11,7 +11,9 @@
     "tauri": "tauri",
     "version": "node scripts/version.mjs",
     "test": "for f in tests/*.test.mjs; do node \"$f\" || exit 1; done && cargo test --manifest-path src-tauri/Cargo.toml",
-    "install:app": "scripts/install.sh"
+    "install:app": "scripts/install.sh",
+    "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
+    "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check"
   },
   "license": "MIT",
   "dependencies": {
@@ -26,6 +28,8 @@
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2",
     "@tsconfig/svelte": "^5",
+    "prettier": "^3.9.8",
+    "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "~5.9",

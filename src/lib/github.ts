@@ -43,7 +43,8 @@ async function api<T>(path: string): Promise<T> {
   if (t) headers.Authorization = `Bearer ${t}`;
   const res = await fetch(`https://api.github.com${path}`, { headers });
   if (!res.ok) {
-    if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") throw new Error("GitHub rate limit hit — add a token in settings.");
+    if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0")
+      throw new Error("GitHub rate limit hit — add a token in settings.");
     if (res.status === 401) throw new Error("GitHub token rejected.");
     if (res.status === 404) throw new Error("Repo not found (private? add a token).");
     throw new Error(`GitHub ${res.status}`);
@@ -101,7 +102,12 @@ export async function searchIssues(repo: string, query: string): Promise<IssueRe
   const local = recent.filter((r) => matches(r, q));
   const extra = await cached(`search ${repo} ${q}`, async () => {
     const jobs: Promise<IssueRef[]>[] = [];
-    if (/^\d+$/.test(q)) jobs.push(api<RawIssue>(`/repos/${repo}/issues/${q}`).then((r) => [toRef(r)]).catch(() => []));
+    if (/^\d+$/.test(q))
+      jobs.push(
+        api<RawIssue>(`/repos/${repo}/issues/${q}`)
+          .then((r) => [toRef(r)])
+          .catch(() => []),
+      );
     jobs.push(
       api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`)
         .then((r) => r.items.map(toRef))

@@ -17,7 +17,12 @@
 <svelte:window onpointerdown={onWindowPointerDown} />
 
 <div class="tag-menu">
-  <button class:ghost={!store.tagFilter.length} class:filtering={store.tagFilter.length > 0} onclick={() => (open = !open)} title="Filter by tag">
+  <button
+    class:ghost={!store.tagFilter.length}
+    class:filtering={store.tagFilter.length > 0}
+    onclick={() => (open = !open)}
+    title="Filter by tag"
+  >
     <Tag size={15} /> Tags{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
   </button>
 
@@ -31,7 +36,13 @@
             {@const on = store.tagFilter.includes(tag)}
             <li class:on>
               <div class="dot-wrap">
-                <button class="dot" style="--c:{store.tagColor(tag)}" title="Change colour" aria-label="colour of {tag}" onclick={() => (picking = picking === tag ? null : tag)}></button>
+                <button
+                  class="dot"
+                  style="--c:{store.tagColor(tag)}"
+                  title="Change colour"
+                  aria-label="colour of {tag}"
+                  onclick={() => (picking = picking === tag ? null : tag)}
+                ></button>
                 {#if picking === tag}
                   <TagColorPicker {tag} onclose={() => (picking = null)} />
                 {/if}

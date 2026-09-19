@@ -25,7 +25,8 @@ export function sameNote(a: Note | null, b: Note | null): boolean {
   if (a === null || b === null) return a === b;
   for (const k of Object.keys({ ...a, ...b }) as (keyof Note)[]) {
     if (IGNORED.includes(k)) continue;
-    const x = a[k], y = b[k];
+    const x = a[k],
+      y = b[k];
     if (Array.isArray(x) && Array.isArray(y)) {
       if (x.length !== y.length || x.some((v, i) => v !== y[i])) return false;
     } else if ((x ?? null) !== (y ?? null)) return false;

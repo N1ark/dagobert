@@ -4,15 +4,25 @@
 /// `None` when the symbol doesn't exist on this macOS version.
 #[cfg(target_os = "macos")]
 pub fn sf_symbol_png(name: &str, point_size: f64) -> Option<Vec<u8>> {
-    use objc2_app_kit::{NSBitmapImageFileType, NSBitmapImageRep, NSFontWeightRegular, NSImage, NSImageSymbolConfiguration};
+    use objc2_app_kit::{
+        NSBitmapImageFileType, NSBitmapImageRep, NSFontWeightRegular, NSImage,
+        NSImageSymbolConfiguration,
+    };
     use objc2_foundation::{NSDictionary, NSString};
 
-    let img = NSImage::imageWithSystemSymbolName_accessibilityDescription(&NSString::from_str(name), None)?;
-    let cfg = NSImageSymbolConfiguration::configurationWithPointSize_weight(point_size, unsafe { NSFontWeightRegular });
+    let img = NSImage::imageWithSystemSymbolName_accessibilityDescription(
+        &NSString::from_str(name),
+        None,
+    )?;
+    let cfg = NSImageSymbolConfiguration::configurationWithPointSize_weight(point_size, unsafe {
+        NSFontWeightRegular
+    });
     let img = img.imageWithSymbolConfiguration(&cfg)?;
     let tiff = img.TIFFRepresentation()?;
     let rep = NSBitmapImageRep::imageRepWithData(&tiff)?;
-    let png = unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) }?;
+    let png = unsafe {
+        rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
+    }?;
     Some(png.to_vec())
 }
 

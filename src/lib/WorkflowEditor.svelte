@@ -20,7 +20,10 @@
 
   function addRepo() {
     const a = newAlias.trim();
-    const r = newRepo.trim().replace(/^https?:\/\/github\.com\//, "").replace(/\/+$/, "");
+    const r = newRepo
+      .trim()
+      .replace(/^https?:\/\/github\.com\//, "")
+      .replace(/\/+$/, "");
     if (!a || !/^[\w.-]+\/[\w.-]+$/.test(r)) return;
     store.setRepo(a, r);
     newAlias = "";
@@ -86,24 +89,42 @@
     </header>
     <div class="cols">
       <nav>
-        <button class="ghost item" class:active={page === "workflows" && selectedId === null} onclick={() => ((page = "workflows"), (selectedId = null))}>Todo <span class="sub">built-in</span></button>
-        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>Tracking issue <span class="sub">built-in</span></button>
+        <button
+          class="ghost item"
+          class:active={page === "workflows" && selectedId === null}
+          onclick={() => ((page = "workflows"), (selectedId = null))}>Todo <span class="sub">built-in</span></button
+        >
+        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}
+          >Tracking issue <span class="sub">built-in</span></button
+        >
         {#each store.workflows as w (w.id)}
-          <button class="ghost item" class:active={page === "workflows" && w.id === selectedId} onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || "Unnamed"}</button>
+          <button
+            class="ghost item"
+            class:active={page === "workflows" && w.id === selectedId}
+            onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || "Unnamed"}</button
+          >
         {/each}
         <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> New workflow</button>
         <div class="nav-sep"></div>
-        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}><GithubLogo size={14} /> GitHub</button>
+        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
+          ><GithubLogo size={14} /> GitHub</button
+        >
       </nav>
       <section>
         {#if page === "tracking"}
           <p class="help">
-            A <b>tracking issue</b> has no status of its own: it shows a progress ring and counts as done
-            once every note it depends on is done. Set a note's kind to "Tracking issue" in the panel.
+            A <b>tracking issue</b> has no status of its own: it shows a progress ring and counts as done once every note it depends on is done.
+            Set a note's kind to "Tracking issue" in the panel.
           </p>
           <h4>Template</h4>
           <p class="help">{TEMPLATE_HINT}</p>
-          <textarea class="template" rows="6" bind:value={store.trackingTemplate} onchange={() => store.saveMeta()} placeholder="## Scope&#10;…" spellcheck="false"></textarea>
+          <textarea
+            class="template"
+            rows="6"
+            bind:value={store.trackingTemplate}
+            onchange={() => store.saveMeta()}
+            placeholder="## Scope&#10;…"
+            spellcheck="false"></textarea>
         {:else if page === "github"}
           <h4>Repositories</h4>
           <p class="help">
@@ -132,10 +153,17 @@
           </form>
           <h4>Access token</h4>
           <p class="help">
-            Optional. Needed for private repos and higher rate limits. If empty, the <code>gh</code> CLI's login is used
-            when available. Stored on this machine only, not in the project folder.
+            Optional. Needed for private repos and higher rate limits. If empty, the <code>gh</code> CLI's login is used when available. Stored
+            on this machine only, not in the project folder.
           </p>
-          <input class="token" type="password" placeholder="ghp_…" bind:value={ghToken} onchange={() => setStoredToken(ghToken)} spellcheck="false" />
+          <input
+            class="token"
+            type="password"
+            placeholder="ghp_…"
+            bind:value={ghToken}
+            onchange={() => setStoredToken(ghToken)}
+            spellcheck="false"
+          />
         {:else if wf}
           <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder="Workflow name" />
           <p class="help">Stages in order. Tick the ones that count as done; click a dot to pick the pill colour.</p>
@@ -144,7 +172,13 @@
               <li>
                 <span class="n">{i + 1}</span>
                 <span class="dot-wrap">
-                  <button class="dot" style="--c:{stageColor(wf, stage.name)}" title="Pill colour" aria-label="colour of {stage.name}" onclick={() => (picking = picking === i ? null : i)}></button>
+                  <button
+                    class="dot"
+                    style="--c:{stageColor(wf, stage.name)}"
+                    title="Pill colour"
+                    aria-label="colour of {stage.name}"
+                    onclick={() => (picking = picking === i ? null : i)}
+                  ></button>
                   {#if picking === i}
                     <ColorPicker
                       value={stage.color ?? null}
@@ -163,9 +197,15 @@
                   <input type="checkbox" bind:checked={stage.done} onchange={() => commit(wf)} />
                   done
                 </label>
-                <button class="ghost sm" disabled={i === 0} onclick={() => move(wf, i, -1)} aria-label="move up"><ArrowUp size={13} /></button>
-                <button class="ghost sm" disabled={i === wf.stages.length - 1} onclick={() => move(wf, i, 1)} aria-label="move down"><ArrowDown size={13} /></button>
-                <button class="ghost sm" disabled={wf.stages.length <= 1} onclick={() => removeStage(wf, i)} aria-label="remove stage"><X size={13} /></button>
+                <button class="ghost sm" disabled={i === 0} onclick={() => move(wf, i, -1)} aria-label="move up"
+                  ><ArrowUp size={13} /></button
+                >
+                <button class="ghost sm" disabled={i === wf.stages.length - 1} onclick={() => move(wf, i, 1)} aria-label="move down"
+                  ><ArrowDown size={13} /></button
+                >
+                <button class="ghost sm" disabled={wf.stages.length <= 1} onclick={() => removeStage(wf, i)} aria-label="remove stage"
+                  ><X size={13} /></button
+                >
               </li>
             {/each}
           </ol>
@@ -177,15 +217,27 @@
           </div>
           <h4>Template</h4>
           <p class="help">{TEMPLATE_HINT}</p>
-          <textarea class="template" rows="6" bind:value={wf.template} onchange={() => commit(wf)} placeholder="## Checklist&#10;- [ ] …" spellcheck="false"></textarea>
+          <textarea
+            class="template"
+            rows="6"
+            bind:value={wf.template}
+            onchange={() => commit(wf)}
+            placeholder="## Checklist&#10;- [ ] …"
+            spellcheck="false"></textarea>
         {:else}
           <p class="help">
-            The built-in <b>Todo</b> workflow is just <i>todo → done</i>. Create a workflow to track
-            richer progress, e.g. <i>todo → in progress → under review → merged</i>.
+            The built-in <b>Todo</b> workflow is just <i>todo → done</i>. Create a workflow to track richer progress, e.g.
+            <i>todo → in progress → under review → merged</i>.
           </p>
           <h4>Template</h4>
           <p class="help">{TEMPLATE_HINT}</p>
-          <textarea class="template" rows="6" bind:value={store.defaultTemplate} onchange={() => store.saveMeta()} placeholder="- [ ] …" spellcheck="false"></textarea>
+          <textarea
+            class="template"
+            rows="6"
+            bind:value={store.defaultTemplate}
+            onchange={() => store.saveMeta()}
+            placeholder="- [ ] …"
+            spellcheck="false"></textarea>
         {/if}
       </section>
     </div>

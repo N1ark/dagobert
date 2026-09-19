@@ -35,7 +35,9 @@
   let confirmDelete = $state(false);
 
   const note = $derived(target.kind === "node" ? store.byId(target.id) : null);
-  const group = $derived(target.kind === "group" ? target.ids.map((id) => store.byId(id)).filter((n): n is NonNullable<typeof n> => !!n) : []);
+  const group = $derived(
+    target.kind === "group" ? target.ids.map((id) => store.byId(id)).filter((n): n is NonNullable<typeof n> => !!n) : [],
+  );
 
   /** "all" / "some" / "none" of the group carry the tag. */
   function groupHas(tag: string): "all" | "some" | "none" {
@@ -86,22 +88,40 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} onblur={onclose} />
 
-<div class="ctx" bind:this={el} style="left:{pos.left}px; top:{pos.top}px" role="menu" tabindex="-1" oncontextmenu={(e) => e.preventDefault()}>
+<div
+  class="ctx"
+  bind:this={el}
+  style="left:{pos.left}px; top:{pos.top}px"
+  role="menu"
+  tabindex="-1"
+  oncontextmenu={(e) => e.preventDefault()}
+>
   {#if note && workflow}
     <button class="item" onclick={() => run(() => store.select(note.id))}>Open</button>
     <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> Open in new window</button>
     <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> Reveal in Finder</button>
     <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> Copy <kbd>⌘C</kbd></button>
-    <button class="item" onclick={() => run(() => { const d = store.duplicate(note.id); if (d) store.select(d.id); })}>Duplicate <kbd>⌘D</kbd></button>
+    <button
+      class="item"
+      onclick={() =>
+        run(() => {
+          const d = store.duplicate(note.id);
+          if (d) store.select(d.id);
+        })}>Duplicate <kbd>⌘D</kbd></button
+    >
     {#if note.tracking}
       <div class="section">Tracking issue — {store.progress(note).done}/{store.progress(note).total} done</div>
     {:else if note.workflow === null}
-      <button class="item" onclick={() => run(() => store.advance(note.id))}>{store.isDone(note) ? "Mark as not done" : "Mark as done"}</button>
+      <button class="item" onclick={() => run(() => store.advance(note.id))}
+        >{store.isDone(note) ? "Mark as not done" : "Mark as done"}</button
+      >
     {:else}
       <div class="section">Status</div>
       {#each workflow.stages as stage (stage.name)}
         <button class="item check" class:on={note.status === stage.name} onclick={() => run(() => store.setStatus(note.id, stage.name))}>
-          <span class="mark">{#if note.status === stage.name}<Check size={11} weight="bold" />{/if}</span>
+          <span class="mark"
+            >{#if note.status === stage.name}<Check size={11} weight="bold" />{/if}</span
+          >
           <span class="pip" style="--c:{stageColor(workflow, stage.name)}"></span>{stage.name}
         </button>
       {/each}
@@ -111,7 +131,9 @@
     <div class="tags">
       {#each store.allTags as { tag } (tag)}
         <button class="item check" class:on={note.tags.includes(tag)} onclick={() => store.toggleTag(note.id, tag)}>
-          <span class="mark">{#if note.tags.includes(tag)}<Check size={11} weight="bold" />{/if}</span>
+          <span class="mark"
+            >{#if note.tags.includes(tag)}<Check size={11} weight="bold" />{/if}</span
+          >
           <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
         </button>
       {/each}
@@ -144,7 +166,9 @@
       {#each store.allTags as { tag } (tag)}
         {@const has = groupHas(tag)}
         <button class="item check" class:on={has === "all"} class:some={has === "some"} onclick={() => groupToggleTag(tag)}>
-          <span class="mark">{#if has === "all"}<Check size={11} weight="bold" />{:else if has === "some"}<Minus size={11} weight="bold" />{/if}</span>
+          <span class="mark"
+            >{#if has === "all"}<Check size={11} weight="bold" />{:else if has === "some"}<Minus size={11} weight="bold" />{/if}</span
+          >
           <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
         </button>
       {/each}
@@ -160,7 +184,9 @@
     </form>
     <div class="sep"></div>
     {#if confirmDelete}
-      <button class="item danger" onclick={() => run(() => group.forEach((n) => store.remove(n.id)))}>Really delete {group.length} (goes to trash)</button>
+      <button class="item danger" onclick={() => run(() => group.forEach((n) => store.remove(n.id)))}
+        >Really delete {group.length} (goes to trash)</button
+      >
     {:else}
       <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> Delete {group.length} notes…</button>
     {/if}

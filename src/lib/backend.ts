@@ -17,10 +17,7 @@ export const inTauri = "__TAURI_INTERNALS__" in window;
 export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" };
 
 /** Cross-window sync messages. */
-export type SyncMessage =
-  | { type: "note"; note: Note }
-  | { type: "note-removed"; id: string }
-  | { type: "meta"; meta: MetaPatch };
+export type SyncMessage = { type: "note"; note: Note } | { type: "note-removed"; id: string } | { type: "meta"; meta: MetaPatch };
 
 const channel = inTauri ? null : new BroadcastChannel("dagobert");
 
@@ -195,12 +192,18 @@ export const backend = {
   },
 
   setWindowTitle(title: string) {
-    if (inTauri) getCurrentWindow().setTitle(title).catch(() => {});
+    if (inTauri)
+      getCurrentWindow()
+        .setTitle(title)
+        .catch(() => {});
     else document.title = title;
   },
 
   closeWindow() {
-    if (inTauri) getCurrentWindow().close().catch(() => {});
+    if (inTauri)
+      getCurrentWindow()
+        .close()
+        .catch(() => {});
     else window.close();
   },
 };

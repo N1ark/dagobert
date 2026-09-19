@@ -31,7 +31,9 @@
   let recent = $state<IssueRef[]>([]);
   $effect(() => {
     const r = repo;
-    recentIssues(r).then((refs) => (recent = refs)).catch(() => {});
+    recentIssues(r)
+      .then((refs) => (recent = refs))
+      .catch(() => {});
   });
 
   // Debounced fetch as the query changes; ignore stale responses. Previous
@@ -51,19 +53,22 @@
         active = 0;
       }
     }
-    const t = setTimeout(async () => {
-      try {
-        const refs = await searchIssues(r, q);
-        if (my === seq) {
-          results = refs;
-          active = 0;
+    const t = setTimeout(
+      async () => {
+        try {
+          const refs = await searchIssues(r, q);
+          if (my === seq) {
+            results = refs;
+            active = 0;
+          }
+        } catch (e) {
+          if (my === seq) error = (e as Error).message;
+        } finally {
+          if (my === seq) loading = false;
         }
-      } catch (e) {
-        if (my === seq) error = (e as Error).message;
-      } finally {
-        if (my === seq) loading = false;
-      }
-    }, q ? 250 : 0);
+      },
+      q ? 250 : 0,
+    );
     return () => clearTimeout(t);
   });
 
@@ -97,7 +102,13 @@
     <div class="msg">No matches</div>
   {/if}
   {#each results as r, i (r.number)}
-    <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => onpick(r)} onmouseenter={() => (active = i)}>
+    <button
+      class="ghost row"
+      class:active={i === active}
+      onmousedown={(e) => e.preventDefault()}
+      onclick={() => onpick(r)}
+      onmouseenter={() => (active = i)}
+    >
       <span class="icon {r.state}">
         {#if r.isPr}
           {#if r.state === "merged"}<GitMerge size={13} />{:else}<GitPullRequest size={13} />{/if}

@@ -10,6 +10,8 @@ npm run tauri dev                              # desktop app (compiles Rust, ope
 npm run dev                                    # UI only in a browser, in-memory backend
 npm run check                                  # svelte-check (must be 0 errors / 0 warnings)
 npm test                                       # tests/*.test.mjs (pure TS modules) + cargo test
+npm run format                                 # prettier (+svelte plugin) and cargo fmt; run before committing
+npm run format:check
 npm run tauri build
 npm run install:app                            # release build → quit running app → replace in /Applications → relaunch
 npm run version -- X.Y.Z                       # sync versions, roll CHANGELOG, commit + tag
@@ -122,12 +124,12 @@ from the CLI, so the browser shim is the practical way to check interactions.
   (menu rebuilt when appearance flips). Phosphor icons are only used in-app.
 - `src/lib/QuickOpen.svelte` takes `mode: "notes" | "commands"` (⌘K vs ⇧⌘K).
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
-  + DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
-  the panel's title field stays a raw `<input>`.
+  - DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
+    the panel's title field stays a raw `<input>`.
 - `src/lib/QuickOpen.svelte` — `⌘K` (`⇧⌘K` = command mode) palette (App owns `showQuickOpen`; not in
   standalone windows). Matching lives in `fuzzy.ts` (`fuzzyMatch`: prefix > word-start
   > substring > subsequence; `parseQuery`: `#tag` filter, `>` command mode). Commands
-  come from App's `paletteActions` prop so the palette stays dumb.
+  > come from App's `paletteActions` prop so the palette stays dumb.
 - `src/lib/TrashDialog.svelte` — modal listing `trash/` with restore / delete forever / empty.
 - `src/lib/LinkPicker.svelte` — search dropdown used for adding deps/dependents.
 - `src/lib/workflows.ts` — `DEFAULT_WORKFLOW` (todo → done, id `""`, never stored)
@@ -152,7 +154,7 @@ from the CLI, so the browser shim is the practical way to check interactions.
 
 - Graph direction: `note.deps` lists what the note depends on. Edges/arrows are
   drawn dependency → dependent ("this unlocks that"). Dragging from a node's
-  right-hand port onto another node makes the *target* depend on the *source*.
+  right-hand port onto another node makes the _target_ depend on the _source_.
 - Cycles are rejected in `store.addDependency`; pickers pre-filter with `wouldCycle`.
 - Progress: a note has `workflow` (id, `null` = built-in Todo) and `status` (stage
   name). Done-ness is derived — `store.isDone(note)` checks whether the current stage

@@ -63,7 +63,9 @@
     border-radius: 50%;
     border: 2px solid transparent;
     background: var(--c);
-    transition: transform 0.1s, border-color 0.1s;
+    transition:
+      transform 0.1s,
+      border-color 0.1s;
   }
   .swatch:hover {
     transform: scale(1.15);

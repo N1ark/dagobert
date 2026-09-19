@@ -77,7 +77,10 @@ pub struct AppState {
 
 impl Default for AppState {
     fn default() -> Self {
-        Self { recent: Arc::new(Recent::default()), watch: Mutex::new(WatchState::default()) }
+        Self {
+            recent: Arc::new(Recent::default()),
+            watch: Mutex::new(WatchState::default()),
+        }
     }
 }
 
@@ -120,7 +123,10 @@ pub fn start(app: AppHandle, state: &AppState, root: PathBuf) -> Result<(), Stri
         };
         let mut seen = HashSet::new();
         for ev in events {
-            if ev.kind != DebouncedEventKind::Any || !seen.insert(ev.path.clone()) || recent.is_recent(&ev.path) {
+            if ev.kind != DebouncedEventKind::Any
+                || !seen.insert(ev.path.clone())
+                || recent.is_recent(&ev.path)
+            {
                 continue;
             }
             if let Some(change) = classify(&cb_root, &ev.path) {
@@ -133,7 +139,10 @@ pub fn start(app: AppHandle, state: &AppState, root: PathBuf) -> Result<(), Stri
     let mut debouncer = new_debouncer(DEBOUNCE, handler).map_err(|e| e.to_string())?;
     // Notes live under notes/; dagobert.json sits at the root. Watching the
     // root recursively covers both (other paths are filtered in `classify`).
-    debouncer.watcher().watch(&root, RecursiveMode::Recursive).map_err(|e| e.to_string())?;
+    debouncer
+        .watcher()
+        .watch(&root, RecursiveMode::Recursive)
+        .map_err(|e| e.to_string())?;
     // Assigning drops (and stops) any previous watcher.
     state.watch.lock().unwrap().debouncer = Some(debouncer);
     Ok(())
@@ -164,12 +173,22 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("dagobert-watch-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("notes")).unwrap();
-        assert!(matches!(classify(&dir, &dir.join("dagobert.json")), Some(Change::Meta)));
-        assert!(matches!(classify(&dir, &dir.join("notes/gone.md")), Some(Change::NoteRemoved { .. })));
+        assert!(matches!(
+            classify(&dir, &dir.join("dagobert.json")),
+            Some(Change::Meta)
+        ));
+        assert!(matches!(
+            classify(&dir, &dir.join("notes/gone.md")),
+            Some(Change::NoteRemoved { .. })
+        ));
         assert!(classify(&dir, &dir.join("trash/x.md")).is_none());
         assert!(classify(&dir, &dir.join("notes/sub/x.md")).is_none());
         assert!(classify(&dir, &dir.join("notes/x.txt")).is_none());
-        std::fs::write(dir.join("notes/a.md"), "---\nid: a\ntitle: A\ncreated: c\nmodified: m\nopened: o\n---\nhi").unwrap();
+        std::fs::write(
+            dir.join("notes/a.md"),
+            "---\nid: a\ntitle: A\ncreated: c\nmodified: m\nopened: o\n---\nhi",
+        )
+        .unwrap();
         match classify(&dir, &dir.join("notes/a.md")) {
             Some(Change::Note { note }) => {
                 assert_eq!(note.id, "a");

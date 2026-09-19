@@ -94,15 +94,34 @@
 <aside class="panel">
   <header>
     {#if progress}
-      <span class="ring" title="{progress.done} of {progress.total} dependencies done"><ProgressRing done={progress.done} total={progress.total} size={16} /></span>
+      <span class="ring" title="{progress.done} of {progress.total} dependencies done"
+        ><ProgressRing done={progress.done} total={progress.total} size={16} /></span
+      >
     {:else if !custom}
       <label class="done" title={done ? "Mark as not done" : "Mark as done"}>
         <input type="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
-    <input class="title" placeholder="Untitled" bind:value={note.title} bind:this={titleEl} oninput={edited} onchange={titleCommitted} onblur={titleCommitted} onkeydown={(e) => { if (e.key === "Escape" && !standalone) { e.preventDefault(); store.select(null); } }} title="Inline markdown works here (**bold**, `code`, [links](…))" />
+    <input
+      class="title"
+      placeholder="Untitled"
+      bind:value={note.title}
+      bind:this={titleEl}
+      oninput={edited}
+      onchange={titleCommitted}
+      onblur={titleCommitted}
+      onkeydown={(e) => {
+        if (e.key === "Escape" && !standalone) {
+          e.preventDefault();
+          store.select(null);
+        }
+      }}
+      title="Inline markdown works here (**bold**, `code`, [links](…))"
+    />
     {#if !standalone}
-      <button class="ghost close" onclick={() => store.openInWindow(note.id)} title="Open in a new window" aria-label="open in new window"><ArrowSquareOut size={16} /></button>
+      <button class="ghost close" onclick={() => store.openInWindow(note.id)} title="Open in a new window" aria-label="open in new window"
+        ><ArrowSquareOut size={16} /></button
+      >
       <button class="ghost close" onclick={() => store.select(null)} title="Close (Esc)" aria-label="close"><X size={16} /></button>
     {/if}
   </header>
@@ -161,14 +180,17 @@
         {/if}
       </span>
     {/each}
-    <input class="tag-input" placeholder={note.tags.length ? "add tag" : "add tags…"} bind:value={tagInput} onkeydown={onTagKey} onblur={addTag} />
+    <input
+      class="tag-input"
+      placeholder={note.tags.length ? "add tag" : "add tags…"}
+      bind:value={tagInput}
+      onkeydown={onTagKey}
+      onblur={addTag}
+    />
   </div>
 
   <section class="links">
-    {#each [
-      { label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set([note.id, ...depIds]), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" },
-      { label: "Blocks", items: dependents, exclude: new Set([note.id, ...dependentIds]), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" },
-    ] as g (g.key)}
+    {#each [{ label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: "Blocks", items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
       <div class="group">
         <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
         <div class="chips">
@@ -178,7 +200,12 @@
               <button class="ghost x" onclick={() => g.remove(d.id)} aria-label="remove"><X size={11} /></button>
             </span>
           {/each}
-          <button class="ghost add" class:open={adding === g.key} onclick={() => (adding = adding === g.key ? null : g.key)} title={g.placeholder}><Plus size={11} /></button>
+          <button
+            class="ghost add"
+            class:open={adding === g.key}
+            onclick={() => (adding = adding === g.key ? null : g.key)}
+            title={g.placeholder}><Plus size={11} /></button
+          >
         </div>
         {#if adding === g.key}
           <div class="picker">

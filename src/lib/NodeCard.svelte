@@ -51,7 +51,7 @@
   class="node"
   class:selected
   class:grouped
-  class:done={done}
+  class:done
   class:ready
   class:dim
   class:link-target={linkTarget}
@@ -61,9 +61,18 @@
 >
   <div class="head">
     {#if progress}
-      <span class="ring-wrap" title="{progress.done} of {progress.total} dependencies done"><ProgressRing done={progress.done} total={progress.total} /></span>
+      <span class="ring-wrap" title="{progress.done} of {progress.total} dependencies done"
+        ><ProgressRing done={progress.done} total={progress.total} /></span
+      >
     {:else if !custom}
-      <button class="check" class:on={done} onpointerdown={(e) => e.stopPropagation()} onclick={advance} title={done ? "Mark as not done" : "Mark as done"} aria-label="toggle done">
+      <button
+        class="check"
+        class:on={done}
+        onpointerdown={(e) => e.stopPropagation()}
+        onclick={advance}
+        title={done ? "Mark as not done" : "Mark as done"}
+        aria-label="toggle done"
+      >
         {#if done}
           <Check size={11} weight="bold" />
         {/if}
@@ -74,10 +83,18 @@
   {#if custom || progress || note.tags.length}
     <div class="tags">
       {#if progress}
-        <span class="progress" class:complete={progress.total > 0 && progress.done === progress.total}>{progress.done}/{progress.total}</span>
+        <span class="progress" class:complete={progress.total > 0 && progress.done === progress.total}
+          >{progress.done}/{progress.total}</span
+        >
       {/if}
       {#if custom}
-        <button class="status" style="--c:{stageColor(workflow, note.status)}" onpointerdown={(e) => e.stopPropagation()} onclick={advance} title="{workflow.name} — click to advance">
+        <button
+          class="status"
+          style="--c:{stageColor(workflow, note.status)}"
+          onpointerdown={(e) => e.stopPropagation()}
+          onclick={advance}
+          title="{workflow.name} — click to advance"
+        >
           <span class="pip"></span>{note.status}
         </button>
       {/if}
@@ -103,22 +120,34 @@
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
-    transition: box-shadow 0.15s, opacity 0.15s;
+    transition:
+      box-shadow 0.15s,
+      opacity 0.15s;
   }
   .node:hover {
-    box-shadow: 0 0 0 1px #ffffff2a, 0 0 4px 4px #ffffff05;
+    box-shadow:
+      0 0 0 1px #ffffff2a,
+      0 0 4px 4px #ffffff05;
   }
   .node.ready {
-    box-shadow: 0 0 0 1px var(--accent-soft), 0 0 4px 4px #ffffff03;
+    box-shadow:
+      0 0 0 1px var(--accent-soft),
+      0 0 4px 4px #ffffff03;
   }
   .node.grouped {
-    box-shadow: 0 0 0 1.5px var(--accent), 0 0 8px 1px #8a2aa233;
+    box-shadow:
+      0 0 0 1.5px var(--accent),
+      0 0 8px 1px #8a2aa233;
   }
   .node.selected {
-    box-shadow: 0 0 0 1.5px var(--accent2), 0 0 12px 2px #8a2aa244;
+    box-shadow:
+      0 0 0 1.5px var(--accent2),
+      0 0 12px 2px #8a2aa244;
   }
   .node.link-target {
-    box-shadow: 0 0 0 2px var(--green), 0 0 12px 2px #98c37944;
+    box-shadow:
+      0 0 0 2px var(--green),
+      0 0 12px 2px #98c37944;
   }
   .node.done {
     opacity: 0.55;
@@ -228,7 +257,17 @@
     cursor: ew-resize;
     opacity: 0;
     transition: opacity 0.15s;
-    background: linear-gradient(135deg, transparent 50%, #555 50%, #555 62%, transparent 62%, transparent 75%, #555 75%, #555 87%, transparent 87%);
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      #555 50%,
+      #555 62%,
+      transparent 62%,
+      transparent 75%,
+      #555 75%,
+      #555 87%,
+      transparent 87%
+    );
     border-bottom-right-radius: var(--radius);
   }
   .node:hover .grip,
@@ -236,7 +275,17 @@
     opacity: 1;
   }
   .grip:hover {
-    background: linear-gradient(135deg, transparent 50%, var(--accent2) 50%, var(--accent2) 62%, transparent 62%, transparent 75%, var(--accent2) 75%, var(--accent2) 87%, transparent 87%);
+    background: linear-gradient(
+      135deg,
+      transparent 50%,
+      var(--accent2) 50%,
+      var(--accent2) 62%,
+      transparent 62%,
+      transparent 75%,
+      var(--accent2) 75%,
+      var(--accent2) 87%,
+      transparent 87%
+    );
   }
   .port {
     position: absolute;
@@ -250,7 +299,10 @@
     border: 1.5px solid #444;
     cursor: crosshair;
     opacity: 0;
-    transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+    transition:
+      opacity 0.15s,
+      border-color 0.15s,
+      background 0.15s;
   }
   .node:hover .port,
   .node.selected .port {

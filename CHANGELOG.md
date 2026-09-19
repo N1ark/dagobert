@@ -7,11 +7,13 @@ All notable changes to Dagobert are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+
 - macOS menu bar (File / Edit / Note / View / Tools) built from the same action list as
   the command palette, with shortcuts.
 - Command palette actions have icons; the menu bar uses SF Symbols.
 
 ### Changed
+
 - Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
   is gone.
 - Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
@@ -27,6 +29,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Pasting a URL over selected text in the editor turns the selection into a link.
 
 ### Fixed
+
 - Links in a card's title/preview open in the browser again (the drag handler was swallowing the click).
 - `[[Links]]` to notes whose title contains backticks now resolve.
 - Task-list checkboxes in the rendered body can be ticked by clicking them.
@@ -34,11 +37,13 @@ All notable changes to Dagobert are documented here. The format follows
   in its own window).
 
 ### Changed
+
 - Double-clicking a node opens it in its own window instead of creating a note on top of it.
 
 ## [0.2.0] - 2026-09-17
 
 ### Added
+
 - Undo / redo (`⌘Z` / `⇧⌘Z`, also in the ⌘K palette) for moves, resizes, links,
   tags, status/workflow changes, edits, creates, deletes and restores. Actions done
   together (group drag, Tidy, bulk tag/status) undo as one step; typing coalesces.
@@ -66,6 +71,7 @@ All notable changes to Dagobert are documented here. The format follows
 Initial version.
 
 ### Added
+
 - Canvas of notes forming a DAG: pan, zoom, drag, drag-to-link with cycle rejection,
   positions and viewport persisted per project folder.
 - Notes as markdown files with YAML frontmatter (`notes/<slug>.md`), project settings

@@ -95,9 +95,23 @@ export function caretCoords(el: HTMLTextAreaElement, index: number): { left: num
   const div = document.createElement("div");
   const cs = getComputedStyle(el);
   for (const p of [
-    "fontFamily", "fontSize", "fontWeight", "lineHeight", "letterSpacing", "textTransform",
-    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft", "borderTopWidth", "borderLeftWidth",
-    "boxSizing", "whiteSpace", "wordWrap", "overflowWrap", "tabSize",
+    "fontFamily",
+    "fontSize",
+    "fontWeight",
+    "lineHeight",
+    "letterSpacing",
+    "textTransform",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "borderTopWidth",
+    "borderLeftWidth",
+    "boxSizing",
+    "whiteSpace",
+    "wordWrap",
+    "overflowWrap",
+    "tabSize",
   ] as const) {
     div.style[p] = cs[p];
   }

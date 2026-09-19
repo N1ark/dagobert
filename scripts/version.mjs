@@ -18,5 +18,8 @@ edit("src-tauri/Cargo.toml", (s) => s.replace(/^version = "[^"]+"/m, `version = 
 const today = new Date().toISOString().slice(0, 10);
 edit("CHANGELOG.md", (s) => s.replace("## [Unreleased]\n", `## [Unreleased]\n\n## [${v}] - ${today}\n`));
 execSync("cargo generate-lockfile --offline --manifest-path src-tauri/Cargo.toml", { stdio: "ignore" });
-execSync(`git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md && git commit -m "v${v}" && git tag v${v}`, { stdio: "inherit" });
+execSync(
+  `git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock CHANGELOG.md && git commit -m "v${v}" && git tag v${v}`,
+  { stdio: "inherit" },
+);
 console.log(`v${v}`);

@@ -124,7 +124,11 @@ pub struct Stage {
 
 impl Default for Viewport {
     fn default() -> Self {
-        Self { x: 0.0, y: 0.0, zoom: 1.0 }
+        Self {
+            x: 0.0,
+            y: 0.0,
+            zoom: 1.0,
+        }
     }
 }
 
@@ -197,7 +201,11 @@ fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
     let stem = wanted.strip_suffix(".md").unwrap_or(wanted);
     let mut n = 0;
     loop {
-        let candidate = if n == 0 { format!("{stem}-{id}.md") } else { format!("{stem}-{id}-{n}.md") };
+        let candidate = if n == 0 {
+            format!("{stem}-{id}.md")
+        } else {
+            format!("{stem}-{id}-{n}.md")
+        };
         if !dir.join(&candidate).exists() {
             return candidate;
         }
@@ -230,7 +238,9 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
         modified: fm.modified,
         opened: fm.opened,
         workflow: fm.workflow,
-        status: fm.status.unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
+        status: fm
+            .status
+            .unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
         tracking: fm.tracking,
         x: fm.x,
         y: fm.y,
@@ -311,10 +321,16 @@ pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
     let slug = slugify(&note.title);
-    let wanted = if note.file.is_empty() || Path::new(&note.file).file_stem().and_then(|s| s.to_str()) != Some(&slug) {
+    let wanted = if note.file.is_empty()
+        || Path::new(&note.file).file_stem().and_then(|s| s.to_str()) != Some(&slug)
+    {
         // Pick a free filename for the new slug (our own current file doesn't count).
         let candidate = format!("{slug}.md");
-        if candidate == note.file { candidate } else { free_name(&dir, &candidate, &note.id) }
+        if candidate == note.file {
+            candidate
+        } else {
+            free_name(&dir, &candidate, &note.id)
+        }
     } else {
         note.file.clone()
     };
@@ -373,7 +389,10 @@ pub fn restore_note(root: &Path, file: &str) -> Result<Note, String> {
     note.deleted = None;
     note.file = String::new();
     // Refuse to resurrect an id that's live again (e.g. restored twice from copies).
-    if read_notes(&notes_dir(root))?.iter().any(|n| n.id == note.id) {
+    if read_notes(&notes_dir(root))?
+        .iter()
+        .any(|n| n.id == note.id)
+    {
         return Err("A note with this id already exists.".into());
     }
     let restored = save_note(root, note)?;
@@ -502,26 +521,63 @@ mod tests {
         assert_eq!(p.meta.viewport.zoom, 1.0, "fresh project has a usable zoom");
         let mut tag_colors = BTreeMap::new();
         tag_colors.insert("a".to_string(), "#61afef".to_string());
-        save_meta(&dir, MetaPatch { viewport: Some(Viewport { x: 1.0, y: 2.0, zoom: 0.5 }), ..Default::default() }).unwrap();
+        save_meta(
+            &dir,
+            MetaPatch {
+                viewport: Some(Viewport {
+                    x: 1.0,
+                    y: 2.0,
+                    zoom: 0.5,
+                }),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let wf = Workflow {
             id: "pr".into(),
             name: "PR".into(),
-            stages: vec![Stage { name: "todo".into(), done: false, color: None }, Stage { name: "merged".into(), done: true, color: Some("#61afef".into()) }],
+            stages: vec![
+                Stage {
+                    name: "todo".into(),
+                    done: false,
+                    color: None,
+                },
+                Stage {
+                    name: "merged".into(),
+                    done: true,
+                    color: Some("#61afef".into()),
+                },
+            ],
             template: "## Checklist\n- [ ] tests".into(),
         };
-        save_meta(&dir, MetaPatch { tag_colors: Some(tag_colors), workflows: Some(vec![wf]), default_template: Some("- [ ] ".into()), ..Default::default() }).unwrap();
+        save_meta(
+            &dir,
+            MetaPatch {
+                tag_colors: Some(tag_colors),
+                workflows: Some(vec![wf]),
+                default_template: Some("- [ ] ".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
         let m = open(&dir).unwrap().meta;
-        assert_eq!(m.viewport.zoom, 0.5, "patching tag colours keeps the viewport");
+        assert_eq!(
+            m.viewport.zoom, 0.5,
+            "patching tag colours keeps the viewport"
+        );
         assert_eq!(m.tag_colors["a"], "#61afef");
         assert_eq!(m.workflows[0].template, "## Checklist\n- [ ] tests");
         assert_eq!(m.default_template, "- [ ] ");
         // Old files without templates still load.
-        let legacy: Meta = serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
+        let legacy: Meta =
+            serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
         assert_eq!(legacy.workflows[0].template, "");
         assert_eq!(legacy.default_template, "");
 
         // Soft delete: goes to trash/, stamped, and comes back on restore.
-        let trashed = delete_note(&dir, &renamed.file, "2026-09-16T11:00:00.000Z").unwrap().unwrap();
+        let trashed = delete_note(&dir, &renamed.file, "2026-09-16T11:00:00.000Z")
+            .unwrap()
+            .unwrap();
         assert_eq!(open(&dir).unwrap().notes.len(), 1);
         assert_eq!(trashed.deleted.as_deref(), Some("2026-09-16T11:00:00.000Z"));
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
@@ -535,11 +591,21 @@ mod tests {
         let c = save_note(&dir, note("c3", "Dup")).unwrap();
         delete_note(&dir, &c.file, "t1").unwrap();
         let d = save_note(&dir, note("d4", "Dup")).unwrap();
-        assert_eq!(d.file, "dup.md", "name is free again after the first was trashed");
+        assert_eq!(
+            d.file, "dup.md",
+            "name is free again after the first was trashed"
+        );
         delete_note(&dir, &d.file, "t2").unwrap();
-        let names: Vec<String> = list_trash(&dir).unwrap().into_iter().map(|n| n.file).collect();
+        let names: Vec<String> = list_trash(&dir)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.file)
+            .collect();
         assert_eq!(names.len(), 2);
-        assert!(names.contains(&"dup.md".to_string()) && names.contains(&"dup-d4.md".to_string()), "{names:?}");
+        assert!(
+            names.contains(&"dup.md".to_string()) && names.contains(&"dup-d4.md".to_string()),
+            "{names:?}"
+        );
 
         purge_trash(&dir, Some("dup.md")).unwrap();
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
@@ -550,14 +616,22 @@ mod tests {
 
     #[test]
     fn legacy_done_migrates_to_status() {
-        let n = parse_note("---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\ndone: true\n---\nbody", "x.md").unwrap();
+        let n = parse_note(
+            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\ndone: true\n---\nbody",
+            "x.md",
+        )
+        .unwrap();
         assert_eq!(n.status, "done");
         assert_eq!(n.workflow, None);
         let n = parse_note("---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\nworkflow: pr\nstatus: review\n---\n", "x.md").unwrap();
         assert_eq!(n.status, "review");
         assert_eq!(n.workflow.as_deref(), Some("pr"));
         let out = serialize_note(&n).unwrap();
-        assert!(out.contains("workflow: pr\n") && out.contains("status: review\n") && !out.contains("done:"));
+        assert!(
+            out.contains("workflow: pr\n")
+                && out.contains("status: review\n")
+                && !out.contains("done:")
+        );
     }
 
     #[test]

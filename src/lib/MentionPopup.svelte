@@ -69,13 +69,25 @@
 {#if count}
   <div class="mention" style="left:{left}px; top:{top}px" role="listbox">
     {#each results as n, i (n.id)}
-      <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
+      <button
+        class="ghost row"
+        class:active={i === active}
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => choose(i)}
+        onmouseenter={() => (active = i)}
+      >
         <span class="t" class:done={store.isDone(n)}><InlineMd source={n.title} /></span>
         {#if n.tags.length}<span class="tags">{n.tags.join(", ")}</span>{/if}
       </button>
     {/each}
     {#if canCreate}
-      <button class="ghost row create" class:active={active === results.length} onmousedown={(e) => e.preventDefault()} onclick={() => choose(results.length)} onmouseenter={() => (active = results.length)}>
+      <button
+        class="ghost row create"
+        class:active={active === results.length}
+        onmousedown={(e) => e.preventDefault()}
+        onclick={() => choose(results.length)}
+        onmouseenter={() => (active = results.length)}
+      >
         + Create “{query.trim()}”
       </button>
     {/if}

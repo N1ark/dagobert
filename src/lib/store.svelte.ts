@@ -128,7 +128,8 @@ class Store {
 
   /** Direct dependencies done / total (what a tracking issue's ring shows). */
   progress(note: Note): { done: number; total: number } {
-    let done = 0, total = 0;
+    let done = 0,
+      total = 0;
     for (const d of note.deps) {
       const dep = this.byId(d);
       if (!dep) continue;
@@ -153,7 +154,7 @@ class Store {
     const n = this.byId(id);
     if (!n || n.tracking) return;
     const stages = this.workflowOf(n).stages;
-    const target = done ? stages.find((s) => s.done) ?? stages[stages.length - 1] : stages[0];
+    const target = done ? (stages.find((s) => s.done) ?? stages[stages.length - 1]) : stages[0];
     this.setStatus(id, target.name);
   }
 
@@ -195,7 +196,7 @@ class Store {
     const blank = this.#bodyIsBlank(n);
     n.workflow = workflowId;
     const stages = this.workflowOf(n).stages;
-    n.status = (wasDone ? stages.find((s) => s.done) ?? stages[0] : stages[0]).name;
+    n.status = (wasDone ? (stages.find((s) => s.done) ?? stages[0]) : stages[0]).name;
     // An untouched body picks up the new workflow's template.
     if (blank) n.body = renderTemplate(this.templateFor(workflowId), n.title);
     this.touch(id, { immediate: true, label: "workflow" });
@@ -321,7 +322,7 @@ class Store {
   }
 
   fail(e: unknown) {
-    this.error = typeof e === "string" ? e : (e as Error)?.message ?? String(e);
+    this.error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
     console.error(e);
     setTimeout(() => (this.error = null), 4000);
   }
@@ -508,7 +509,15 @@ class Store {
     const workflow = src.workflow && this.workflows.some((w) => w.id === src.workflow) ? src.workflow : null;
     const stages = (this.workflows.find((w) => w.id === workflow) ?? DEFAULT_WORKFLOW).stages;
     const status = stages.some((s) => s.name === src.status) ? src.status : stages[0].name;
-    return this.create(Math.round(x), Math.round(y), { title: src.title, tags: [...src.tags], body: src.body, workflow, status, tracking: !!src.tracking, width: src.width ?? null });
+    return this.create(Math.round(x), Math.round(y), {
+      title: src.title,
+      tags: [...src.tags],
+      body: src.body,
+      workflow,
+      status,
+      tracking: !!src.tracking,
+      width: src.width ?? null,
+    });
   }
 
   paste(x: number, y: number): Note | null {
@@ -658,7 +667,8 @@ class Store {
       queueMicrotask(() => this.#flushRecord());
     }
     const existing = this.#pending.diffs.find((d) => d.id === diff.id);
-    if (existing) existing.after = diff.after; // keep the earliest "before"
+    if (existing)
+      existing.after = diff.after; // keep the earliest "before"
     else this.#pending.diffs.push(diff);
     if (diff.after) this.#last.set(diff.id, structuredClone(diff.after));
     else this.#last.delete(diff.id);
@@ -708,7 +718,9 @@ class Store {
     this.#applying = true;
     try {
       // Bring notes back first so restored links have something to point at.
-      const ordered = [...diffs].sort((a, b) => Number(!(dir === "undo" ? a.before : a.after)) - Number(!(dir === "undo" ? b.before : b.after)));
+      const ordered = [...diffs].sort(
+        (a, b) => Number(!(dir === "undo" ? a.before : a.after)) - Number(!(dir === "undo" ? b.before : b.after)),
+      );
       for (const d of ordered) {
         const target = dir === "undo" ? d.before : d.after;
         const local = this.byId(d.id);
@@ -818,7 +830,17 @@ class Store {
     const patch = this.#metaPatch();
     if (!Object.keys(patch).length) return;
     backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
-    if (patch.tag_colors || patch.workflows) backend.broadcast({ type: "meta", meta: { tag_colors: patch.tag_colors, workflows: patch.workflows, default_template: patch.default_template, tracking_template: patch.tracking_template, repos: patch.repos } });
+    if (patch.tag_colors || patch.workflows)
+      backend.broadcast({
+        type: "meta",
+        meta: {
+          tag_colors: patch.tag_colors,
+          workflows: patch.workflows,
+          default_template: patch.default_template,
+          tracking_template: patch.tracking_template,
+          repos: patch.repos,
+        },
+      });
   }
 
   /** Tag colours / workflows changed. */

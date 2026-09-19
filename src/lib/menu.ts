@@ -44,7 +44,13 @@ export async function setAppMenu(actions: Action[]) {
   const items = async (list: Action[]): Promise<(MenuItem | IconMenuItem | PredefinedMenuItem)[]> =>
     Promise.all(
       list.map(async (a) => {
-        const base = { id: a.id, text: a.menuLabel ?? a.label, accelerator: accelerator(a.hint), enabled: a.enabled !== false, action: () => a.run() };
+        const base = {
+          id: a.id,
+          text: a.menuLabel ?? a.label,
+          accelerator: accelerator(a.hint),
+          enabled: a.enabled !== false,
+          action: () => a.run(),
+        };
         const icon = a.symbol ? await sfSymbolImage(a.symbol, dark) : null;
         return icon ? IconMenuItem.new({ ...base, icon }) : MenuItem.new(base);
       }),

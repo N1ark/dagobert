@@ -26,7 +26,12 @@ fn save_note(state: State<AppState>, path: String, note: Note) -> Result<Note, S
 }
 
 #[tauri::command]
-fn delete_note(state: State<AppState>, path: String, file: String, deleted_at: String) -> Result<Option<Note>, String> {
+fn delete_note(
+    state: State<AppState>,
+    path: String,
+    file: String,
+    deleted_at: String,
+) -> Result<Option<Note>, String> {
     let root = Path::new(&path);
     state.recent.mark(store::notes_dir(root).join(&file));
     store::delete_note(root, &file, &deleted_at)
@@ -48,7 +53,9 @@ fn list_trash(path: String) -> Result<Vec<Note>, String> {
 fn restore_note(state: State<AppState>, path: String, file: String) -> Result<Note, String> {
     let root = Path::new(&path);
     let restored = store::restore_note(root, &file)?;
-    state.recent.mark(store::notes_dir(root).join(&restored.file));
+    state
+        .recent
+        .mark(store::notes_dir(root).join(&restored.file));
     Ok(restored)
 }
 
@@ -82,18 +89,27 @@ fn unwatch_project(state: State<AppState>) {
 /// First SF Symbol from `names` that exists, as PNG bytes (macOS only).
 #[tauri::command]
 fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
-    names.iter().find_map(|n| symbols::sf_symbol_png(n, point_size))
+    names
+        .iter()
+        .find_map(|n| symbols::sf_symbol_png(n, point_size))
 }
 
 /// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
 #[tauri::command]
 fn github_cli_token() -> Option<String> {
-    let out = std::process::Command::new("gh").args(["auth", "token"]).output().ok()?;
+    let out = std::process::Command::new("gh")
+        .args(["auth", "token"])
+        .output()
+        .ok()?;
     if !out.status.success() {
         return None;
     }
     let t = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    if t.is_empty() { None } else { Some(t) }
+    if t.is_empty() {
+        None
+    } else {
+        Some(t)
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -8,7 +8,9 @@
   /** Renders a single line of markdown (bold, code, links…) with no block wrapper. */
   let { source, fallback = "" }: { source: string; fallback?: string } = $props();
 
-  const html = $derived(source.trim() ? DOMPurify.sanitize(marked.parseInline(renderWikilinks(source), { gfm: true, async: false }) as string) : "");
+  const html = $derived(
+    source.trim() ? DOMPurify.sanitize(marked.parseInline(renderWikilinks(source), { gfm: true, async: false }) as string) : "",
+  );
 
   function onClick(e: MouseEvent) {
     const id = wikilinkTarget(e.target as HTMLElement);

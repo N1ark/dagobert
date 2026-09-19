@@ -61,7 +61,9 @@
                 </div>
               </div>
               <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> Restore</button>
-              <button class="ghost sm danger" onclick={() => store.purge(n.file)} title="Delete permanently"><Trash size={13} /> Delete forever</button>
+              <button class="ghost sm danger" onclick={() => store.purge(n.file)} title="Delete permanently"
+                ><Trash size={13} /> Delete forever</button
+              >
             </li>
           {/each}
         </ul>

@@ -366,8 +366,7 @@
           onclick={updateMention}
           onblur={() => setTimeout(() => (mention = issue = null), 150)}
           spellcheck="false"
-          rows="1"
-        ></textarea>
+          rows="1"></textarea>
       </div>
     {:else}
       <div class="block" onclick={(e) => onBlockClick(e, i)}>
@@ -377,17 +376,43 @@
   {/each}
   {#if active !== null && active >= blocks.length}
     <div class="block editing" class:code={activeIsCode}>
-      <textarea bind:this={textarea} value={draft} oninput={onInput} onkeydown={onKey} onpaste={onPaste} onblur={() => setTimeout(() => (mention = issue = null), 150)} spellcheck="false" rows="1"></textarea>
+      <textarea
+        bind:this={textarea}
+        value={draft}
+        oninput={onInput}
+        onkeydown={onKey}
+        onpaste={onPaste}
+        onblur={() => setTimeout(() => (mention = issue = null), 150)}
+        spellcheck="false"
+        rows="1"></textarea>
     </div>
   {/if}
   {#if !blocks.length && active === null}
-    <div class="block placeholder" onclick={() => appendBlock()}>Write in markdown… click to start. <span class="hint">⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block</span></div>
+    <div class="block placeholder" onclick={() => appendBlock()}>
+      Write in markdown… click to start. <span class="hint">⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block</span>
+    </div>
   {/if}
   {#if issue}
-    <IssuePopup bind:this={issuePopup} alias={issue.alias} repo={issue.repo} query={issue.query} left={issue.left} top={issue.top} onpick={insertIssue} />
+    <IssuePopup
+      bind:this={issuePopup}
+      alias={issue.alias}
+      repo={issue.repo}
+      query={issue.query}
+      left={issue.left}
+      top={issue.top}
+      onpick={insertIssue}
+    />
   {/if}
   {#if mention}
-    <MentionPopup bind:this={mentionPopup} query={mention.query} left={mention.left} top={mention.top} excludeId={note.id} onpick={(n) => insertLink(n.title)} oncreate={createAndLink} />
+    <MentionPopup
+      bind:this={mentionPopup}
+      query={mention.query}
+      left={mention.left}
+      top={mention.top}
+      excludeId={note.id}
+      onpick={(n) => insertLink(n.title)}
+      oncreate={createAndLink}
+    />
   {/if}
   <div class="tail" onclick={() => appendBlock()}></div>
 </div>

@@ -32,14 +32,18 @@
 
   /** World bounds of all notes plus the viewport, so the view box never leaves the map. */
   const bounds = $derived.by(() => {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const n of store.notes) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
       maxX = Math.max(maxX, n.x + widthOf(n));
       maxY = Math.max(maxY, n.y + heightOf(n.id));
     }
-    const vx0 = -vp.x / vp.zoom, vy0 = -vp.y / vp.zoom;
+    const vx0 = -vp.x / vp.zoom,
+      vy0 = -vp.y / vp.zoom;
     minX = Math.min(minX, vx0) - PAD;
     minY = Math.min(minY, vy0) - PAD;
     maxX = Math.max(maxX, vx0 + viewW / vp.zoom) + PAD;
@@ -51,7 +55,10 @@
     return { minX, minY, scale, ox, oy };
   });
 
-  const toMap = (x: number, y: number) => ({ x: bounds.ox + (x - bounds.minX) * bounds.scale, y: bounds.oy + (y - bounds.minY) * bounds.scale });
+  const toMap = (x: number, y: number) => ({
+    x: bounds.ox + (x - bounds.minX) * bounds.scale,
+    y: bounds.oy + (y - bounds.minY) * bounds.scale,
+  });
 
   const view = $derived.by(() => {
     const a = toMap(-vp.x / vp.zoom, -vp.y / vp.zoom);

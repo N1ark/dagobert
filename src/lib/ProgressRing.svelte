@@ -8,9 +8,25 @@
   const complete = $derived(total > 0 && done === total);
 </script>
 
-<svg class="ring" class:complete class:empty={!total} width={size} height={size} viewBox="0 0 {size} {size}" aria-label="{done} of {total} done">
+<svg
+  class="ring"
+  class:complete
+  class:empty={!total}
+  width={size}
+  height={size}
+  viewBox="0 0 {size} {size}"
+  aria-label="{done} of {total} done"
+>
   <circle class="track" cx={size / 2} cy={size / 2} {r} />
-  <circle class="fill" cx={size / 2} cy={size / 2} {r} stroke-dasharray={c} stroke-dashoffset={c * (1 - frac)} transform="rotate(-90 {size / 2} {size / 2})" />
+  <circle
+    class="fill"
+    cx={size / 2}
+    cy={size / 2}
+    {r}
+    stroke-dasharray={c}
+    stroke-dashoffset={c * (1 - frac)}
+    transform="rotate(-90 {size / 2} {size / 2})"
+  />
 </svg>
 
 <style>

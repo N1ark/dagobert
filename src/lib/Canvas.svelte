@@ -32,7 +32,14 @@
   let lastPointer: { x: number; y: number } | null = null;
 
   // Pointer interaction state (not reactive on purpose).
-  let drag: { clicked: string; ids: string[]; startX: number; startY: number; origins: Map<string, { x: number; y: number }>; moved: boolean } | null = null;
+  let drag: {
+    clicked: string;
+    ids: string[];
+    startX: number;
+    startY: number;
+    origins: Map<string, { x: number; y: number }>;
+    moved: boolean;
+  } | null = null;
   /** Shift+drag rubber band, in screen coords relative to the container. */
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number; base: string[] } | null>(null);
   let pan: { startX: number; startY: number; vx: number; vy: number } | null = null;
@@ -47,18 +54,20 @@
     const up = [store.selectedId];
     while (up.length) {
       const n = store.byId(up.pop()!);
-      for (const d of n?.deps ?? []) if (!set.has(d)) {
-        set.add(d);
-        up.push(d);
-      }
+      for (const d of n?.deps ?? [])
+        if (!set.has(d)) {
+          set.add(d);
+          up.push(d);
+        }
     }
     const down = [store.selectedId];
     while (down.length) {
       const id = down.pop()!;
-      for (const n of store.notes) if (n.deps.includes(id) && !set.has(n.id)) {
-        set.add(n.id);
-        down.push(n.id);
-      }
+      for (const n of store.notes)
+        if (n.deps.includes(id) && !set.has(n.id)) {
+          set.add(n.id);
+          down.push(n.id);
+        }
     }
     return set;
   });
@@ -125,7 +134,8 @@
     const top = n.y * vp.zoom + vp.y;
     const right = left + widthOf(n) * vp.zoom;
     const bottom = top + h(id) * vp.zoom;
-    let dx = 0, dy = 0;
+    let dx = 0,
+      dy = 0;
     if (left < m) dx = m - left;
     else if (right > r.width - m) dx = r.width - m - right;
     if (top < m) dy = m - top;
@@ -145,10 +155,11 @@
   /** Of `candidates`, the one whose centre is closest in y to `from`. */
   function closestByY(from: Note, candidates: Note[]): Note | null {
     const cy = centerOf(from).y;
-    let best: Note | null = null, bestD = Infinity;
+    let best: Note | null = null,
+      bestD = Infinity;
     for (const c of candidates) {
       const d = Math.abs(centerOf(c).y - cy);
-      if (d < bestD) (best = c), (bestD = d);
+      if (d < bestD) ((best = c), (bestD = d));
     }
     return best;
   }
@@ -156,7 +167,8 @@
   /** Nearest node strictly above/below; overlapping x ranges are preferred. */
   function verticalNeighbour(from: Note, dir: -1 | 1): Note | null {
     const c = centerOf(from);
-    let best: Note | null = null, bestScore = Infinity;
+    let best: Note | null = null,
+      bestScore = Infinity;
     for (const n of store.notes) {
       if (n.id === from.id) continue;
       const nc = centerOf(n);
@@ -164,7 +176,7 @@
       const overlaps = n.x < from.x + widthOf(from) && n.x + widthOf(n) > from.x;
       // Overlapping columns score by vertical distance; others pay a penalty.
       const score = Math.abs(nc.y - c.y) + (overlaps ? 0 : 100000 + Math.abs(nc.x - c.x));
-      if (score < bestScore) (best = n), (bestScore = score);
+      if (score < bestScore) ((best = n), (bestScore = score));
     }
     return best;
   }
@@ -173,11 +185,12 @@
   function nearestToCenter(): Note | null {
     const r = container.getBoundingClientRect();
     const w = toWorld(r.left + r.width / 2, r.top + r.height / 2);
-    let best: Note | null = null, bestD = Infinity;
+    let best: Note | null = null,
+      bestD = Infinity;
     for (const n of store.notes) {
       const c = centerOf(n);
       const d = Math.hypot(c.x - w.x, c.y - w.y);
-      if (d < bestD) (best = n), (bestD = d);
+      if (d < bestD) ((best = n), (bestD = d));
     }
     return best;
   }
@@ -245,7 +258,10 @@
   export function fitAll() {
     if (!store.notes.length) return;
     const r = container.getBoundingClientRect();
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
     for (const n of store.notes) {
       minX = Math.min(minX, n.x);
       minY = Math.min(minY, n.y);
@@ -253,7 +269,10 @@
       maxY = Math.max(maxY, n.y + h(n.id));
     }
     const pad = 60;
-    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.min((r.width - pad * 2) / (maxX - minX), (r.height - pad * 2) / (maxY - minY), 1)));
+    const zoom = Math.min(
+      MAX_ZOOM,
+      Math.max(MIN_ZOOM, Math.min((r.width - pad * 2) / (maxX - minX), (r.height - pad * 2) / (maxY - minY), 1)),
+    );
     vp.zoom = zoom;
     vp.x = (r.width - (maxX - minX) * zoom) / 2 - minX * zoom;
     vp.y = (r.height - (maxY - minY) * zoom) / 2 - minY * zoom;
@@ -648,7 +667,9 @@
   {#if marquee}
     <div
       class="marquee"
-      style="left:{Math.min(marquee.x0, marquee.x1)}px; top:{Math.min(marquee.y0, marquee.y1)}px; width:{Math.abs(marquee.x1 - marquee.x0)}px; height:{Math.abs(marquee.y1 - marquee.y0)}px"
+      style="left:{Math.min(marquee.x0, marquee.x1)}px; top:{Math.min(marquee.y0, marquee.y1)}px; width:{Math.abs(
+        marquee.x1 - marquee.x0,
+      )}px; height:{Math.abs(marquee.y1 - marquee.y0)}px"
     ></div>
   {/if}
 
@@ -657,10 +678,17 @@
   {/if}
 
   {#if menu}
-    <ContextMenu x={menu.x} y={menu.y} target={menu.target} onclose={() => (menu = null)} oncreate={createAt} onpaste={(wx, wy) => {
-      const n = store.paste(wx, wy);
-      if (n) store.select(n.id);
-    }} />
+    <ContextMenu
+      x={menu.x}
+      y={menu.y}
+      target={menu.target}
+      onclose={() => (menu = null)}
+      oncreate={createAt}
+      onpaste={(wx, wy) => {
+        const n = store.paste(wx, wy);
+        if (n) store.select(n.id);
+      }}
+    />
   {/if}
 
   {#if !store.notes.length}
@@ -729,7 +757,9 @@
     fill: none;
     stroke: #444;
     stroke-width: 1.5;
-    transition: stroke 0.15s, opacity 0.15s;
+    transition:
+      stroke 0.15s,
+      opacity 0.15s;
   }
   .edge:hover .line,
   .edge.near .line {

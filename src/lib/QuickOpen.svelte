@@ -144,7 +144,13 @@
       {:else}
         <MagnifyingGlass size={16} />
       {/if}
-      <input bind:this={input} bind:value={query} onkeydown={onKey} placeholder={mode === "commands" ? "Run a command…" : "Jump to a note…  #tag to filter"} spellcheck="false" />
+      <input
+        bind:this={input}
+        bind:value={query}
+        onkeydown={onKey}
+        placeholder={mode === "commands" ? "Run a command…" : "Jump to a note…  #tag to filter"}
+        spellcheck="false"
+      />
       <span class="mode">{mode === "commands" ? "⇧⌘K" : "⌘K"}</span>
     </div>
     <div class="list" bind:this={list}>
@@ -152,7 +158,13 @@
         {#if row.kind === "note"}
           {@const n = row.note}
           {@const wf = store.workflowOf(n)}
-          <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
+          <button
+            class="ghost row"
+            class:active={i === active}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => choose(i)}
+            onmouseenter={() => (active = i)}
+          >
             <span class="title" class:done={store.isDone(n)}>
               {#if row.indices.length && !/[*_`\[\]~]/.test(n.title)}
                 {#each runs(n.title || "Untitled", row.indices) as r, j (j)}<span class:hit={r.hit}>{r.s}</span>{/each}
@@ -174,13 +186,27 @@
             <span class="kbd slot" class:show={i === active} title="⌘↩ opens in a new window"><ArrowSquareOut size={12} /></span>
           </button>
         {:else if row.kind === "action"}
-          <button class="ghost row" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
-            <span class="aicon">{#if row.action.icon}<row.action.icon size={14} />{/if}</span>
+          <button
+            class="ghost row"
+            class:active={i === active}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => choose(i)}
+            onmouseenter={() => (active = i)}
+          >
+            <span class="aicon"
+              >{#if row.action.icon}<row.action.icon size={14} />{/if}</span
+            >
             <span class="title">{row.action.label}</span>
             {#if row.action.hint}<span class="kbd">{row.action.hint}</span>{/if}
           </button>
         {:else}
-          <button class="ghost row create" class:active={i === active} onmousedown={(e) => e.preventDefault()} onclick={() => choose(i)} onmouseenter={() => (active = i)}>
+          <button
+            class="ghost row create"
+            class:active={i === active}
+            onmousedown={(e) => e.preventDefault()}
+            onclick={() => choose(i)}
+            onmouseenter={() => (active = i)}
+          >
             <Plus size={13} /> Create “{row.title}”
           </button>
         {/if}

@@ -135,27 +135,122 @@
   const paletteActions = $derived.by((): Action[] => {
     const sel = store.selected;
     const has = !!store.path;
-    const a = (id: string, label: string, run: () => void, extra: Partial<Action> = {}): Action => ({ id, label, run: () => once(id, run), ...extra });
+    const a = (id: string, label: string, run: () => void, extra: Partial<Action> = {}): Action => ({
+      id,
+      label,
+      run: () => once(id, run),
+      ...extra,
+    });
     return [
       a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, symbol: ["plus"], menu: "File", enabled: has }),
       a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, symbol: ["folder"], menu: "File" }),
-      a("undo", "Undo", () => editUndo("undo"), { hint: "⌘Z", icon: ArrowCounterClockwise, symbol: ["arrow.uturn.backward"], menu: "Edit", enabled: has }),
-      a("redo", "Redo", () => editUndo("redo"), { hint: "⇧⌘Z", icon: ArrowClockwise, symbol: ["arrow.uturn.forward"], menu: "Edit", enabled: has }),
-      a("toggle-done", sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done", () => { const n = store.selected; if (n) store.setDone(n.id, !store.isDone(n)); }, { icon: CheckSquare, symbol: ["checkmark.square"], menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking }),
-      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), { icon: ArrowSquareOut, symbol: ["macwindow.badge.plus", "macwindow"], menu: "Note", enabled: !!sel }),
-      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), { icon: FolderOpen, symbol: ["folder.badge.questionmark", "folder"], menu: "Note", enabled: !!sel }),
-      a("copy-note", "Copy note", () => store.selectedId && store.copy(store.selectedId), { icon: Copy, symbol: ["doc.on.doc"], menu: "Note", enabled: !!sel }),
-      a("duplicate", "Duplicate note", () => duplicateSelected(), { hint: "⌘D", icon: CopySimple, symbol: ["plus.square.on.square"], menu: "Note", enabled: !!sel }),
-      a("paste-note", "Paste note", () => pasteNote(), { icon: ClipboardText, symbol: ["doc.on.clipboard"], menu: "Note", enabled: has && !!store.clipboard }),
-      a("quick-open", "Quick open", () => openPalette("notes"), { hint: "⌘K", icon: MagnifyingGlass, symbol: ["magnifyingglass"], menu: "View", enabled: has }),
-      a("commands", "Command palette", () => openPalette("commands"), { hint: "⇧⌘K", icon: Terminal, symbol: ["terminal", "command"], menu: "View", enabled: has }),
-      a("search", "Search", () => (searchEl?.focus(), searchEl?.select()), { hint: "⌘F", icon: MagnifyingGlass, symbol: ["text.magnifyingglass", "magnifyingglass"], menu: "View", enabled: has }),
-      a("fit", "Fit to view", () => canvas?.fitAll(), { icon: CornersOut, symbol: ["arrow.up.left.and.arrow.down.right"], menu: "View", enabled: has }),
-      a("tidy", "Tidy layout", () => canvas?.tidy(), { icon: TreeStructure, symbol: ["rectangle.3.group", "square.grid.2x2"], menu: "View", enabled: has }),
-      a("focus", `${focus ? "Disable" : "Enable"} focus mode`, () => toggleFocus(), { icon: Crosshair, symbol: ["scope"], menu: "View", menuLabel: "Toggle focus mode", enabled: has }),
+      a("undo", "Undo", () => editUndo("undo"), {
+        hint: "⌘Z",
+        icon: ArrowCounterClockwise,
+        symbol: ["arrow.uturn.backward"],
+        menu: "Edit",
+        enabled: has,
+      }),
+      a("redo", "Redo", () => editUndo("redo"), {
+        hint: "⇧⌘Z",
+        icon: ArrowClockwise,
+        symbol: ["arrow.uturn.forward"],
+        menu: "Edit",
+        enabled: has,
+      }),
+      a(
+        "toggle-done",
+        sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done",
+        () => {
+          const n = store.selected;
+          if (n) store.setDone(n.id, !store.isDone(n));
+        },
+        { icon: CheckSquare, symbol: ["checkmark.square"], menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking },
+      ),
+      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), {
+        icon: ArrowSquareOut,
+        symbol: ["macwindow.badge.plus", "macwindow"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), {
+        icon: FolderOpen,
+        symbol: ["folder.badge.questionmark", "folder"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("copy-note", "Copy note", () => store.selectedId && store.copy(store.selectedId), {
+        icon: Copy,
+        symbol: ["doc.on.doc"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("duplicate", "Duplicate note", () => duplicateSelected(), {
+        hint: "⌘D",
+        icon: CopySimple,
+        symbol: ["plus.square.on.square"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("paste-note", "Paste note", () => pasteNote(), {
+        icon: ClipboardText,
+        symbol: ["doc.on.clipboard"],
+        menu: "Note",
+        enabled: has && !!store.clipboard,
+      }),
+      a("quick-open", "Quick open", () => openPalette("notes"), {
+        hint: "⌘K",
+        icon: MagnifyingGlass,
+        symbol: ["magnifyingglass"],
+        menu: "View",
+        enabled: has,
+      }),
+      a("commands", "Command palette", () => openPalette("commands"), {
+        hint: "⇧⌘K",
+        icon: Terminal,
+        symbol: ["terminal", "command"],
+        menu: "View",
+        enabled: has,
+      }),
+      a("search", "Search", () => (searchEl?.focus(), searchEl?.select()), {
+        hint: "⌘F",
+        icon: MagnifyingGlass,
+        symbol: ["text.magnifyingglass", "magnifyingglass"],
+        menu: "View",
+        enabled: has,
+      }),
+      a("fit", "Fit to view", () => canvas?.fitAll(), {
+        icon: CornersOut,
+        symbol: ["arrow.up.left.and.arrow.down.right"],
+        menu: "View",
+        enabled: has,
+      }),
+      a("tidy", "Tidy layout", () => canvas?.tidy(), {
+        icon: TreeStructure,
+        symbol: ["rectangle.3.group", "square.grid.2x2"],
+        menu: "View",
+        enabled: has,
+      }),
+      a("focus", `${focus ? "Disable" : "Enable"} focus mode`, () => toggleFocus(), {
+        icon: Crosshair,
+        symbol: ["scope"],
+        menu: "View",
+        menuLabel: "Toggle focus mode",
+        enabled: has,
+      }),
       a("trash", "Open trash", () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
-      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), { icon: Kanban, symbol: ["list.bullet.rectangle", "list.bullet"], menu: "Tools", enabled: has }),
-      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), { icon: GithubLogo, symbol: ["link"], menu: "Tools", enabled: has }),
+      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), {
+        icon: Kanban,
+        symbol: ["list.bullet.rectangle", "list.bullet"],
+        menu: "Tools",
+        enabled: has,
+      }),
+      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), {
+        icon: GithubLogo,
+        symbol: ["link"],
+        menu: "Tools",
+        enabled: has,
+      }),
     ];
   });
 
@@ -216,7 +311,18 @@
     const mod = e.metaKey || e.ctrlKey;
     if (!mod || standaloneId) return;
     const k = e.key.toLowerCase();
-    const id = k === "n" ? "new-note" : k === "k" ? (e.shiftKey ? "commands" : "quick-open") : k === "f" ? "search" : k === "o" ? "open-folder" : null;
+    const id =
+      k === "n"
+        ? "new-note"
+        : k === "k"
+          ? e.shiftKey
+            ? "commands"
+            : "quick-open"
+          : k === "f"
+            ? "search"
+            : k === "o"
+              ? "open-folder"
+              : null;
     if (!id) return;
     const action = paletteActions.find((a) => a.id === id);
     if (!action || action.enabled === false) return;
@@ -285,8 +391,12 @@
       </span>
       <TagMenu />
       <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
-      <button class="ghost" class:on={focus} onclick={toggleFocus} title="Focus: dim notes outside the selected note's chain"><Crosshair size={15} /> Focus</button>
-      <button class="ghost" onclick={() => canvas?.tidy()} title="Auto-layout (selection, or everything)"><TreeStructure size={15} /> Tidy</button>
+      <button class="ghost" class:on={focus} onclick={toggleFocus} title="Focus: dim notes outside the selected note's chain"
+        ><Crosshair size={15} /> Focus</button
+      >
+      <button class="ghost" onclick={() => canvas?.tidy()} title="Auto-layout (selection, or everything)"
+        ><TreeStructure size={15} /> Tidy</button
+      >
       <button class="ghost" onclick={() => canvas?.fitAll()} title="Fit all notes in view"><CornersOut size={15} /> Fit</button>
       <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
     </div>
@@ -294,7 +404,14 @@
       <Canvas bind:this={canvas} {matches} {focus} />
       {#if store.selected}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div class="resizer" class:active={!!resizing} onpointerdown={onResizeDown} onpointermove={onResizeMove} onpointerup={onResizeUp} onpointercancel={onResizeUp}></div>
+        <div
+          class="resizer"
+          class:active={!!resizing}
+          onpointerdown={onResizeDown}
+          onpointermove={onResizeMove}
+          onpointerup={onResizeUp}
+          onpointercancel={onResizeUp}
+        ></div>
         {#key store.selected.id}
           <NotePanel note={store.selected} onjump={jump} />
         {/key}
@@ -459,8 +576,7 @@
     align-items: center;
     justify-content: center;
     background:
-      radial-gradient(ellipse at 20% 0%, #45155166, transparent 60%),
-      radial-gradient(ellipse at 80% 100%, #421a4066, transparent 60%),
+      radial-gradient(ellipse at 20% 0%, #45155166, transparent 60%), radial-gradient(ellipse at 80% 100%, #421a4066, transparent 60%),
       var(--bg);
   }
   .card {
