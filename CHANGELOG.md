@@ -9,36 +9,39 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 
 - macOS menu bar (File / Edit / Note / View / Tools) built from the same action list as
-  the command palette, with shortcuts.
-- Command palette actions have icons; the menu bar uses SF Symbols.
-
-### Changed
-
-- Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
-  is gone.
+  the command palette, with shortcuts and SF Symbol icons.
+- Command palette actions have icons; `⇧⌘K` opens the command palette directly.
 - Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
   no checkbox/status — it shows a radial ring with `done/total` of its dependencies
-  and counts as done once they all are.
-- GitHub integration: configure repo aliases (⚙ → GitHub, or ⌘K "GitHub repos…"),
+  and counts as done once they all are. They have their own template.
+- GitHub integration: configure repo aliases (⚙ → GitHub, or the command palette),
   then type `alias#` in a note to pick an issue/PR by title or number; `alias#123`
   renders as a link to GitHub. Uses the `gh` CLI login or a pasted token for private
   repos.
 - Workflow stages can have a custom colour (workflow editor → click the dot next to a
   stage); "automatic" keeps the grey / yellow / green default.
-- "Reveal in Finder" in the node context menu.
+- "Reveal in Finder" in the node context menu; the file name in the panel footer
+  reveals the file too.
 - Pasting a URL over selected text in the editor turns the selection into a link.
-
-### Fixed
-
-- Links in a card's title/preview open in the browser again (the drag handler was swallowing the click).
-- `[[Links]]` to notes whose title contains backticks now resolve.
-- Task-list checkboxes in the rendered body can be ticked by clicking them.
-- Double-clicking a node no longer creates a note on top of it (it now opens the note
-  in its own window).
+- `npm run install:app` builds and replaces the installed app; Prettier, ESLint and
+  clippy; CI and release workflows.
 
 ### Changed
 
+- Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
+  is gone. Rows no longer shift on hover.
 - Double-clicking a node opens it in its own window instead of creating a note on top of it.
+- Note panel: "Depends on" / "Blocks" are compact chip rows (longest-first packing),
+  stacked instead of side by side; for tracking issues the first reads "Tracks".
+- The issue picker substring-matches the repo's recent items and accepts spaces.
+
+### Fixed
+
+- Links in a card's title/preview open in the browser again (the drag handler was
+  swallowing the click).
+- `[[Links]]` to notes whose title contains backticks now resolve.
+- Task-list checkboxes in the rendered body can be ticked by clicking them.
+- Deleting a freshly created note no longer races its first save.
 
 ## [0.2.0] - 2026-09-17
 
