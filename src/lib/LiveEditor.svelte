@@ -267,7 +267,7 @@
 
   // ---- @ mentions ----------------------------------------------------------
 
-  const MENTION_RE = /(^|[\s(])@([^\s@\[\]]*)$/;
+  const MENTION_RE = /(^|[\s(])@([^\s@[\]]*)$/;
   /** `alias#query` right before the caret (alias must be a configured repo). */
   const ISSUE_RE = /(^|[\s(])([\w.-]+)#([^\s#]*)$/;
 

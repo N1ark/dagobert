@@ -36,7 +36,7 @@
   });
 
   $effect(() => {
-    results;
+    void results;
     active = 0;
   });
 

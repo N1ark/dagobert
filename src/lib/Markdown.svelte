@@ -35,6 +35,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="markdown" onclick={onClick}>
   {#if source.trim()}
+    <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}
   {:else}
     <p class="placeholder">Nothing here yet.</p>

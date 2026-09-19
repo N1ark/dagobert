@@ -28,6 +28,9 @@ notify = "6"
 notify-debouncer-mini = "0.4"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[lints.clippy]
+all = "warn"
+
 [profile.release]
 codegen-units = 1
 lto = true

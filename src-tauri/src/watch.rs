@@ -60,7 +60,7 @@ impl Recent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum Change {
-    Note { note: Note },
+    Note { note: Box<Note> },
     NoteRemoved { file: String },
     Meta,
 }
@@ -98,7 +98,7 @@ fn classify(root: &Path, path: &Path) -> Option<Change> {
     if path.exists() {
         let text = std::fs::read_to_string(path).ok()?;
         match store::parse_note(&text, &file) {
-            Ok(note) => Some(Change::Note { note }),
+            Ok(note) => Some(Change::Note { note: Box::new(note) }),
             Err(e) => {
                 eprintln!("watch: {e}");
                 None

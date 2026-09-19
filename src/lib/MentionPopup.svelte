@@ -38,7 +38,7 @@
   const count = $derived(results.length + (canCreate ? 1 : 0));
 
   $effect(() => {
-    results;
+    void results;
     active = 0;
   });
 

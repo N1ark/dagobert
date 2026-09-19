@@ -78,7 +78,7 @@
   });
 
   $effect(() => {
-    rows;
+    void rows;
     active = 0;
   });
 
@@ -166,7 +166,7 @@
             onmouseenter={() => (active = i)}
           >
             <span class="title" class:done={store.isDone(n)}>
-              {#if row.indices.length && !/[*_`\[\]~]/.test(n.title)}
+              {#if row.indices.length && !/[*_`[\]~]/.test(n.title)}
                 {#each runs(n.title || "Untitled", row.indices) as r, j (j)}<span class:hit={r.hit}>{r.s}</span>{/each}
               {:else}
                 <InlineMd source={n.title} fallback="Untitled" />

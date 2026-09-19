@@ -159,7 +159,10 @@
       bestD = Infinity;
     for (const c of candidates) {
       const d = Math.abs(centerOf(c).y - cy);
-      if (d < bestD) ((best = c), (bestD = d));
+      if (d < bestD) {
+        best = c;
+        bestD = d;
+      }
     }
     return best;
   }
@@ -176,7 +179,10 @@
       const overlaps = n.x < from.x + widthOf(from) && n.x + widthOf(n) > from.x;
       // Overlapping columns score by vertical distance; others pay a penalty.
       const score = Math.abs(nc.y - c.y) + (overlaps ? 0 : 100000 + Math.abs(nc.x - c.x));
-      if (score < bestScore) ((best = n), (bestScore = score));
+      if (score < bestScore) {
+        best = n;
+        bestScore = score;
+      }
     }
     return best;
   }
@@ -190,7 +196,10 @@
     for (const n of store.notes) {
       const c = centerOf(n);
       const d = Math.hypot(c.x - w.x, c.y - w.y);
-      if (d < bestD) ((best = n), (bestD = d));
+      if (d < bestD) {
+        best = n;
+        bestD = d;
+      }
     }
     return best;
   }

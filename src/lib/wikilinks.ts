@@ -2,7 +2,7 @@ import { store } from "./store.svelte";
 import type { Note } from "./types";
 
 /** `[[Note title]]` links between notes. */
-export const WIKI_RE = /\[\[([^\[\]\n]+?)\]\]/g;
+export const WIKI_RE = /\[\[([^[\]\n]+?)\]\]/g;
 
 export function resolve(title: string): Note | null {
   const t = title.trim().toLowerCase();
@@ -19,7 +19,7 @@ function escapeHtml(s: string) {
  * are left untouched.
  */
 /** `alias#123` for a configured GitHub repo alias. */
-const REPO_REF_RE = /(^|[^\w/[`#])([\w.-]+)#(\d+)\b(?![^\[]*\]\()/g;
+const REPO_REF_RE = /(^|[^\w/[`#])([\w.-]+)#(\d+)\b(?![^[]*\]\()/g;
 
 /** Start/end offsets of code spans and fences in `md`. */
 function codeRanges(md: string): (i: number) => boolean {

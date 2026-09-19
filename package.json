@@ -13,7 +13,9 @@
     "test": "for f in tests/*.test.mjs; do node \"$f\" || exit 1; done && cargo test --manifest-path src-tauri/Cargo.toml",
     "install:app": "scripts/install.sh",
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
-    "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check"
+    "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
+    "lint": "eslint . && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
+    "lint:fix": "eslint . --fix && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --fix --allow-dirty -- -D warnings"
   },
   "license": "MIT",
   "dependencies": {
@@ -25,14 +27,20 @@
     "phosphor-svelte": "^3.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2",
     "@tsconfig/svelte": "^5",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.12.0",
     "prettier": "^3.9.8",
     "prettier-plugin-svelte": "^4.1.1",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",
     "typescript": "~5.9",
+    "typescript-eslint": "^8.70.0",
     "vite": "^8.0.16"
   }
 }

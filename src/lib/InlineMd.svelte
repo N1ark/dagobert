@@ -31,6 +31,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 {#if html}
+  <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
   <span class="inline-md" onclick={onClick}>{@html html}</span>
 {:else}
   <span class="inline-md fallback">{fallback}</span>

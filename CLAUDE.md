@@ -12,6 +12,7 @@ npm run check                                  # svelte-check (must be 0 errors 
 npm test                                       # tests/*.test.mjs (pure TS modules) + cargo test
 npm run format                                 # prettier (+svelte plugin) and cargo fmt; run before committing
 npm run format:check
+npm run lint                                   # eslint (ts + svelte) and cargo clippy -D warnings; must be clean
 npm run tauri build
 npm run install:app                            # release build → quit running app → replace in /Applications → relaunch
 npm run version -- X.Y.Z                       # sync versions, roll CHANGELOG, commit + tag
@@ -228,6 +229,10 @@ from the CLI, so the browser shim is the practical way to check interactions.
   traffic lights and `data-tauri-drag-region`.
 - Svelte a11y warnings on the canvas/markdown containers are intentionally
   silenced with `svelte-ignore`; keep `npm run check` clean rather than disabling globally.
+- Lint conventions: `svelte/prefer-svelte-reactivity` is off (plain Set/Map are used
+  for non-reactive scratch state on purpose); declare an `$effect` dependency you
+  don't otherwise use with `void dep;`; `{@html}` is only ever DOMPurify output and
+  carries an eslint-disable comment saying so. Clippy runs with `-D warnings`.
 
 ## Not done / ideas
 

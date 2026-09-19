@@ -24,7 +24,6 @@
   import Copy from "phosphor-svelte/lib/Copy";
   import ClipboardText from "phosphor-svelte/lib/ClipboardText";
   import CopySimple from "phosphor-svelte/lib/CopySimple";
-  import Tag from "phosphor-svelte/lib/Tag";
   import Trash from "phosphor-svelte/lib/Trash";
   import CornersOut from "phosphor-svelte/lib/CornersOut";
   import X from "phosphor-svelte/lib/X";
