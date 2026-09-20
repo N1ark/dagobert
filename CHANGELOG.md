@@ -6,6 +6,14 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The colour of tags and workflows can now be customised past the builtin palette.
+
+### Changed
+
+- The world is now bounded in size, to avoid rendering issues or the graph going very far away.
+
 ## [0.4.0] - 2026-09-20
 
 ### Added

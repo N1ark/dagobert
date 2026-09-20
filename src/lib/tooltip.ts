@@ -1,0 +1,72 @@
+/**
+ * Instant tooltip action: `use:tooltip={"Automatic"}`. Native `title` tooltips take a
+ * second to appear, which is useless for icon-only controls; this one shows on
+ * pointerenter/focus with no delay. A single fixed-position element is shared and
+ * appended to `document.body` so it escapes `overflow: hidden` and stacking contexts.
+ * Placed above the element (below when there's no room), clamped to the viewport.
+ */
+import type { Action } from "svelte/action";
+
+let el: HTMLDivElement | null = null;
+let owner: HTMLElement | null = null;
+
+function ensure() {
+  if (el) return el;
+  el = document.createElement("div");
+  el.className = "tooltip";
+  el.setAttribute("role", "tooltip");
+  document.body.appendChild(el);
+  return el;
+}
+
+function show(target: HTMLElement, text: string) {
+  const t = ensure();
+  owner = target;
+  t.textContent = text;
+  t.classList.add("show");
+  const r = target.getBoundingClientRect();
+  const gap = 6;
+  const w = t.offsetWidth;
+  const h = t.offsetHeight;
+  let x = r.left + r.width / 2 - w / 2;
+  x = Math.max(4, Math.min(window.innerWidth - w - 4, x));
+  let y = r.top - gap - h;
+  if (y < 4) y = r.bottom + gap;
+  t.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+}
+
+function hide(target: HTMLElement) {
+  if (owner !== target || !el) return;
+  owner = null;
+  el.classList.remove("show");
+}
+
+export const tooltip: Action<HTMLElement, string | null | undefined> = (node, text) => {
+  let current = text;
+  const enter = () => {
+    if (current) show(node, current);
+  };
+  const leave = () => hide(node);
+  node.addEventListener("pointerenter", enter);
+  node.addEventListener("pointerleave", leave);
+  node.addEventListener("pointerdown", leave);
+  node.addEventListener("focus", enter);
+  node.addEventListener("blur", leave);
+  return {
+    update(next) {
+      current = next;
+      if (owner === node) {
+        if (current) show(node, current);
+        else hide(node);
+      }
+    },
+    destroy() {
+      hide(node);
+      node.removeEventListener("pointerenter", enter);
+      node.removeEventListener("pointerleave", leave);
+      node.removeEventListener("pointerdown", leave);
+      node.removeEventListener("focus", enter);
+      node.removeEventListener("blur", leave);
+    },
+  };
+};

@@ -6,6 +6,7 @@
   import type { Note } from "./types";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
+  import { WORLD, clampViewport, clampNode } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
 
   let { matches = null, focus = true, grain = true }: { matches?: Set<string> | null; focus?: boolean; grain?: boolean } = $props();
@@ -47,6 +48,15 @@
   let resize: { id: string; startX: number; ow: number; moved: boolean } | null = null;
 
   const vp = $derived(store.viewport);
+
+  // Every writer (wheel, pan, minimap, fitAll, restore) goes through the same clamp so the
+  // camera can never leave the world square. Pre-effect: the clamped value is what renders.
+  $effect.pre(() => {
+    if (!viewW || !viewH) return;
+    const c = clampViewport(vp, viewW, viewH);
+    if (c.x !== vp.x) vp.x = c.x;
+    if (c.y !== vp.y) vp.y = c.y;
+  });
 
   /** A node plus everything upstream and downstream of it. */
   function connected(id: string) {
@@ -435,8 +445,9 @@
       for (const [id, o] of drag.origins) {
         const n = store.byId(id);
         if (n) {
-          n.x = Math.round(o.x + dx);
-          n.y = Math.round(o.y + dy);
+          const c = clampNode(Math.round(o.x + dx), Math.round(o.y + dy), widthOf(n), h(id));
+          n.x = c.x;
+          n.y = c.y;
         }
       }
       return;
@@ -727,6 +738,14 @@
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#b045ab" />
         </marker>
       </defs>
+      <!-- World bounds: the camera and nodes are clamped inside this square (viewport.ts).
+           Everything outside is shaded so the edge reads as the end of the canvas. -->
+      <path
+        class="outside"
+        fill-rule="evenodd"
+        d="M{-WORLD * 4} {-WORLD * 4}h{WORLD * 8}v{WORLD * 8}h{-WORLD * 8}z M{-WORLD} {-WORLD}h{WORLD * 2}v{WORLD * 2}h{-WORLD * 2}z"
+      />
+      <rect class="bounds" x={-WORLD} y={-WORLD} width={WORLD * 2} height={WORLD * 2} />
       {#each edges as edge (edge.from + ">" + edge.to)}
         {@const sel = selectedEdge?.from === edge.from && selectedEdge?.to === edge.to}
         {@const near = edge.chain || store.selectedId === edge.from || store.selectedId === edge.to}
@@ -860,6 +879,19 @@
     z-index: 2;
     transform: translate(var(--vx), var(--vy)) scale(var(--zoom));
     transform-origin: 0 0;
+  }
+  .outside {
+    fill: #00000059;
+    pointer-events: none;
+  }
+  .bounds {
+    fill: none;
+    stroke: var(--accent2);
+    stroke-opacity: 0.55;
+    stroke-width: 2;
+    stroke-dasharray: 8 8;
+    vector-effect: non-scaling-stroke;
+    pointer-events: none;
   }
   .edges {
     position: absolute;

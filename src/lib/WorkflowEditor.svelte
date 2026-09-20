@@ -9,6 +9,8 @@
   import { stageColor } from "./workflows";
   import { storedToken, setStoredToken } from "./github";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
+  import Circuitry from "phosphor-svelte/lib/Circuitry";
+  import { tooltip } from "./tooltip";
 
   let { onclose, section = "workflows" }: { onclose: () => void; section?: "workflows" | "tracking" | "github" } = $props();
 
@@ -92,11 +94,15 @@
         <button
           class="ghost item"
           class:active={page === "workflows" && selectedId === null}
-          onclick={() => ((page = "workflows"), (selectedId = null))}>Todo <span class="sub">built-in</span></button
+          onclick={() => ((page = "workflows"), (selectedId = null))}
         >
-        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}
-          >Tracking issue <span class="sub">built-in</span></button
-        >
+          Todo
+          <span class="builtin" use:tooltip={"Built-in"}><Circuitry size={13} /></span>
+        </button>
+        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>
+          Tracking issue
+          <span class="builtin" use:tooltip={"Built-in"}><Circuitry size={13} /></span>
+        </button>
         {#each store.workflows as w (w.id)}
           <button
             class="ghost item"
@@ -294,10 +300,13 @@
     background: #ffffff10;
     color: var(--color2);
   }
-  .sub {
-    font-size: 10px;
+  /* Built-in marker: pushed to the right edge of the item; the tooltip explains it. */
+  .builtin {
+    display: inline-flex;
+    margin-left: auto;
+    padding-left: 8px;
+    flex-shrink: 0;
     color: var(--color-dim);
-    margin-left: 4px;
   }
   .nav-sep {
     height: 1px;

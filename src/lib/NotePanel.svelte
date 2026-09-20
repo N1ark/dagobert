@@ -54,6 +54,20 @@
     }
   });
 
+  /** ⌫/⌦ outside a text field acts like the Delete button: first press arms it, second deletes. */
+  function onDeleteKey(e: KeyboardEvent) {
+    if (e.key !== "Delete" && e.key !== "Backspace") return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if ((e.target as HTMLElement).closest("input, textarea, [contenteditable]")) return;
+    e.preventDefault();
+    if (confirmDelete) store.remove(note.id);
+    else confirmDelete = true;
+  }
+  $effect(() => {
+    window.addEventListener("keydown", onDeleteKey);
+    return () => window.removeEventListener("keydown", onDeleteKey);
+  });
+
   function edited() {
     store.touch(note.id);
   }

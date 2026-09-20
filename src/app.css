@@ -270,3 +270,25 @@ a {
 .ghref:hover {
   border-bottom-color: var(--accent2);
 }
+
+/* Instant tooltip (src/lib/tooltip.ts); one shared element on <body>. */
+.tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  padding: 3px 7px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color2);
+  background: var(--bg3);
+  border-radius: 4px;
+  box-shadow: var(--shadow-lg);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.08s;
+}
+.tooltip.show {
+  opacity: 1;
+}

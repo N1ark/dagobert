@@ -2,6 +2,8 @@
   import { normalizeColor, TAG_PALETTE } from "./tags";
   import { store } from "./store.svelte";
   import Plus from "phosphor-svelte/lib/Plus";
+  import Lightning from "phosphor-svelte/lib/Lightning";
+  import { tooltip } from "./tooltip";
 
   /** Swatch popover. `value` is the current colour; `onpick(null)` means "automatic". */
   let {
@@ -71,18 +73,20 @@
       class="swatch"
       class:active={color === value}
       style="--c:{color}"
-      title="{color} (right-click to remove from palette)"
+      use:tooltip={"Right-click to remove"}
       aria-label={color}
       onclick={() => pick(color)}
       oncontextmenu={(e) => remove(e, color)}
     ></button>
   {/each}
   {#if allowAuto}
-    <button class="swatch auto" class:active={value === null} title="Automatic" aria-label="automatic" onclick={() => pick(null)}></button>
+    <button class="swatch auto" class:active={value === null} use:tooltip={"Automatic"} aria-label="automatic" onclick={() => pick(null)}>
+      <Lightning size={12} weight="fill" />
+    </button>
   {/if}
-  <span class="add-wrap">
+  <span class="add-wrap" use:tooltip={"Custom colour…"}>
     <span class="swatch add" aria-hidden="true">
-      <Plus size={11} weight="bold" />
+      <Plus size={12} weight="bold" />
     </span>
     <input
       bind:this={input}
@@ -90,7 +94,6 @@
       value={value ?? TAG_PALETTE[0]}
       oninput={preview}
       onchange={commit}
-      title="Custom colour…"
       aria-label="add a custom colour"
     />
   </span>
@@ -128,9 +131,24 @@
   .swatch.active {
     border-color: var(--color2);
   }
+  /* "Automatic": no fixed colour, so a dashed ring with a lightning bolt instead of a swatch. */
   .swatch.auto {
-    background: conic-gradient(var(--color-dim), var(--yellow), var(--green), var(--color-dim));
-    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    background: transparent;
+    border: 1px dashed var(--color-dim);
+    color: var(--color-dim);
+  }
+  .swatch.auto:hover {
+    background: transparent;
+    border-color: var(--color2);
+    color: var(--color2);
+  }
+  .swatch.auto.active {
+    border: 2px solid var(--color2);
+    color: var(--color2);
   }
   /* The native colour panel anchors to the input, so the input sits exactly over the swatch. */
   .add-wrap {

@@ -186,7 +186,10 @@ Builds are unsigned.
 - `src/lib/WorkflowEditor.svelte` doubles as the settings dialog: `section` prop
   picks "workflows" or "github".
 - `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow
-  stage colours; `allowAuto` adds a "clear" swatch). `TagColorPicker.svelte` wraps it; `TagMenu.svelte` — toolbar
+  stage colours; `allowAuto` adds an "Automatic" swatch: dashed ring + lightning bolt).
+- `src/lib/tooltip.ts` — `use:tooltip={"text"}` action: an instant tooltip (one shared
+  `.tooltip` element on `<body>`, styled in `app.css`). Prefer it over `title` on
+  icon-only controls, since native tooltips take a second to appear. `TagColorPicker.svelte` wraps it; `TagMenu.svelte` — toolbar
   popover listing all tags (click name = toggle filter, click dot = recolour).
   Tag chips share the global `.tag-chip` class with `--tag` set to the colour.
 - `assets/` — source SVGs: `logo.svg` (rounded background; the app icon) and
@@ -235,7 +238,7 @@ Builds are unsigned.
 - Wheel: plain scroll pans, `ctrl`/`meta`+wheel (pinch) zooms. Wheel listener is
   attached manually with `passive: false`.
 - Keyboard: `⌘N` new note, `⌘K` quick open, `⌘F` search, `⌘O` open folder, `Esc` deselect,
-  `⌫` removes a selected edge. Global handlers ignore events from inputs/textareas.
+  `⌫`/`⌦` removes a selected edge, or with a note selected arms the panel's Delete button (second press deletes; `NotePanel` owns that listener). Global handlers ignore events from inputs/textareas.
   Canvas navigation (`navigate` in `Canvas.svelte`): `←`/`→` = closest-by-y
   dependency/dependent, `↑`/`↓` = nearest node above/below (overlapping x preferred),
   `Tab`/`⇧Tab` = next dependent/dependency in y order, `Enter` bumps
