@@ -58,6 +58,8 @@ export interface Meta {
   tracking_template: string;
   /** GitHub repo aliases: alias -> "owner/name". */
   repos: Record<string, string>;
+  /** User-added swatches shown in colour pickers after the built-in palette. */
+  palette: string[];
 }
 
 /** Partial meta update; absent fields keep their stored value. */

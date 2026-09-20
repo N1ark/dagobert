@@ -13,6 +13,9 @@ All notable changes to Dagobert are documented here. The format follows
   selected node's chain, and a subtle parallax that puts the dot grid and grain behind
   the nodes. Toggle it with "Enable/Disable background grain" in the command palette
   or the View menu (it respects `prefers-reduced-motion`).
+- Custom palette colours: the "+" swatch in any colour picker (tag colours, workflow
+  stage colours) opens the system colour panel; the chosen colour is added to a
+  project-wide palette stored in `dagobert.json`. Right-click a custom swatch to remove it.
 
 ### Changed
 

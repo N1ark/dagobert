@@ -2,7 +2,7 @@ import { backend, type ProjectChange, type SyncMessage } from "./backend";
 import type { MetaPatch, Note, Viewport, Workflow } from "./types";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
-import { DEFAULT_TAG_COLOR } from "./tags";
+import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -32,6 +32,8 @@ class Store {
   workflows = $state<Workflow[]>([]);
   /** GitHub repo aliases: alias -> "owner/name". */
   repos = $state<Record<string, string>>({});
+  /** User-added swatches (project-wide), shown after the built-in palette. */
+  palette = $state<string[]>([]);
   /** Template for new notes on the built-in Todo workflow. */
   defaultTemplate = $state("");
   trackingTemplate = $state("");
@@ -97,6 +99,23 @@ class Store {
   setTagColor(tag: string, color: string | null) {
     if (color && color !== DEFAULT_TAG_COLOR) this.tagColors[tag] = color;
     else delete this.tagColors[tag];
+    this.saveMeta();
+  }
+
+  /** Add a swatch to the project palette; returns the normalised colour (or null if invalid). */
+  addPaletteColor(color: string): string | null {
+    const c = normalizeColor(color);
+    if (!c) return null;
+    if (!TAG_PALETTE.includes(c) && !this.palette.includes(c)) {
+      this.palette = [...this.palette, c];
+      this.saveMeta();
+    }
+    return c;
+  }
+
+  removePaletteColor(color: string) {
+    if (!this.palette.includes(color)) return;
+    this.palette = this.palette.filter((c) => c !== color);
     this.saveMeta();
   }
 
@@ -279,6 +298,7 @@ class Store {
       this.defaultTemplate = p.meta.default_template ?? "";
       this.trackingTemplate = p.meta.tracking_template ?? "";
       this.repos = p.meta.repos ?? {};
+      this.palette = p.meta.palette ?? [];
       this.tagFilter = [];
       this.#history.clear();
       this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
@@ -598,6 +618,7 @@ class Store {
       if (msg.meta.default_template !== undefined) this.defaultTemplate = msg.meta.default_template;
       if (msg.meta.tracking_template !== undefined) this.trackingTemplate = msg.meta.tracking_template;
       if (msg.meta.repos) this.repos = msg.meta.repos;
+      if (msg.meta.palette) this.palette = msg.meta.palette;
     }
   }
 
@@ -634,6 +655,7 @@ class Store {
         this.defaultTemplate = meta.default_template ?? "";
         this.trackingTemplate = meta.tracking_template ?? "";
         this.repos = meta.repos ?? {};
+        this.palette = meta.palette ?? [];
       } catch (e) {
         this.fail(e);
       }
@@ -812,6 +834,7 @@ class Store {
       patch.default_template = this.defaultTemplate;
       patch.tracking_template = this.trackingTemplate;
       patch.repos = $state.snapshot(this.repos);
+      patch.palette = $state.snapshot(this.palette);
     }
     this.#metaDirty = { viewport: false, settings: false };
     return patch;
@@ -839,6 +862,7 @@ class Store {
           default_template: patch.default_template,
           tracking_template: patch.tracking_template,
           repos: patch.repos,
+          palette: patch.palette,
         },
       });
   }

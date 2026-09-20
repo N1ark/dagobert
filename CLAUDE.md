@@ -178,7 +178,11 @@ Builds are unsigned.
 - `src/lib/LinkPicker.svelte` — search dropdown used for adding deps/dependents.
 - `src/lib/workflows.ts` — `DEFAULT_WORKFLOW` (todo → done, id `""`, never stored)
   and `stageColor`. `WorkflowEditor.svelte` is the modal for managing custom workflows.
-- `src/lib/tags.ts` — tag colour palette (site's code-hue colours; index 0 is the default).
+- `src/lib/tags.ts` — built-in tag colour palette (site's code-hue colours; index 0 is
+  the default) and `normalizeColor`. Users extend it with `Meta.palette` (`store.palette`,
+  `addPaletteColor`/`removePaletteColor`): `ColorPicker`'s "+" swatch opens a hidden native
+  `<input type="color">` (live preview on `input`, added to the palette and picked on
+  `change`); custom swatches are removed by right-click.
 - `src/lib/WorkflowEditor.svelte` doubles as the settings dialog: `section` prop
   picks "workflows" or "github".
 - `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow

@@ -152,6 +152,9 @@ pub struct Meta {
     /// Template for new tracking issues.
     #[serde(default)]
     pub tracking_template: String,
+    /// User-added swatches shown in colour pickers after the built-in palette.
+    #[serde(default)]
+    pub palette: Vec<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -428,6 +431,7 @@ pub struct MetaPatch {
     pub repos: Option<BTreeMap<String, String>>,
     pub default_template: Option<String>,
     pub tracking_template: Option<String>,
+    pub palette: Option<Vec<String>>,
 }
 
 pub fn read_meta(root: &Path) -> Meta {
@@ -456,6 +460,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(t) = patch.tracking_template {
         meta.tracking_template = t;
+    }
+    if let Some(p) = patch.palette {
+        meta.palette = p;
     }
     write_meta(root, &meta)
 }
@@ -556,11 +563,13 @@ mod tests {
                 tag_colors: Some(tag_colors),
                 workflows: Some(vec![wf]),
                 default_template: Some("- [ ] ".into()),
+                palette: Some(vec!["#ff8800".into()]),
                 ..Default::default()
             },
         )
         .unwrap();
         let m = open(&dir).unwrap().meta;
+        assert_eq!(m.palette, vec!["#ff8800".to_string()]);
         assert_eq!(
             m.viewport.zoom, 0.5,
             "patching tag colours keeps the viewport"
@@ -573,6 +582,7 @@ mod tests {
             serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
         assert_eq!(legacy.workflows[0].template, "");
         assert_eq!(legacy.default_template, "");
+        assert!(legacy.palette.is_empty());
 
         // Soft delete: goes to trash/, stamped, and comes back on restore.
         let trashed = delete_note(&dir, &renamed.file, "2026-09-16T11:00:00.000Z")

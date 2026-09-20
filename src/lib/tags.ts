@@ -12,3 +12,12 @@ export const TAG_PALETTE = [
 ];
 
 export const DEFAULT_TAG_COLOR = TAG_PALETTE[0];
+
+/** Lower-case `#rrggbb` for a valid hex colour (`#rgb` expanded), else null. */
+export function normalizeColor(input: string): string | null {
+  const s = input.trim().toLowerCase();
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/.exec(s);
+  if (!m) return null;
+  const h = m[1];
+  return "#" + (h.length === 3 ? [...h].map((c) => c + c).join("") : h);
+}
