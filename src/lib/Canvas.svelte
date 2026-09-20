@@ -6,8 +6,9 @@
   import type { Note } from "./types";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
+  import Grain, { type Rect, type Curve } from "./Grain.svelte";
 
-  let { matches = null, focus = true }: { matches?: Set<string> | null; focus?: boolean } = $props();
+  let { matches = null, focus = true, grain = true }: { matches?: Set<string> | null; focus?: boolean; grain?: boolean } = $props();
 
   const NODE_W = 220;
   const MIN_W = 140;
@@ -47,11 +48,10 @@
 
   const vp = $derived(store.viewport);
 
-  /** The selected node plus everything upstream and downstream of it. */
-  const chain = $derived.by(() => {
-    if (!focus || !store.selectedId || store.multi.length > 1) return null;
-    const set = new Set<string>([store.selectedId]);
-    const up = [store.selectedId];
+  /** A node plus everything upstream and downstream of it. */
+  function connected(id: string) {
+    const set = new Set<string>([id]);
+    const up = [id];
     while (up.length) {
       const n = store.byId(up.pop()!);
       for (const d of n?.deps ?? [])
@@ -60,16 +60,22 @@
           up.push(d);
         }
     }
-    const down = [store.selectedId];
+    const down = [id];
     while (down.length) {
-      const id = down.pop()!;
+      const cur = down.pop()!;
       for (const n of store.notes)
-        if (n.deps.includes(id) && !set.has(n.id)) {
+        if (n.deps.includes(cur) && !set.has(n.id)) {
           set.add(n.id);
           down.push(n.id);
         }
     }
     return set;
+  }
+
+  /** The selected node's chain, when focus mode should dim everything else. */
+  const chain = $derived.by(() => {
+    if (!focus || !store.selectedId || store.multi.length > 1) return null;
+    return connected(store.selectedId);
   });
 
   /** Search/tag filter wins; otherwise the focus chain; null = nothing dimmed. */
@@ -104,10 +110,34 @@
   function leftOf(n: Note) {
     return { x: n.x, y: n.y + h(n.id) / 2 };
   }
+  function handle(a: { x: number; y: number }, b: { x: number; y: number }) {
+    return Math.max(40, Math.abs(b.x - a.x) * 0.5);
+  }
   function path(a: { x: number; y: number }, b: { x: number; y: number }) {
-    const dx = Math.max(40, Math.abs(b.x - a.x) * 0.5);
+    const dx = handle(a, b);
     return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
   }
+
+  /** World-space cubic beziers of every edge in the selected node's chain, for the grain flow. */
+  const flowCurves = $derived.by((): Curve[] => {
+    const id = store.selectedId;
+    if (!id || store.multi.length > 1) return [];
+    const out: Curve[] = [];
+    const set = connected(id);
+    for (const n of store.notes) {
+      if (!set.has(n.id)) continue;
+      for (const d of n.deps) {
+        if (!set.has(d)) continue;
+        const dep = store.byId(d);
+        if (!dep) continue;
+        const a = rightOf(dep);
+        const b = leftOf(n);
+        const dx = handle(a, b);
+        out.push({ id: d + ">" + n.id, p0: a, p1: { x: a.x + dx, y: a.y }, p2: { x: b.x - dx, y: b.y }, p3: b });
+      }
+    }
+    return out;
+  });
 
   function toWorld(sx: number, sy: number) {
     const r = container.getBoundingClientRect();
@@ -588,6 +618,66 @@
     };
   });
 
+  /** Screen-space rects of the selected nodes, for the grain halo. */
+  const glowRects = $derived.by((): Rect[] => {
+    const ids = store.multi.length > 1 ? store.multi : store.selectedId ? [store.selectedId] : [];
+    const out: Rect[] = [];
+    for (const id of ids) {
+      const n = store.byId(id);
+      if (!n) continue;
+      out.push({ id, x: vp.x + n.x * vp.zoom, y: vp.y + n.y * vp.zoom, w: widthOf(n) * vp.zoom, h: h(n.id) * vp.zoom });
+    }
+    return out;
+  });
+
+  /**
+   * Background parallax: the dot grid and the sand sit "behind" the nodes. A layer at
+   * depth P under perspective is the foreground camera scaled by P about an anchor:
+   * screen = A + P · (foreground screen − A). It pans and zooms at P× the foreground,
+   * and zooming converges towards A + P·(cursor − A), so A is the view centre to keep
+   * that convergence natural. Moving A (sidebar/window resize) would translate the
+   * background by (1 − P)·ΔA even though the viewport didn't change, so `comp`
+   * accumulates the opposite shift on every resize to keep the background still.
+   */
+  const PARALLAX = 0.7;
+  let comp = $state({ x: 0, y: 0 });
+  let lastCentre: { x: number; y: number } | null = null;
+  $effect(() => {
+    const c = { x: viewW / 2, y: viewH / 2 };
+    // Only real resizes count: the first layout (0 → size) must not shift the anchor.
+    if (lastCentre && lastCentre.x && lastCentre.y && viewW && viewH) {
+      const dx = (1 - PARALLAX) * (lastCentre.x - c.x);
+      const dy = (1 - PARALLAX) * (lastCentre.y - c.y);
+      if (dx || dy) comp = { x: comp.x + dx, y: comp.y + dy };
+    }
+    lastCentre = c;
+  });
+  const bg = $derived({
+    x: PARALLAX * vp.x + (1 - PARALLAX) * (viewW / 2) + comp.x,
+    y: PARALLAX * vp.y + (1 - PARALLAX) * (viewH / 2) + comp.y,
+    zoom: PARALLAX * vp.zoom,
+  });
+
+  /**
+   * Dot grid look: a single 32px lattice (dots at 16 + 32k, in the parallax camera).
+   * Dots are 1.3 screen px at zoom ≥ 1 and shrink to 50% (and dim a little) at MIN_ZOOM,
+   * so a zoomed-out canvas doesn't turn into a grey wash. Same in the shader and in CSS.
+   */
+  const grid = $derived.by(() => {
+    const t = Math.min(1, Math.max(0, (vp.zoom - MIN_ZOOM) / (1 - MIN_ZOOM)));
+    return { radius: 1.3 * (0.5 + 0.5 * t), alpha: 0.6 + 0.4 * t };
+  });
+
+  /** Inline style for the CSS fallback grid: the visible area in background units, snapped to the 32px lattice. */
+  const gridStyle = $derived.by(() => {
+    const g = 32;
+    const x = Math.floor(-bg.x / bg.zoom / g) * g - g;
+    const y = Math.floor(-bg.y / bg.zoom / g) * g - g;
+    const w = viewW / bg.zoom + 3 * g;
+    const h = viewH / bg.zoom + 3 * g;
+    return `left:${x}px; top:${y}px; width:${w}px; height:${h}px; --dot:${grid.radius / bg.zoom}px; opacity:${grid.alpha}`;
+  });
+
   const linkPath = $derived.by(() => {
     if (!linking) return "";
     const s = store.byId(linking.from);
@@ -615,7 +705,18 @@
   oncontextmenu={onContextMenu}
   style="--vx:{vp.x}px; --vy:{vp.y}px; --zoom:{vp.zoom}"
 >
-  <div class="grid"></div>
+  {#if grain}
+    <Grain rects={glowRects} curves={flowCurves} offset={{ x: vp.x, y: vp.y }} zoom={vp.zoom} {bg} {grid} />
+  {/if}
+  <!-- Background layer: a parallax'd copy of the world transform. The dot grid uses a
+       fixed 24px tile scaled by the transform so tiles aren't rounded to whole screen
+       pixels at fractional zoom; it's sized to cover just the view. -->
+  {#if !grain}
+    <!-- CSS fallback when the shader is off; the shader draws the same grid per pixel otherwise. -->
+    <div class="bg" style="transform: translate({bg.x}px, {bg.y}px) scale({bg.zoom})">
+      <div class="grid" style={gridStyle}></div>
+    </div>
+  {/if}
   <div class="world">
     <svg class="edges" overflow="visible">
       <defs>
@@ -712,6 +813,8 @@
 <style>
   .canvas {
     position: relative;
+    /* Own stacking context so the grain's negative z-index sits under every child. */
+    isolation: isolate;
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -728,18 +831,30 @@
   .canvas.linking :global(.node) {
     cursor: crosshair;
   }
+  .bg {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 1;
+    transform-origin: 0 0;
+    pointer-events: none;
+    /* Own compositor layer: panning translates the rasterised grid instead of re-rasterising
+       sub-pixel dots each frame (which makes them flicker). */
+    will-change: transform;
+  }
   .grid {
     position: absolute;
-    inset: 0;
     pointer-events: none;
-    background-image: radial-gradient(#ffffff12 1px, transparent 1px);
-    background-size: calc(24px * var(--zoom)) calc(24px * var(--zoom));
-    background-position: var(--vx) var(--vy);
+    /* Fixed 32px lattice (dots at 16 + 32k, same as the shader); --dot is the radius in
+       world units (see gridStyle). No level-of-detail here: this is only the fallback. */
+    background-image: radial-gradient(circle at 16px 16px, #ffffff1c var(--dot), transparent var(--dot));
+    background-size: 32px 32px;
   }
   .world {
     position: absolute;
     left: 0;
     top: 0;
+    z-index: 2;
     transform: translate(var(--vx), var(--vy)) scale(var(--zoom));
     transform-origin: 0 0;
   }
@@ -796,6 +911,7 @@
   }
   .marquee {
     position: absolute;
+    z-index: 3;
     pointer-events: none;
     border: 1px solid var(--accent2);
     background: #8a2aa21a;
@@ -803,6 +919,7 @@
   .empty {
     position: absolute;
     inset: 0;
+    z-index: 3;
     display: flex;
     flex-direction: column;
     align-items: center;

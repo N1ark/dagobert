@@ -14,6 +14,7 @@
   import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
   import TreeStructure from "phosphor-svelte/lib/TreeStructure";
   import Crosshair from "phosphor-svelte/lib/Crosshair";
+  import Sparkle from "phosphor-svelte/lib/Sparkle";
   import MagnifyingGlass from "phosphor-svelte/lib/MagnifyingGlass";
   import Terminal from "phosphor-svelte/lib/Terminal";
   import FolderOpen from "phosphor-svelte/lib/FolderOpen";
@@ -39,6 +40,14 @@
   function toggleFocus() {
     focus = !focus;
     localStorage.setItem(FOCUS_KEY, focus ? "1" : "0");
+  }
+
+  // Background grain shader (Grain.svelte); purely cosmetic.
+  const GRAIN_KEY = "dagobert.grain";
+  let grain = $state(localStorage.getItem(GRAIN_KEY) !== "0");
+  function toggleGrain() {
+    grain = !grain;
+    localStorage.setItem(GRAIN_KEY, grain ? "1" : "0");
   }
 
   const PANEL_KEY = "dagobert.panelWidth";
@@ -237,6 +246,12 @@
         menuLabel: "Toggle focus mode",
         enabled: has,
       }),
+      a("grain", `${grain ? "Disable" : "Enable"} background grain`, () => toggleGrain(), {
+        icon: Sparkle,
+        symbol: ["sparkles"],
+        menu: "View",
+        menuLabel: "Toggle background grain",
+      }),
       a("trash", "Open trash", () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
       a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), {
         icon: Kanban,
@@ -400,7 +415,7 @@
       <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
     </div>
     <div class="main" style="--panel-w:{panelW}px">
-      <Canvas bind:this={canvas} {matches} {focus} />
+      <Canvas bind:this={canvas} {matches} {focus} {grain} />
       {#if store.selected}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div

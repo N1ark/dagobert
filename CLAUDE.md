@@ -68,6 +68,27 @@ Builds are unsigned.
   stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
   when `store.multi.length > 1`, anchored at the selection's top-left). Test:
   `node tests/layout.test.mjs`.
+- `src/lib/Grain.svelte` + `grain.frag` (imported with Vite `?raw`; `MAX_RECTS` /
+  `MAX_CURVES` / `PER_CURVE` are prepended as `#define`s) — decorative WebGL layer under the canvas (`z-index: -1`
+  inside `.canvas`, which is `isolation: isolate`): 1–2 _device_-pixel specks that
+  twinkle in place (per-cell phase; frozen under `prefers-reduced-motion`), masked
+  by a 24px rounded-rect vignette along the frame and a halo around the selected
+  nodes (`glowRects` in `Canvas.svelte`, up to 16, faded in over 160 ms, scaled by
+  zoom, tinted `--accent2`). Cells live in world space (viewport `offset`/`zoom`)
+  so the sand sticks to the graph; the cell size is chosen per power-of-two zoom
+  band (crossfaded between bands) to stay ~1–2 device px. The shader also draws the dot
+  grid per pixel (`dots()`, lattice 16 + 32k; radius/opacity taper with zoom via
+  `grid` in `Canvas.svelte`); the CSS `.bg` grid is only the fallback when
+  the shader is off, since repeating backgrounds get pixel-snapped per tile and flicker
+  while panning. The sand and the dot grid use a parallax'd camera (`bg` in `Canvas.svelte`: the foreground camera
+  scaled by 0.7 about the view centre, i.e. perspective at depth 0.7; `comp`
+  cancels the translation a resize would otherwise cause) so they read as further away than the nodes; the halo and edge
+  travellers stay in the foreground camera. The buffer is resized inside a
+  `ResizeObserver` and drawn synchronously so a stretched frame never shows.
+  Every edge in the selected node's chain (`flowCurves` in `Canvas.svelte`, the same
+  cubic as the SVG `path()`, up to 48) get a few sand grains travelling dependency →
+  dependent along the bezier (`flow()` in the shader). Toggled by the "background
+  grain" palette action (localStorage `dagobert.grain`).
 - `src/lib/Minimap.svelte` — bottom-right overview (180×120). Bounds = all notes ∪
   the viewport, padded, so the view box always stays inside the map. Click/drag
   pans (stopPropagation keeps the canvas from panning too). Collapsed state in

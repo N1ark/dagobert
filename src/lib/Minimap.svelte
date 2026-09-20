@@ -125,6 +125,7 @@
 <style>
   .minimap {
     position: absolute;
+    z-index: 3;
     right: 12px;
     bottom: 12px;
     background: var(--bg2);

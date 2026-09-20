@@ -6,6 +6,20 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Background grain shader on the graph view: a discreet sandy grain along the frame
+  edges and around the selected node, sand grains travelling along every edge of the
+  selected node's chain, and a subtle parallax that puts the dot grid and grain behind
+  the nodes. Toggle it with "Enable/Disable background grain" in the command palette
+  or the View menu (it respects `prefers-reduced-motion`).
+
+### Changed
+
+- The dot grid is drawn per pixel (in the shader, or as a CSS fallback when the grain
+  is off), so it no longer swims when zooming at fractional zoom levels; dots shrink
+  slightly when zoomed out.
+
 ## [0.3.0] - 2026-09-19
 
 ### Added
