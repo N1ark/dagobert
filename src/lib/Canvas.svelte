@@ -787,20 +787,6 @@
     <Minimap {widthOf} heightOf={h} {viewW} {viewH} />
   {/if}
 
-  {#if menu}
-    <ContextMenu
-      x={menu.x}
-      y={menu.y}
-      target={menu.target}
-      onclose={() => (menu = null)}
-      oncreate={createAt}
-      onpaste={(wx, wy) => {
-        const n = store.paste(wx, wy);
-        if (n) store.select(n.id);
-      }}
-    />
-  {/if}
-
   {#if !store.notes.length}
     <div class="empty">
       <p>Double-click anywhere to create a note.</p>
@@ -809,6 +795,23 @@
     </div>
   {/if}
 </div>
+
+<!-- Outside .canvas on purpose: a position:fixed descendant of an overflow:hidden
+     container with composited layers makes WebKit drop the container's clip, so the
+     graph would paint over the note panel while the menu is open. -->
+{#if menu}
+  <ContextMenu
+    x={menu.x}
+    y={menu.y}
+    target={menu.target}
+    onclose={() => (menu = null)}
+    oncreate={createAt}
+    onpaste={(wx, wy) => {
+      const n = store.paste(wx, wy);
+      if (n) store.select(n.id);
+    }}
+  />
+{/if}
 
 <style>
   .canvas {
