@@ -68,27 +68,38 @@ Builds are unsigned.
   stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
   when `store.multi.length > 1`, anchored at the selection's top-left). Test:
   `node tests/layout.test.mjs`.
-- `src/lib/Grain.svelte` + `grain.frag` (imported with Vite `?raw`; `MAX_RECTS` /
-  `MAX_CURVES` / `PER_CURVE` are prepended as `#define`s) — decorative WebGL layer under the canvas (`z-index: -1`
-  inside `.canvas`, which is `isolation: isolate`): 1–2 _device_-pixel specks that
-  twinkle in place (per-cell phase; frozen under `prefers-reduced-motion`), masked
-  by a 24px rounded-rect vignette along the frame and a halo around the selected
-  nodes (`glowRects` in `Canvas.svelte`, up to 16, faded in over 160 ms, scaled by
-  zoom, tinted `--accent2`). Cells live in world space (viewport `offset`/`zoom`)
-  so the sand sticks to the graph; the cell size is chosen per power-of-two zoom
-  band (crossfaded between bands) to stay ~1–2 device px. The shader also draws the dot
-  grid per pixel (`dots()`, lattice 16 + 32k; radius/opacity taper with zoom via
-  `grid` in `Canvas.svelte`); the CSS `.bg` grid is only the fallback when
-  the shader is off, since repeating backgrounds get pixel-snapped per tile and flicker
-  while panning. The sand and the dot grid use a parallax'd camera (`bg` in `Canvas.svelte`: the foreground camera
-  scaled by 0.7 about the view centre, i.e. perspective at depth 0.7; `comp`
-  cancels the translation a resize would otherwise cause) so they read as further away than the nodes; the halo and edge
-  travellers stay in the foreground camera. The buffer is resized inside a
-  `ResizeObserver` and drawn synchronously so a stretched frame never shows.
-  Every edge in the selected node's chain (`flowCurves` in `Canvas.svelte`, the same
-  cubic as the SVG `path()`, up to 48) get a few sand grains travelling dependency →
-  dependent along the bezier (`flow()` in the shader). Toggled by the "background
-  grain" palette action (localStorage `dagobert.grain`).
+- `src/lib/Grain.svelte` + `grainGL.ts` — decorative WebGL layer under the canvas
+  (`z-index: -1` inside `.canvas`, which is `isolation: isolate`). The component owns
+  props, the fade-in bookkeeping and the frame loop; `grainGL.ts` is plain WebGL1
+  (`createGrain(canvas)` → `render(w, h, frame)`), so `scripts/grain-bench.mjs` can
+  drive it headlessly (timings on the real GPU; `node scripts/grain-bench.mjs <ref>`
+  also pixel-compares against that git ref). Shaders are `.glsl/.frag/.vert` files
+  imported with Vite `?raw`; `precision`, `MAX_RECTS`/`MAX_CURVES` `#define`s and the
+  shared `grain.glsl` (hash, bez) are prepended. Two passes: `travellers.vert/.frag`
+  draw one small quad per sand grain riding an edge into an offscreen RGBA8 texture
+  (MAX blending via `EXT_blend_minmax`, additive fallback), then `grain.frag` runs
+  full-screen and samples it once — cost scales with grain count, not screen area
+  (a per-fragment loop over 30 long edges cost ~200 ms/frame at 2× full screen).
+  `grain.frag`: 1–2 _device_-pixel specks that twinkle in place (per-cell phase;
+  frozen under `prefers-reduced-motion`), masked by a 24px rounded-rect vignette
+  along the frame and a halo around the selected nodes (`glowRects` in
+  `Canvas.svelte`, up to 16, faded in over 160 ms, scaled by zoom, tinted
+  `--accent2`). Cells live in world space so the sand sticks to the graph; the cell
+  size is chosen per power-of-two zoom band (crossfaded between bands) to stay ~1–2
+  device px. It also draws the dot grid per pixel (`dots()`, lattice 16 + 32k;
+  radius/opacity taper with zoom via `grid` in `Canvas.svelte`); the CSS `.bg` grid
+  is only the fallback when the shader is off, since repeating backgrounds get
+  pixel-snapped per tile and flicker while panning. The sand and the dot grid use a
+  parallax'd camera (`bg` in `Canvas.svelte`: the foreground camera scaled by 0.7
+  about the view centre, i.e. perspective at depth 0.7; `comp` cancels the
+  translation a resize would otherwise cause) so they read as further away than the
+  nodes; the halo and edge travellers stay in the foreground camera. Every edge in
+  the selected node's chain (`flowCurves` in `Canvas.svelte`, the same cubic as the
+  SVG `path()`, up to 48) gets sand grains travelling dependency → dependent
+  (`travellerCount(len)`: one per ~14 world px, 6–48). The buffer is resized inside
+  a `ResizeObserver` and drawn synchronously on input changes so a stretched or
+  lagging frame never shows. Toggled by the "background grain" palette action
+  (localStorage `dagobert.grain`).
 - `src/lib/Minimap.svelte` — bottom-right overview (180×120). Bounds = all notes ∪
   the viewport, padded, so the view box always stays inside the map. Click/drag
   pans (stopPropagation keeps the canvas from panning too). Collapsed state in

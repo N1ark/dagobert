@@ -1,11 +1,13 @@
 <script lang="ts">
   /**
    * WebGL background: a discreet, animated film grain that lives around the
-   * edges of the frame and haloes the selected nodes. Purely decorative;
-   * pointer-events are off and it degrades to nothing without WebGL.
+   * edges of the frame and haloes the selected nodes, plus sand grains riding
+   * the selected node's edges. Purely decorative; pointer-events are off and it
+   * degrades to nothing without WebGL. Rendering lives in grainGL.ts; this
+   * component owns the props, the fade-in bookkeeping and the frame loop.
    */
   import { onMount } from "svelte";
-  import fragSrc from "./grain.frag?raw";
+  import { createGrain, MAX_CURVES, MAX_RECTS, type GrainFrame, type GrainRenderer } from "./grainGL";
 
   export type Rect = { id: string; x: number; y: number; w: number; h: number };
   type Pt = { x: number; y: number };
@@ -31,31 +33,39 @@
     grid?: { radius: number; alpha: number };
   } = $props();
 
-  const MAX_RECTS = 16;
-  const MAX_CURVES = 48;
-  /** Upper bound on sand grains per edge; the actual count grows with edge length. */
-  const PER_CURVE = 48;
   /** Halo fade-in, ms. Also hides the frame where the canvas lags behind the DOM. */
   const FADE_MS = 160;
 
-  const VERT = `attribute vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }`;
-  // Shader constants are injected as #defines so the .frag stays plain GLSL.
-  const FRAG = `#define MAX_RECTS ${MAX_RECTS}\n#define MAX_CURVES ${MAX_CURVES}\n#define PER_CURVE ${PER_CURVE}\n` + fragSrc;
-
   let canvas: HTMLCanvasElement;
-  let gl: WebGLRenderingContext | null = null;
-  let uni: Record<string, WebGLUniformLocation | null> = {};
+  let renderer: GrainRenderer | null = null;
   let raf = 0;
   let frozen = 0;
   let reduced = false;
   let dirty = false;
-  const rectData = new Float32Array(MAX_RECTS * 4);
-  const strength = new Float32Array(MAX_RECTS);
-  /** When each selected rect first appeared, for the fade-in. */
+  let bufW = 1;
+  let bufH = 1;
+  /** When each selected rect / curve first appeared, for the fade-in. */
   const born = new Map<string, number>();
-  const curveA = new Float32Array(MAX_CURVES * 4);
-  const curveB = new Float32Array(MAX_CURVES * 4);
-  const curveStrength = new Float32Array(MAX_CURVES);
+  let curvesVersion = 0;
+  let curvesKey = "";
+
+  const frame: GrainFrame = {
+    time: 0,
+    dpr: 1,
+    offset: { x: 0, y: 0 },
+    zoom: 1,
+    bg: { x: 0, y: 0, zoom: 1 },
+    grid: { radius: 1.3, alpha: 1 },
+    tint: [0.69, 0.27, 0.67],
+    rects: new Float32Array(MAX_RECTS * 4),
+    rectCount: 0,
+    strength: new Float32Array(MAX_RECTS),
+    curvesA: new Float32Array(MAX_CURVES * 4),
+    curvesB: new Float32Array(MAX_CURVES * 4),
+    curveCount: 0,
+    curveStrength: new Float32Array(MAX_CURVES),
+    curvesVersion: 0,
+  };
 
   function accent(): [number, number, number] {
     const v = getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim();
@@ -65,141 +75,90 @@
     return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
   }
 
-  function compile(g: WebGLRenderingContext, type: number, src: string) {
-    const s = g.createShader(type)!;
-    g.shaderSource(s, src);
-    g.compileShader(s);
-    if (!g.getShaderParameter(s, g.COMPILE_STATUS)) {
-      console.warn("grain shader:", g.getShaderInfoLog(s));
-      return null;
-    }
-    return s;
-  }
-
   function setup() {
-    const g = canvas.getContext("webgl", { alpha: true, premultipliedAlpha: true, antialias: false, depth: false, stencil: false });
-    if (!g) return false;
-    const vs = compile(g, g.VERTEX_SHADER, VERT);
-    const fs = compile(g, g.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return false;
-    const prog = g.createProgram()!;
-    g.attachShader(prog, vs);
-    g.attachShader(prog, fs);
-    g.linkProgram(prog);
-    if (!g.getProgramParameter(prog, g.LINK_STATUS)) {
-      console.warn("grain program:", g.getProgramInfoLog(prog));
-      return false;
+    renderer = createGrain(canvas);
+    if (renderer) {
+      frame.tint = accent();
+      dirty = true;
     }
-    g.useProgram(prog);
-    const buf = g.createBuffer();
-    g.bindBuffer(g.ARRAY_BUFFER, buf);
-    g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), g.STATIC_DRAW);
-    const loc = g.getAttribLocation(prog, "a");
-    g.enableVertexAttribArray(loc);
-    g.vertexAttribPointer(loc, 2, g.FLOAT, false, 0, 0);
-    uni = {};
-    for (const k of [
-      "u_res",
-      "u_time",
-      "u_dpr",
-      "u_count",
-      "u_rects",
-      "u_strength",
-      "u_offset",
-      "u_zoom",
-      "u_bg",
-      "u_grid",
-      "u_tint",
-      "u_ccount",
-      "u_ca",
-      "u_cb",
-      "u_cstrength",
-    ])
-      uni[k] = g.getUniformLocation(prog, k);
-    g.uniform3fv(uni.u_tint, accent());
-    g.disable(g.DEPTH_TEST);
-    g.disable(g.BLEND);
-    gl = g;
-    dirty = true;
-    return true;
+    return !!renderer;
   }
 
   function dpr() {
     return window.devicePixelRatio || 1;
   }
 
-  let bufW = 1;
-  let bufH = 1;
-
-  function frame(t: number) {
-    raf = requestAnimationFrame(frame);
+  function loop(t: number) {
+    raf = requestAnimationFrame(loop);
     render(t);
   }
 
   function render(t: number) {
-    if (!gl || document.hidden) return;
+    if (!renderer || document.hidden) return;
     // Reduced motion: a still texture that only re-renders when inputs change.
     if (reduced) {
       if (!dirty) return;
       t = frozen;
     }
     dirty = false;
-    const g = gl;
     const s = dpr();
-    const W = bufW;
-    const H = bufH;
-    if (canvas.width !== W || canvas.height !== H) {
-      canvas.width = W;
-      canvas.height = H;
-    }
-    g.viewport(0, 0, W, H);
-    g.uniform2f(uni.u_res, W, H);
-    g.uniform1f(uni.u_time, t / 1000);
-    g.uniform1f(uni.u_dpr, s);
-    const n = Math.min(rects.length, MAX_RECTS);
     const now = performance.now();
+    const fade = (id: string) => {
+      let b = born.get(id);
+      if (b === undefined) born.set(id, (b = now));
+      const k = reduced ? 1 : Math.min(1, (now - b) / FADE_MS);
+      if (k < 1) dirty = true;
+      return k * k;
+    };
     for (const id of born.keys()) if (!rects.some((r) => r.id === id) && !curves.some((c) => c.id === id)) born.delete(id);
+
+    const n = Math.min(rects.length, MAX_RECTS);
     for (let i = 0; i < n; i++) {
       const r = rects[i];
-      rectData[i * 4] = r.x * s;
-      rectData[i * 4 + 1] = r.y * s;
-      rectData[i * 4 + 2] = r.w * s;
-      rectData[i * 4 + 3] = r.h * s;
-      let b = born.get(r.id);
-      if (b === undefined) born.set(r.id, (b = now));
-      const k = reduced ? 1 : Math.min(1, (now - b) / FADE_MS);
-      strength[i] = k * k;
-      if (k < 1) dirty = true;
+      frame.rects[i * 4] = r.x * s;
+      frame.rects[i * 4 + 1] = r.y * s;
+      frame.rects[i * 4 + 2] = r.w * s;
+      frame.rects[i * 4 + 3] = r.h * s;
+      frame.strength[i] = fade(r.id);
     }
-    g.uniform1i(uni.u_count, n);
-    g.uniform4fv(uni.u_rects, rectData);
-    g.uniform1fv(uni.u_strength, strength);
+    frame.rectCount = n;
+
     const m = Math.min(curves.length, MAX_CURVES);
+    // The traveller vertex buffer depends only on which curves exist and how long they are.
+    const key = curves
+      .slice(0, m)
+      .map((c) => c.id + ":" + Math.round(Math.hypot(c.p3.x - c.p0.x, c.p3.y - c.p0.y)))
+      .join("|");
+    if (key !== curvesKey) {
+      curvesKey = key;
+      curvesVersion++;
+    }
     for (let i = 0; i < m; i++) {
       const c = curves[i];
-      curveA[i * 4] = c.p0.x;
-      curveA[i * 4 + 1] = c.p0.y;
-      curveA[i * 4 + 2] = c.p1.x;
-      curveA[i * 4 + 3] = c.p1.y;
-      curveB[i * 4] = c.p2.x;
-      curveB[i * 4 + 1] = c.p2.y;
-      curveB[i * 4 + 2] = c.p3.x;
-      curveB[i * 4 + 3] = c.p3.y;
-      let b = born.get(c.id);
-      if (b === undefined) born.set(c.id, (b = now));
-      const k = reduced ? 1 : Math.min(1, (now - b) / FADE_MS);
-      curveStrength[i] = k * k;
-      if (k < 1) dirty = true;
+      frame.curvesA[i * 4] = c.p0.x;
+      frame.curvesA[i * 4 + 1] = c.p0.y;
+      frame.curvesA[i * 4 + 2] = c.p1.x;
+      frame.curvesA[i * 4 + 3] = c.p1.y;
+      frame.curvesB[i * 4] = c.p2.x;
+      frame.curvesB[i * 4 + 1] = c.p2.y;
+      frame.curvesB[i * 4 + 2] = c.p3.x;
+      frame.curvesB[i * 4 + 3] = c.p3.y;
+      frame.curveStrength[i] = fade(c.id);
     }
-    g.uniform1i(uni.u_ccount, m);
-    g.uniform4fv(uni.u_ca, curveA);
-    g.uniform4fv(uni.u_cb, curveB);
-    g.uniform1fv(uni.u_cstrength, curveStrength);
-    g.uniform2f(uni.u_offset, offset.x * s, offset.y * s);
-    g.uniform1f(uni.u_zoom, zoom);
-    g.uniform3f(uni.u_bg, bg.x * s, bg.y * s, bg.zoom);
-    g.uniform2f(uni.u_grid, grid.radius * s, grid.alpha);
-    g.drawArrays(g.TRIANGLES, 0, 3);
+    frame.curveCount = m;
+    frame.curvesVersion = curvesVersion;
+
+    frame.time = t / 1000;
+    frame.dpr = s;
+    frame.offset.x = offset.x * s;
+    frame.offset.y = offset.y * s;
+    frame.zoom = zoom;
+    frame.bg.x = bg.x * s;
+    frame.bg.y = bg.y * s;
+    frame.bg.zoom = bg.zoom;
+    frame.grid.radius = grid.radius * s;
+    frame.grid.alpha = grid.alpha;
+    renderer.render(bufW, bufH, frame);
   }
 
   // Under reduced motion the texture is still; re-render only when inputs change.
@@ -226,7 +185,7 @@
 
     const lost = (e: Event) => {
       e.preventDefault();
-      gl = null;
+      renderer = null;
     };
     const restored = () => setup();
     canvas.addEventListener("webglcontextlost", lost);
@@ -250,7 +209,7 @@
     });
     ro.observe(canvas);
 
-    if (setup()) raf = requestAnimationFrame(frame);
+    if (setup()) raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);
@@ -258,8 +217,8 @@
       mq.removeEventListener("change", onMq);
       canvas.removeEventListener("webglcontextlost", lost);
       canvas.removeEventListener("webglcontextrestored", restored);
-      gl?.getExtension("WEBGL_lose_context")?.loseContext();
-      gl = null;
+      renderer?.destroy();
+      renderer = null;
     };
   });
 </script>
