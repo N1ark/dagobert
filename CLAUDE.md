@@ -123,6 +123,9 @@ Builds are unsigned.
 - `src/lib/ContextMenu.svelte` — right-click menu, opened by `Canvas` for a node
   (open / status / tag checklist + new tag / delete), an edge (remove link) or the
   background (new note here). Closes on outside pointerdown, Esc or window blur.
+  Rendered as a sibling of `.canvas`, not inside it: a `position: fixed` element inside
+  the `overflow: hidden` canvas makes WebKit drop the canvas clip and paint the graph
+  over the note panel.
 - `src/lib/editor.ts` — pure textarea commands (`toggleWrap`, `link`,
   `continueList`, `indent`, `command`) used by the panel's body `onkeydown`.
   Test them with a node script (`node --experimental-strip-types` works) rather
@@ -266,7 +269,9 @@ Builds are unsigned.
 - Tag mutations go through `store.addTag/removeTag/toggleTag` (shared by the panel
   and the context menu).
 - macOS window uses `titleBarStyle: Overlay`; toolbar has 84px left padding for the
-  traffic lights and `data-tauri-drag-region`.
+  traffic lights and `data-tauri-drag-region` (only elements carrying the attribute
+  drag, not their children; needs `core:window:allow-start-dragging` in the
+  capability, which the default set omits).
 - Svelte a11y warnings on the canvas/markdown containers are intentionally
   silenced with `svelte-ignore`; keep `npm run check` clean rather than disabling globally.
 - Lint conventions: `svelte/prefer-svelte-reactivity` is off (plain Set/Map are used
