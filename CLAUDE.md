@@ -22,7 +22,7 @@ Verifying UI changes: `npm run dev`, open http://localhost:1420, click "Open a f
 ## Working rules
 
 - **Comments: as few as possible, 1 line max.**
-- Every **user-facing change** gets a line in `CHANGELOG.md` under Unreleased.
+- Every **user-facing change** gets a line in `CHANGELOG.md` under Unreleased. Keep the line short, and simple, without getting into details.
 - Always commit, one commit per feature. A fix to the previous commit is amended, not
   added.
 - **Every user-facing string lives in `src/lib/locales/en.ts`** (`t(key)`); shortcuts come
