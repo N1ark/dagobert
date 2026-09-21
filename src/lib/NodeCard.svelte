@@ -41,9 +41,9 @@
       .find((l) => l.length > 0 && !/^(```|---|\*\*\*|___)/.test(l)) ?? "",
   );
 
-  function advance(e: Event) {
+  function advance(e: MouseEvent) {
     e.stopPropagation();
-    store.advance(note.id);
+    store.advance(note.id, e.shiftKey ? -1 : 1);
   }
 </script>
 
@@ -93,7 +93,7 @@
           style="--c:{stageColor(workflow, note.status)}"
           onpointerdown={(e) => e.stopPropagation()}
           onclick={advance}
-          title="{workflow.name} — click to advance"
+          title="{workflow.name} — click to advance, shift-click to go back"
         >
           <span class="pip"></span>{note.status}
         </button>

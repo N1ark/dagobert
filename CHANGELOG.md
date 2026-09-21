@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Shift-clicking a node's status pill on the graph moves it back a stage instead of forward.
+
 ## [0.5.1] - 2026-09-21
 
 ### Fixed

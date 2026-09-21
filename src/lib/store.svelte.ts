@@ -185,12 +185,13 @@ class Store {
   }
 
   /** Move to the next stage, wrapping around at the end. */
-  advance(id: string) {
+  /** Move to the next stage (or previous with `step = -1`), wrapping around. */
+  advance(id: string, step = 1) {
     const n = this.byId(id);
     if (!n || n.tracking) return;
     const stages = this.workflowOf(n).stages;
     const i = stages.findIndex((s) => s.name === n.status);
-    this.setStatus(id, stages[(i + 1) % stages.length].name);
+    this.setStatus(id, stages[(i + step + stages.length) % stages.length].name);
   }
 
   /** Switch a note to another workflow, keeping done-ness where possible. */

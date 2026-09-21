@@ -254,7 +254,7 @@ Builds are unsigned.
 - Progress: a note has `workflow` (id, `null` = built-in Todo) and `status` (stage
   name). Done-ness is derived — `store.isDone(note)` checks whether the current stage
   has `done: true` — never read a `done` field. Default-workflow notes show a checkbox;
-  custom ones show a status pill (click = `store.advance`, wraps around). Pill colour:
+  custom ones show a status pill (click = `store.advance`, shift-click = `advance(id, -1)`, wraps around). Pill colour:
   `Stage.color` if set, else `stageColor`'s automatic grey/yellow/green. Switching
   workflow maps done → first done stage, else first stage. Editing a workflow repairs
   notes whose stage vanished (`updateWorkflow`); deleting one reverts its notes to Todo.
