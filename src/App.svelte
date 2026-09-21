@@ -8,6 +8,7 @@
   import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import PullRequests from "./lib/PullRequests.svelte";
+  import { syncPRs } from "./lib/prs.svelte";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import Plus from "phosphor-svelte/lib/Plus";
@@ -35,6 +36,8 @@
   const params = new URLSearchParams(location.search);
   const standaloneId = params.get("note");
   const standalonePath = params.get("path");
+
+  syncPRs();
 
   // Focus mode: dim everything outside the selected note's chain.
   const FOCUS_KEY = "dagobert.focus";

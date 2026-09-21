@@ -173,9 +173,15 @@ Builds are unsigned.
   (open/draft/merged/closed), title (opens GitHub), author, updated, comment count and
   chips for the notes mentioning it (click = jump). `github.issue(repo, n)` serves each
   from the cached recent list, else one request per number; `invalidate()` backs the
-  refresh button. Results live in `prs.svelte.ts` (`prCache`, module-level `$state`)
-  so reopening the pane is instant; fetching is batched and, in the first seconds
-  after launch, deferred to an idle callback. Rows are grouped per repo with a
+  refresh button. Fetching lives in `prs.svelte.ts`: `prCache` (module-level `$state`,
+  keyed `prKey(repo, n)`), `linkedRefs()` (every ref across notes), `syncPRs()` (the
+  fetch effect, started once in `App.svelte` so the cache fills in the background
+  whether or not the pane is open; batched and, in the first seconds after launch,
+  deferred to an idle callback) and `refreshPRs()`. `PrIcon.svelte` is the shared state
+  icon (PR open/draft/closed/merged, issue open/closed): pass `item` or a cache `key`.
+  Used by the sidebar, `IssuePopup` and inline: `renderRepoRefs` puts `data-ref` on
+  each `.ghref` anchor and `Markdown.svelte` `mount()`s a `PrIcon` into every one after
+  render (the icon fills in when the fetch lands). Rows are grouped per repo with a
   divider. Plain issues are dropped. "Hide closed/merged" toggle persists in
   `dagobert.prsHideClosed`. Width is `--prs-w` (`prsW` in `App.svelte`, localStorage
   `dagobert.prsWidth`, dragged via `.resizer.left`). Toggling or resizing calls
@@ -231,6 +237,13 @@ Builds are unsigned.
   `import X from "phosphor-svelte/lib/X"`. No hand-drawn glyphs or unicode symbols
   for UI icons.
 - `src/app.css` — theme tokens (from n1ark.com's dark mode) and `.markdown` styles.
+
+## Working rules
+
+- Comments: as few as possible, and only the bare minimum (1 line max).
+- Every user-facing change gets a line in `CHANGELOG.md` under Unreleased.
+- Always commit your changes, one commit per feature. If you fix something in the
+  previous commit, amend it rather than adding a new commit.
 
 ## Conventions & decisions
 

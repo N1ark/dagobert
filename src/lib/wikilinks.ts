@@ -55,7 +55,8 @@ function renderRepoRefs(md: string): string {
   return md.replace(REPO_REF_RE, (m, pre: string, alias: string, num: string, offset: number) => {
     const repo = store.repos[alias];
     if (!repo || inCode(offset + pre.length)) return m;
-    return `${pre}<a class="ghref" href="https://github.com/${repo}/issues/${num}" title="${repo}#${num}">${alias}#${num}</a>`;
+    const ref = escapeHtml(`${repo}#${num}`);
+    return `${pre}<a class="ghref" href="https://github.com/${repo}/issues/${num}" title="${ref}" data-ref="${ref}">${alias}#${num}</a>`;
   });
 }
 

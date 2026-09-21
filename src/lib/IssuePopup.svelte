@@ -1,9 +1,6 @@
 <script lang="ts">
   import { searchIssues, recentIssues, type IssueRef } from "./github";
-  import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
-  import GitMerge from "phosphor-svelte/lib/GitMerge";
-  import Circle from "phosphor-svelte/lib/Circle";
-  import CheckCircle from "phosphor-svelte/lib/CheckCircle";
+  import PrIcon from "./PrIcon.svelte";
   import CircleNotch from "phosphor-svelte/lib/CircleNotch";
 
   let {
@@ -109,11 +106,7 @@
       onclick={() => onpick(r)}
       onmouseenter={() => (active = i)}
     >
-      <span class="icon {r.state}">
-        {#if r.isPr}
-          {#if r.state === "merged"}<GitMerge size={13} />{:else}<GitPullRequest size={13} />{/if}
-        {:else if r.state === "closed"}<CheckCircle size={13} />{:else}<Circle size={13} />{/if}
-      </span>
+      <PrIcon item={r} />
       <span class="num">#{r.number}</span>
       <span class="t">{r.title}</span>
     </button>
@@ -172,16 +165,6 @@
   .row.active {
     background: #ffffff10;
     color: var(--color2);
-  }
-  .icon {
-    display: inline-flex;
-    color: var(--green);
-  }
-  .icon.closed {
-    color: var(--red);
-  }
-  .icon.merged {
-    color: var(--accent2);
   }
   .num {
     color: var(--color-dim);

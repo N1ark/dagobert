@@ -270,6 +270,10 @@ a {
 .ghref:hover {
   border-bottom-color: var(--accent2);
 }
+.ghref .pr-icon {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
 
 /* Instant tooltip (src/lib/tooltip.ts); one shared element on <body>. */
 .tooltip {

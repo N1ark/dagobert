@@ -1,8 +1,8 @@
 <script lang="ts">
   import { store } from "./store.svelte";
-  import { repoRefs, type RepoRef } from "./wikilinks";
-  import { issue, invalidate, type IssueRef } from "./github";
-  import { prCache } from "./prs.svelte";
+  import type { IssueRef } from "./github";
+  import { prCache, linkedRefs, refreshPRs, type Linked } from "./prs.svelte";
+  import PrIcon from "./PrIcon.svelte";
   import { relative, absolute } from "./time";
   import { tooltip } from "./tooltip";
   import { openUrl } from "@tauri-apps/plugin-opener";
@@ -10,16 +10,8 @@
   import { inlineHtml } from "./inline";
   import X from "phosphor-svelte/lib/X";
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
-  import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
-  import GitMerge from "phosphor-svelte/lib/GitMerge";
-  import XCircle from "phosphor-svelte/lib/XCircle";
   import ChatCircle from "phosphor-svelte/lib/ChatCircle";
   import EyeSlash from "phosphor-svelte/lib/EyeSlash";
-
-  /** `requestIdleCallback` with a timeout, falling back to a short timer. */
-  const idle = (fn: () => void): number =>
-    typeof requestIdleCallback === "function" ? requestIdleCallback(fn, { timeout: 1500 }) : setTimeout(fn, 250);
-  const cancelIdle = (h: number) => (typeof cancelIdleCallback === "function" ? cancelIdleCallback(h) : clearTimeout(h));
 
   let { onclose, onjump }: { onclose: () => void; onjump: (id: string) => void } = $props();
 
@@ -30,82 +22,10 @@
     localStorage.setItem(HIDE_KEY, hideClosed ? "1" : "0");
   }
 
-  /** A referenced item and the notes that mention it. */
-  interface Linked extends RepoRef {
-    key: string;
-    notes: { id: string; title: string }[];
-  }
-
-  // Every alias#123 across all notes, grouped by repo + number. Cheap enough to
-  // rescan on each edit: it's a regex over the bodies.
-  const refs = $derived.by((): Linked[] => {
-    const by = new Map<string, Linked>();
-    for (const n of store.notes) {
-      for (const r of repoRefs(`${n.title}\n${n.body}`)) {
-        const key = `${r.repo}#${r.number}`;
-        let l = by.get(key);
-        if (!l) by.set(key, (l = { ...r, key, notes: [] }));
-        if (!l.notes.some((x) => x.id === n.id)) l.notes.push({ id: n.id, title: n.title });
-      }
-    }
-    return [...by.values()];
-  });
-
-  // Fetched details, keyed like `refs`. Refs that turn out to be plain issues
-  // (or don't exist) are recorded as null so they aren't retried.
+  const refs = $derived(linkedRefs());
   const details = $derived(prCache.details);
   const errors = $derived(prCache.errors);
-  let pending = $state(false);
-  /** Keys with a request in flight (not reactive: only guards double fetches). */
-  const inflight = new Set<string>();
-
-  /** Fetch a batch and commit every result in one state update. */
-  async function load(batch: Linked[]) {
-    for (const l of batch) inflight.add(l.key);
-    pending = true;
-    const results = await Promise.allSettled(batch.map((l) => issue(l.repo, l.number)));
-    const d = { ...details };
-    const e = { ...errors };
-    results.forEach((r, i) => {
-      const key = batch[i].key;
-      if (r.status === "fulfilled") {
-        d[key] = r.value && r.value.isPr ? r.value : null;
-        delete e[key];
-      } else e[key] = r.reason instanceof Error ? r.reason.message : String(r.reason);
-      inflight.delete(key);
-    });
-    prCache.details = d;
-    prCache.errors = e;
-    pending = inflight.size > 0;
-  }
-
-  // Fetch whatever hasn't been fetched yet whenever the set of refs changes.
-  // Only `refs`, `details` and `errors` are tracked; the work is scheduled for
-  // when the browser is idle so opening the app (or a project) paints first, and
-  // the writes happen untracked after an await so the effect never re-triggers
-  // itself. Refs added while a batch is in flight wait for the next idle slot.
-  $effect(() => {
-    const missing = refs.filter((l) => !(l.key in details) && !(l.key in errors) && !inflight.has(l.key));
-    if (!missing.length) return;
-    // Right after launch, wait for an idle slot so the first paint isn't delayed;
-    // once the app is up, fetch straight away.
-    if (performance.now() > 5000) {
-      void load(missing);
-      return;
-    }
-    let cancelled = false;
-    const handle = idle(() => !cancelled && void load(missing));
-    return () => {
-      cancelled = true;
-      cancelIdle(handle);
-    };
-  });
-
-  function refresh() {
-    invalidate();
-    prCache.details = {};
-    prCache.errors = {};
-  }
+  const pending = $derived(prCache.pending);
 
   interface Row {
     ref: Linked;
@@ -141,10 +61,6 @@
     const t = button.querySelector(".t");
     return !!t && t.scrollHeight > t.clientHeight + 1;
   }
-
-  function stateLabel(pr: IssueRef) {
-    return pr.state === "merged" ? "Merged" : pr.state === "closed" ? "Closed" : pr.draft ? "Draft" : "Open";
-  }
 </script>
 
 <aside class="prs">
@@ -160,7 +76,7 @@
       onclick={toggleHide}
       use:tooltip={hideClosed ? "Show closed and merged" : "Hide closed and merged"}><EyeSlash size={15} /></button
     >
-    <button class="ghost icon" onclick={refresh} disabled={pending} use:tooltip={"Refresh"}><ArrowsClockwise size={15} /></button>
+    <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={"Refresh"}><ArrowsClockwise size={15} /></button>
     <button class="ghost icon" onclick={onclose} aria-label="close"><X size={15} /></button>
   </header>
   <div class="list">
@@ -180,11 +96,7 @@
       <div class="divider"><span>{repo}</span></div>
       {#each items as { ref, pr } (ref.key)}
         <div class="row">
-          <span class="state {pr.state}" class:draft={pr.draft} use:tooltip={stateLabel(pr)}>
-            {#if pr.state === "merged"}<GitMerge size={13} />{:else if pr.state === "closed"}<XCircle size={13} />{:else}<GitPullRequest
-                size={13}
-              />{/if}
-          </span>
+          <span class="state"><PrIcon item={pr} /></span>
           <div class="body">
             <button
               class="ghost title"
@@ -315,16 +227,6 @@
     flex: none;
     display: inline-flex;
     margin-top: 2px;
-    color: var(--green);
-  }
-  .state.draft {
-    color: var(--color-dim);
-  }
-  .state.closed {
-    color: var(--red);
-  }
-  .state.merged {
-    color: var(--accent2);
   }
   .body {
     flex: 1;

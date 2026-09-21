@@ -9,6 +9,9 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 
 - The colour of tags and workflows can now be customised past the builtin palette.
+- `alias#123` references in note bodies show the pull request's state (open, draft,
+  closed, merged) as a small inline icon. PR details are now fetched in the
+  background even when the Pull requests pane is closed.
 
 ### Changed
 
