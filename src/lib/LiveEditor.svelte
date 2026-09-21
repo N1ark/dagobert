@@ -10,6 +10,7 @@
   import { command, pasteLink } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
+  import { keys } from "./keys";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict } from "./blocks";
 
   /**
@@ -425,7 +426,8 @@
   {/if}
   {#if !blocks.length && active === null}
     <div class="block placeholder" onclick={() => appendBlock()}>
-      {t("editor.placeholder")} <span class="hint">{t("editor.placeholder.hint")}</span>
+      {t("editor.placeholder")}
+      <span class="hint">{t("editor.placeholder.hint", { bold: keys.bold, italic: keys.italic, link: keys.link, esc: keys.escape })}</span>
     </div>
   {/if}
   {#if issue}

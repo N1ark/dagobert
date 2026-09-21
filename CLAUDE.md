@@ -247,6 +247,12 @@ Builds are unsigned.
   with inline markdown (help paragraphs, marked "markdown" in the catalogue) render
   through `InlineMd`. `tests/i18n.test.mjs` fails on any catalogue key nothing uses.
   Rust error messages (git/store) reach toasts untranslated. No locale switching yet.
+- `src/lib/keys.ts` — every keyboard shortcut in display form (`keys["new-note"]` =
+  `⌘N`); locale strings take a placeholder for them, never spell them out (the i18n
+  test enforces it). `matches(hint, e)` checks a `KeyboardEvent` against one; the
+  window handler (`WINDOW_KEYS` in `App.svelte`), `Canvas` and `editor.ts` all go
+  through it, and `menu.ts` derives accelerators from the same hints, so rebinding
+  means changing one entry. Test: `tests/keys.test.mjs`.
 - `src/lib/history.ts` — pure undo stack (`History`, `NoteDiff`, `sameNote`). The
   store integrates it: every `touch`/`create`/`remove`/`restoreNote` calls
   `#record`, which batches all diffs recorded in the same microtask into one entry

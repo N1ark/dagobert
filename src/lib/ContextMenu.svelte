@@ -8,6 +8,7 @@
   import Trash from "phosphor-svelte/lib/Trash";
   import FolderOpen from "phosphor-svelte/lib/FolderOpen";
   import { t } from "./i18n";
+  import { keys } from "./keys";
 
   export type MenuTarget =
     | { kind: "node"; id: string }
@@ -101,14 +102,14 @@
     <button class="item" onclick={() => run(() => store.select(note.id))}>{t("ctx.open")}</button>
     <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> {t("ctx.openWindow")}</button>
     <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> {t("ctx.reveal")}</button>
-    <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> {t("ctx.copy")} <kbd>⌘C</kbd></button>
+    <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> {t("ctx.copy")} <kbd>{keys.copy}</kbd></button>
     <button
       class="item"
       onclick={() =>
         run(() => {
           const d = store.duplicate(note.id);
           if (d) store.select(d.id);
-        })}>{t("ctx.duplicate")} <kbd>⌘D</kbd></button
+        })}>{t("ctx.duplicate")} <kbd>{keys.duplicate}</kbd></button
     >
     {#if note.tracking}
       <div class="section">{t("ctx.tracking", { done: store.progress(note).done, total: store.progress(note).total })}</div>
@@ -202,7 +203,8 @@
   {:else if target.kind === "background"}
     {@const bg = target}
     <button class="item" onclick={() => run(() => oncreate(bg.wx, bg.wy))}>{t("ctx.newHere")}</button>
-    <button class="item" disabled={!store.clipboard} onclick={() => run(() => onpaste(bg.wx, bg.wy))}>{t("ctx.paste")} <kbd>⌘V</kbd></button
+    <button class="item" disabled={!store.clipboard} onclick={() => run(() => onpaste(bg.wx, bg.wy))}
+      >{t("ctx.paste")} <kbd>{keys.paste}</kbd></button
     >
   {/if}
 </div>

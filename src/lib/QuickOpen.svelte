@@ -10,6 +10,7 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import Terminal from "phosphor-svelte/lib/Terminal";
   import { t } from "./i18n";
+  import { keys } from "./keys";
 
   export interface Action {
     id: string;
@@ -152,7 +153,7 @@
         placeholder={t(mode === "commands" ? "quick.commands.placeholder" : "quick.notes.placeholder")}
         spellcheck="false"
       />
-      <span class="mode">{mode === "commands" ? "⇧⌘K" : "⌘K"}</span>
+      <span class="mode">{mode === "commands" ? keys.commands : keys["quick-open"]}</span>
     </div>
     <div class="list" bind:this={list}>
       {#each rows as row, i (row.kind === "note" ? row.note.id : row.kind === "action" ? "a:" + row.action.label : "create")}
@@ -184,7 +185,9 @@
             {:else if store.isDone(n)}
               <span class="status" style="--c:var(--green)"><span class="pip"></span>{t("quick.done")}</span>
             {/if}
-            <span class="kbd slot" class:show={i === active} title={t("quick.newWindow.tip")}><ArrowSquareOut size={12} /></span>
+            <span class="kbd slot" class:show={i === active} title={t("quick.newWindow.tip", { key: keys["open-window"] })}
+              ><ArrowSquareOut size={12} /></span
+            >
           </button>
         {:else if row.kind === "action"}
           <button
@@ -220,7 +223,7 @@
       <span><kbd>↑↓</kbd> {t("quick.foot.navigate")}</span>
       <span><kbd>↩</kbd> {t(mode === "commands" ? "quick.foot.run" : "quick.foot.open")}</span>
       {#if mode === "notes"}
-        <span><kbd>⌘↩</kbd> {t("quick.foot.newWindow")}</span>
+        <span><kbd>{keys["open-window"]}</kbd> {t("quick.foot.newWindow")}</span>
         <span><kbd>#</kbd> {t("quick.foot.tag")}</span>
       {/if}
     </footer>

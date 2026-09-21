@@ -9,6 +9,7 @@
   import { WORLD, clampViewport, clampNode } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
   import { t } from "./i18n";
+  import { keys, matches as pressed } from "./keys";
 
   let { matches = null, focus = true, grain = true }: { matches?: Set<string> | null; focus?: boolean; grain?: boolean } = $props();
 
@@ -631,28 +632,28 @@
     const t = e.target as HTMLElement;
     if (t.closest("input, textarea, [contenteditable]")) return;
     const mod = e.metaKey || e.ctrlKey;
-    if (mod && e.key.toLowerCase() === "z") {
+    if (pressed(keys.undo, e) || pressed(keys.redo, e)) {
       e.preventDefault();
-      if (e.shiftKey) store.redo();
+      if (pressed(keys.redo, e)) store.redo();
       else store.undo();
       return;
     }
-    if (mod && e.key.toLowerCase() === "a") {
+    if (pressed(keys["select-all"], e)) {
       e.preventDefault();
       store.multi = store.notes.map((n) => n.id);
       return;
     }
-    if (mod && e.key.toLowerCase() === "c" && store.selectedId && !window.getSelection()?.toString()) {
+    if (pressed(keys.copy, e) && store.selectedId && !window.getSelection()?.toString()) {
       e.preventDefault();
       store.copy(store.selectedId);
       return;
     }
-    if (mod && e.key.toLowerCase() === "v" && store.clipboard) {
+    if (pressed(keys.paste, e) && store.clipboard) {
       e.preventDefault();
       pasteHere();
       return;
     }
-    if (mod && e.key.toLowerCase() === "d" && store.selectedId) {
+    if (pressed(keys.duplicate, e) && store.selectedId) {
       e.preventDefault();
       duplicateSelected();
       return;

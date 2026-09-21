@@ -2,6 +2,7 @@
  * Every user-facing string, keyed by screen. `{name}` placeholders are filled by
  * `t()`; `.one` / `.other` pairs are chosen by `plural()` (which also fills `{n}`).
  * Keys marked "markdown" are rendered through `InlineMd` (bold, code, links).
+ * Keyboard shortcuts are never spelled out here: they come from `keys.ts`.
  */
 export default {
   "app.name": "Dagobert",
@@ -52,7 +53,7 @@ export default {
   "action.git-settings": "Git tracking…",
 
   // Toolbar
-  "toolbar.search.placeholder": "Search notes…  (⌘F · ⌘K to jump)",
+  "toolbar.search.placeholder": "Search notes…  ({search} · {quickOpen} to jump)",
   "toolbar.matches.one": "{n} match",
   "toolbar.matches.other": "{n} matches",
   "toolbar.stats.title": "ready · done · total",
@@ -67,9 +68,9 @@ export default {
   "toolbar.git.notSynced": "not synced yet",
   "toolbar.git.local": "Git tracking (local only, no remote) — {when}",
   "toolbar.git.position": " · {ahead}↑ {behind}↓",
-  "toolbar.git.remote": "Git tracking on {branch}{position} — {when} · click to commit now (⌘S)",
+  "toolbar.git.remote": "Git tracking on {branch}{position} — {when} · click to commit now ({key})",
   "toolbar.trash": "Deleted notes",
-  "toolbar.prs.tip": "Pull requests linked from notes (⇧⌘P)",
+  "toolbar.prs.tip": "Pull requests linked from notes ({key})",
   "toolbar.prs": "Pull requests",
   "toolbar.focus.tip": "Focus: dim notes outside the selected note's chain",
   "toolbar.focus": "Focus",
@@ -77,7 +78,7 @@ export default {
   "toolbar.tidy": "Tidy",
   "toolbar.fit.tip": "Fit all notes in view",
   "toolbar.fit": "Fit all",
-  "toolbar.new.tip": "New note (⌘N)",
+  "toolbar.new.tip": "New note ({key})",
   "toolbar.new": "New note",
 
   // Welcome screen
@@ -135,7 +136,7 @@ export default {
   "panel.title.tip": "Inline markdown works here (**bold**, `code`, [links](…))",
   "panel.openWindow": "Open in a new window",
   "panel.openWindow.aria": "open in new window",
-  "panel.close": "Close (Esc)",
+  "panel.close": "Close ({key})",
   "panel.close.aria": "close",
   "panel.depsDone": "dependencies done",
   "panel.kind": "Kind",
@@ -165,7 +166,7 @@ export default {
 
   // Body editor
   "editor.placeholder": "Write in markdown… click to start.",
-  "editor.placeholder.hint": "⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block",
+  "editor.placeholder.hint": "{bold} bold · {italic} italic · {link} link · @ links a note · {esc} to leave a block",
   "editor.empty": "Nothing here yet.",
   "editor.mention.create": "+ Create “{title}”",
   "editor.issue.noMatches": "No matches",
@@ -185,7 +186,7 @@ export default {
   "quick.notes.placeholder": "Jump to a note…  #tag to filter",
   "quick.commands.placeholder": "Run a command…",
   "quick.done": "done",
-  "quick.newWindow.tip": "⌘↩ opens in a new window",
+  "quick.newWindow.tip": "{key} opens in a new window",
   "quick.create": "Create “{title}”",
   "quick.noCommand": "No matching command",
   "quick.noNotes": "No notes yet",

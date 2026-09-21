@@ -16,6 +16,7 @@
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
+  import { keys, matches as pressed } from "./lib/keys";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
@@ -154,7 +155,7 @@
     const when = store.gitLastSync ? t("toolbar.git.lastSync", { when: relative(store.gitLastSync) }) : t("toolbar.git.notSynced");
     if (st && !st.has_remote) return t("toolbar.git.local", { when });
     const position = st && (st.ahead || st.behind) ? t("toolbar.git.position", { ahead: st.ahead, behind: st.behind }) : "";
-    return t("toolbar.git.remote", { branch: st?.branch ?? "", position, when });
+    return t("toolbar.git.remote", { branch: st?.branch ?? "", position, when, key: keys["git-sync"] });
   }
 
   // Notes that pass the search box AND the tag filter; null when neither is active.
@@ -212,20 +213,20 @@
     });
     return [
       a("new-note", t("action.new-note"), () => canvas?.createAtCenter(), {
-        hint: "⌘N",
+        hint: keys["new-note"],
         icon: Plus,
         symbol: ["plus"],
         menu: "File",
         enabled: has,
       }),
       a("open-folder", t("action.open-folder"), () => store.pickAndOpen(), {
-        hint: "⌘O",
+        hint: keys["open-folder"],
         icon: FolderOpen,
         symbol: ["folder"],
         menu: "File",
       }),
       a("git-sync", t("action.git-sync"), () => store.syncNow(true), {
-        hint: "⌘S",
+        hint: keys["git-sync"],
         icon: CloudArrowUp,
         symbol: ["arrow.triangle.2.circlepath", "arrow.clockwise"],
         menu: "File",
@@ -244,14 +245,14 @@
         },
       ),
       a("undo", t("action.undo"), () => editUndo("undo"), {
-        hint: "⌘Z",
+        hint: keys.undo,
         icon: ArrowCounterClockwise,
         symbol: ["arrow.uturn.backward"],
         menu: "Edit",
         enabled: has,
       }),
       a("redo", t("action.redo"), () => editUndo("redo"), {
-        hint: "⇧⌘Z",
+        hint: keys.redo,
         icon: ArrowClockwise,
         symbol: ["arrow.uturn.forward"],
         menu: "Edit",
@@ -296,7 +297,7 @@
         enabled: !!sel,
       }),
       a("duplicate", t("action.duplicate"), () => duplicateSelected(), {
-        hint: "⌘D",
+        hint: keys.duplicate,
         icon: CopySimple,
         symbol: ["plus.square.on.square"],
         menu: "Note",
@@ -309,21 +310,21 @@
         enabled: has && !!store.clipboard,
       }),
       a("quick-open", t("action.quick-open"), () => openPalette("notes"), {
-        hint: "⌘K",
+        hint: keys["quick-open"],
         icon: MagnifyingGlass,
         symbol: ["magnifyingglass"],
         menu: "View",
         enabled: has,
       }),
       a("commands", t("action.commands"), () => openPalette("commands"), {
-        hint: "⇧⌘K",
+        hint: keys.commands,
         icon: Terminal,
         symbol: ["terminal", "command"],
         menu: "View",
         enabled: has,
       }),
       a("search", t("action.search"), () => (searchEl?.focus(), searchEl?.select()), {
-        hint: "⌘F",
+        hint: keys.search,
         icon: MagnifyingGlass,
         symbol: ["text.magnifyingglass", "magnifyingglass"],
         menu: "View",
@@ -362,7 +363,7 @@
         enabled: has,
       }),
       a("prs", t(showPRs ? "action.prs.hide" : "action.prs.show"), () => togglePRs(), {
-        hint: "⇧⌘P",
+        hint: keys.prs,
         icon: GitPullRequest,
         symbol: ["arrow.triangle.pull", "arrow.triangle.branch"],
         menu: "View",
@@ -437,26 +438,11 @@
     if (standaloneId && store.selected) backend.setWindowTitle(store.selected.title || t("app.untitled"));
   });
 
+  /** Shortcuts handled at the window level (the rest live in Canvas / the editor). */
+  const WINDOW_KEYS = ["new-note", "commands", "quick-open", "prs", "search", "open-folder", "git-sync"] as const;
   function onKey(e: KeyboardEvent) {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod || standaloneId) return;
-    const k = e.key.toLowerCase();
-    const id =
-      k === "n"
-        ? "new-note"
-        : k === "k"
-          ? e.shiftKey
-            ? "commands"
-            : "quick-open"
-          : k === "p" && e.shiftKey
-            ? "prs"
-            : k === "f"
-              ? "search"
-              : k === "o"
-                ? "open-folder"
-                : k === "s"
-                  ? "git-sync"
-                  : null;
+    if (standaloneId) return;
+    const id = WINDOW_KEYS.find((k) => pressed(keys[k], e));
     if (!id) return;
     const action = paletteActions.find((a) => a.id === id);
     if (!action || action.enabled === false) return;
@@ -514,7 +500,13 @@
         <span class="sep">/</span>
         <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
       </div>
-      <input class="search" placeholder={t("toolbar.search.placeholder")} bind:value={query} bind:this={searchEl} onkeydown={onSearchKey} />
+      <input
+        class="search"
+        placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
+        bind:value={query}
+        bind:this={searchEl}
+        onkeydown={onSearchKey}
+      />
       {#if matches}
         <span class="hint">{plural("toolbar.matches", matches.size)}</span>
       {/if}
@@ -547,8 +539,12 @@
       <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
         ><Trash size={16} /></button
       >
-      <button class="ghost icon" class:on={showPRs} onclick={togglePRs} use:tooltip={t("toolbar.prs.tip")} aria-label={t("toolbar.prs")}
-        ><GitPullRequest size={16} /></button
+      <button
+        class="ghost icon"
+        class:on={showPRs}
+        onclick={togglePRs}
+        use:tooltip={t("toolbar.prs.tip", { key: keys.prs })}
+        aria-label={t("toolbar.prs")}><GitPullRequest size={16} /></button
       >
       <button class="ghost icon" class:on={focus} onclick={toggleFocus} use:tooltip={t("toolbar.focus.tip")} aria-label={t("toolbar.focus")}
         ><Crosshair size={16} /></button
@@ -559,8 +555,11 @@
       <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
         ><CornersOut size={16} /></button
       >
-      <button class="primary icon" onclick={() => canvas?.createAtCenter()} use:tooltip={t("toolbar.new.tip")} aria-label={t("toolbar.new")}
-        ><Plus size={16} weight="bold" /></button
+      <button
+        class="primary icon"
+        onclick={() => canvas?.createAtCenter()}
+        use:tooltip={t("toolbar.new.tip", { key: keys["new-note"] })}
+        aria-label={t("toolbar.new")}><Plus size={16} weight="bold" /></button
       >
     </div>
     <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">

@@ -7,7 +7,7 @@ import { t, plural } from "../src/lib/i18n.ts";
 assert.equal(t("app.untitled"), "Untitled");
 assert.equal(t("panel.created", { when: "2d ago" }), "created 2d ago");
 assert.equal(
-  t("toolbar.git.remote", { branch: "main", position: "", when: "now" }),
+  t("toolbar.git.remote", { branch: "main", position: "", when: "now", key: "⌘S" }),
   "Git tracking on main — now · click to commit now (⌘S)",
 );
 assert.equal(t("settings.template.hint"), "Default body for new notes. Placeholders: {{date}}, {{title}}.");
@@ -36,3 +36,6 @@ for (const k of keys) {
   const ok = used(k) || (stem !== k && used(stem)) || (label !== null && (used(label) || k === "history.multi"));
   assert.ok(ok, `unused string: ${k}`);
 }
+
+// Shortcuts never live in the catalogue; they are substituted from keys.ts.
+for (const [k, v] of Object.entries(en)) assert.ok(!/[⌘⇧⌥⌃]|\bEsc\b/.test(v), `shortcut spelled out in ${k}`);

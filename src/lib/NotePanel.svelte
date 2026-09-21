@@ -12,6 +12,7 @@
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
   import { t } from "./i18n";
+  import { keys } from "./keys";
   import X from "phosphor-svelte/lib/X";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
@@ -147,8 +148,11 @@
         title={t("panel.openWindow")}
         aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={16} /></button
       >
-      <button class="ghost close" onclick={() => store.select(null)} title={t("panel.close")} aria-label={t("panel.close.aria")}
-        ><X size={16} /></button
+      <button
+        class="ghost close"
+        onclick={() => store.select(null)}
+        title={t("panel.close", { key: keys.escape })}
+        aria-label={t("panel.close.aria")}><X size={16} /></button
       >
     {/if}
   </header>
