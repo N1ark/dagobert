@@ -8,166 +8,107 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
-- Git tracking (File → Enable git tracking, or Tools → Git tracking…): the project is
-  committed on a timer (default every 5 minutes), on `⌘S`, right after opening and
-  when the app quits; with an `origin` remote it also pulls and pushes. Conflicting
-  edits from another machine are merged by rule (later edit wins the frontmatter,
-  tags and links merged three-way so a removal on either side sticks, bodies merged line by line) and listed in a popup;
-  a note whose body kept git's conflict markers shows a warning badge, and the
-  toolbar counts them. The toolbar's branch icon shows the sync state. Tracking can't be
-  enabled for a folder the repository ignores, and a conflict in a file that isn't
-  Dagobert's (a project inside a larger repository) is left for you to resolve with git.
-- In the editor, a merge conflict region renders as two stacked panes (mine / theirs) with
-  "Keep mine", "Keep theirs" and "Keep both" buttons (undoable); search and card
-  previews ignore the marker lines. A region inside a paragraph stays part of it.
-- An edit you're typing while a pull changes the same note is kept next to the pulled
-  text as a conflict instead of silently overwriting it; a `.gitignore` edited on both
-  machines is merged by unioning its lines; a `dagobert.json` that a merge left invalid
-  is rebuilt from both sides, and settings are never written over a damaged one. A
-  repository at your home folder is never picked up by a project inside it. A repository
-  created from the no-repo prompt starts on `main` (or your `init.defaultBranch`).
+- Git tracking (File → Enable git tracking): the project is committed every few minutes,
+  on `⌘S`, on open and on quit; with an `origin` remote it also pulls and pushes.
+- Edits from another machine are merged automatically; true conflicts show up in the
+  editor as "mine / theirs" panes with Keep mine / Keep theirs / Keep both.
+- A branch icon in the toolbar shows the sync state and counts unresolved conflicts.
 
 ### Changed
 
-- The settings dialog is always titled "Settings", keeps a fixed height across tabs, and
-  groups its sidebar into General (GitHub, Git tracking) and Workflows; the cog in a
-  note's panel opens it on that note's workflow. Settings… lives in the app menu with
-  `⌘,` (also in the command palette).
-- Every user-facing string now lives in `src/lib/locales/en.ts`, groundwork for translating the app.
-- Keyboard shortcuts are defined once in `src/lib/keys.ts` and substituted into the UI, groundwork for rebinding them.
-- Refreshing pull requests no longer empties the sidebar or drops inline PR icons: rows keep their place and show a grey question mark until the new status arrives.
-- The sync interval in Git tracking settings is only shown once tracking is enabled.
-- Toolbar buttons (tags, trash, PRs, focus, tidy, fit, new note) are icon-only with
-  tooltips; the tag filter count sits as a badge on the icon.
-
-- The canvas viewport now lives in `dagobert.local.json` (per machine) instead of
-  `dagobert.json`; an existing viewport is migrated on the next open.
-
-- Notes no longer record an `opened` timestamp: selecting a note no longer rewrites
-  its file, so git history only carries real edits. Pickers sort by last edit
-  instead; a legacy `opened:` line is dropped on the next save.
+- Settings is a proper page (`⌘,`, also in the app menu and command palette), with
+  General, GitHub, Git tracking and Workflows sections.
+- Toolbar buttons are icon-only with tooltips.
+- Refreshing pull requests keeps the sidebar and inline icons in place while the new
+  status loads.
+- The canvas viewport is saved per machine (`dagobert.local.json`) instead of in the
+  shared project file.
+- Opening a note no longer rewrites its file, so git history only carries real edits.
+- Groundwork for translations and rebindable shortcuts.
 
 ## [0.6.0] - 2026-09-21
 
 ### Added
 
-- Syntax highlighting in fenced code blocks (` ```lang `), for the common languages
-  (JS/TS, Python, Rust, Go, C/C++, Java, Kotlin, Swift, Ruby, shell, SQL, JSON, YAML,
-  TOML, HTML/Svelte, CSS, Markdown, diff and a few more).
-- Standalone note windows split the area under the title in two: the note's status,
-  dates, tags and links on the left, and a clickable table of contents on the right.
+- Syntax highlighting in fenced code blocks for the common languages.
+- Standalone note windows show status, dates, tags and links on the left and a
+  clickable table of contents on the right.
 
 ### Changed
 
-- A note edited in its own window and in the main window's panel now stays in sync
-  as you type, instead of only after each save; an edit arriving while you're in a
-  block reloads that block without losing your caret.
-
-- Shift-clicking a node's status pill on the graph moves it back a stage instead of forward.
+- A note open in its own window and in the main panel stays in sync as you type.
+- Shift-clicking a status pill on the graph moves it back a stage.
 
 ## [0.5.1] - 2026-09-21
 
 ### Fixed
 
-- PR state icons also show in node previews on the graph, and anywhere else an
-  `alias#123` reference is rendered inline (titles, dependency lists, pickers).
+- PR state icons also show in node previews and wherever `alias#123` is rendered.
 
 ## [0.5.0] - 2026-09-21
 
 ### Added
 
-- The colour of tags and workflows can now be customised past the builtin palette.
-- `alias#123` references in note bodies show the pull request's state (open, draft,
-  closed, merged) as a small inline icon. PR details are now fetched in the
-  background even when the Pull requests pane is closed.
+- Tag and workflow colours can be customised beyond the built-in palette.
+- `alias#123` references show the pull request's state as an inline icon, fetched in
+  the background.
 
 ### Changed
 
-- The world is now bounded in size, to avoid rendering issues or the graph going very far away.
+- The canvas is bounded in size to avoid rendering issues far from the origin.
 
 ## [0.4.0] - 2026-09-20
 
 ### Added
 
-- Background grain shader on the graph view: a discreet sandy grain along the frame
-  edges and around the selected node, sand grains travelling along every edge of the
-  selected node's chain, and a subtle parallax that puts the dot grid and grain behind
-  the nodes. Toggle it with "Enable/Disable background grain" in the command palette
-  or the View menu (it respects `prefers-reduced-motion`).
-- Custom palette colours: the "+" swatch in any colour picker (tag colours, workflow
-  stage colours) opens the system colour panel; the chosen colour is added to a
-  project-wide palette stored in `dagobert.json`. Right-click a custom swatch to remove it.
+- Background grain shader on the graph: subtle grain, sand travelling along the
+  selected chain, and parallax. Toggle it from the View menu or command palette.
+- Custom palette colours: the "+" swatch in any colour picker opens the system colour
+  panel; right-click a custom swatch to remove it.
 
 ### Changed
 
-- The dot grid is drawn per pixel (in the shader, or as a CSS fallback when the grain
-  is off), so it no longer swims when zooming at fractional zoom levels; dots shrink
-  slightly when zoomed out.
+- The dot grid no longer swims at fractional zoom levels.
 
 ## [0.3.0] - 2026-09-19
 
 ### Added
 
-- macOS menu bar (File / Edit / Note / View / Tools) built from the same action list as
-  the command palette, with shortcuts and SF Symbol icons.
-- Command palette actions have icons; `⇧⌘K` opens the command palette directly.
-- Tracking issues: set a note's kind to "Tracking issue" (panel dropdown) and it has
-  no checkbox/status — it shows a radial ring with `done/total` of its dependencies
-  and counts as done once they all are. They have their own template.
-- GitHub integration: configure repo aliases (⚙ → GitHub, or the command palette),
-  then type `alias#` in a note to pick an issue/PR by title or number; `alias#123`
-  renders as a link to GitHub. Uses the `gh` CLI login or a pasted token for private
-  repos.
-- Workflow stages can have a custom colour (workflow editor → click the dot next to a
-  stage); "automatic" keeps the grey / yellow / green default.
-- "Reveal in Finder" in the node context menu; the file name in the panel footer
-  reveals the file too.
-- Pasting a URL over selected text in the editor turns the selection into a link.
-- `npm run install:app` builds and replaces the installed app; Prettier, ESLint and
-  clippy; CI and release workflows.
+- macOS menu bar with shortcuts and icons; `⇧⌘K` opens the command palette.
+- Tracking issues: a note kind that shows a `done/total` ring of its dependencies and
+  is done once they all are.
+- GitHub integration: configure repo aliases, then type `alias#` to pick an issue or
+  PR; `alias#123` links to GitHub.
+- Custom colours for workflow stages.
+- "Reveal in Finder" for notes.
+- Pasting a URL over selected text turns it into a link.
 
 ### Changed
 
-- Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes; the `>` prefix
-  is gone. Rows no longer shift on hover.
-- Double-clicking a node opens it in its own window instead of creating a note on top of it.
-- Note panel: "Depends on" / "Blocks" are compact chip rows (longest-first packing),
-  stacked instead of side by side; for tracking issues the first reads "Tracks".
-- The issue picker substring-matches the repo's recent items and accepts spaces.
+- Quick open (`⌘K`) and the command palette (`⇧⌘K`) are separate panes.
+- Double-clicking a node opens it in its own window.
+- "Depends on" / "Blocks" in the note panel are compact chip rows.
 
 ### Fixed
 
-- Links in a card's title/preview open in the browser again (the drag handler was
-  swallowing the click).
-- `[[Links]]` to notes whose title contains backticks now resolve.
-- Task-list checkboxes in the rendered body can be ticked by clicking them.
+- Links in a card's title or preview open in the browser again.
+- `[[Links]]` to titles containing backticks resolve.
+- Task-list checkboxes in the rendered body can be ticked.
 - Deleting a freshly created note no longer races its first save.
 
 ## [0.2.0] - 2026-09-17
 
 ### Added
 
-- Undo / redo (`⌘Z` / `⇧⌘Z`, also in the ⌘K palette) for moves, resizes, links,
-  tags, status/workflow changes, edits, creates, deletes and restores. Actions done
-  together (group drag, Tidy, bulk tag/status) undo as one step; typing coalesces.
-- Quick open (`⌘K`): fuzzy-jump to any note, `#tag` to narrow, `>` for commands,
-  `⌘↩` opens the note in a new window, "Create …" when nothing matches.
-- **Tidy** toolbar button: layered auto-layout of the DAG (dependencies left,
-  dependents right); with a multi-selection only that subgraph is arranged.
-- **Focus** toggle: selecting a note softly dims everything that isn't upstream or
-  downstream of it, and highlights the chain's edges. Remembered across launches.
-- Keyboard navigation on the canvas: `←`/`→` move to a dependency/dependent, `↑`/`↓`
-  to the nearest note above/below, `Tab`/`⇧Tab` cycle dependents/dependencies,
-  `Enter` edits the title. The view pans only when the target is off screen.
-- Minimap in the canvas corner showing every note and the current viewport; click
-  or drag it to pan. Collapsible; shown once there are two or more notes.
-- File watching: edits made to `notes/*.md` or `dagobert.json` outside the app (another
-  editor, git, sync) show up live. The app's own writes are ignored for one second so
-  they don't echo back.
-- Note templates: each workflow (and the built-in Todo) can define a default body for
-  new notes, with `{{date}}` and `{{title}}` placeholders. Switching a note's workflow
-  while its body is untouched swaps in the new template. Edit them in the workflow
-  editor (⚙ in the note panel).
+- Undo / redo (`⌘Z` / `⇧⌘Z`) for everything, with grouped actions undoing as one step.
+- Quick open (`⌘K`): fuzzy-jump to any note, `#tag` to narrow, "Create …" when
+  nothing matches.
+- **Tidy**: automatic layered layout of the graph (or of the current selection).
+- **Focus**: dims everything not upstream or downstream of the selected note.
+- Keyboard navigation on the canvas with the arrow keys and `Tab`.
+- Minimap in the canvas corner.
+- Edits made outside the app (another editor, git, sync) show up live.
+- Note templates per workflow, with `{{date}}` and `{{title}}` placeholders.
 
 ## [0.1.0] - 2026-09-17
 
@@ -175,18 +116,14 @@ Initial version.
 
 ### Added
 
-- Canvas of notes forming a DAG: pan, zoom, drag, drag-to-link with cycle rejection,
-  positions and viewport persisted per project folder.
-- Notes as markdown files with YAML frontmatter (`notes/<slug>.md`), project settings
-  in `dagobert.json`.
-- Note panel with title, tags (project-wide colours), dependencies/dependents pickers,
-  timestamps, and an Obsidian-style live-preview markdown editor with `⌘B/I/E/K`
-  shortcuts, list continuation and `@` autocomplete for `[[wikilinks]]` (backlinks shown).
-- Customisable workflows (todo → … → done) with a default Todo checkbox; "ready" state
-  when all dependencies are done.
-- Search + tag filter that dims non-matching nodes.
-- Soft delete to `trash/` with restore / delete forever; empty notes are discarded.
-- Multi-select (shift-drag / shift-click / ⌘A), group drag, group context menu.
-- Context menus for nodes, edges and background; copy / paste / duplicate nodes.
-- Resizable panel and per-node width; open a note in its own window with live sync.
-- Dark theme after n1ark.com, Phosphor icons, app icon.
+- Canvas of notes forming a DAG: pan, zoom, drag, drag-to-link, positions saved per
+  project folder.
+- Notes as markdown files with YAML frontmatter; project settings in `dagobert.json`.
+- Note panel with title, tags, dependencies, and a live-preview markdown editor with
+  `[[wikilinks]]` and backlinks.
+- Customisable workflows with a "ready" state when all dependencies are done.
+- Search and tag filter.
+- Soft delete to `trash/` with restore.
+- Multi-select, group drag, context menus, copy / paste / duplicate.
+- Open a note in its own window with live sync.
+- Dark theme, Phosphor icons.
