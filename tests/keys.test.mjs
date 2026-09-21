@@ -12,4 +12,7 @@ assert.ok(matches(keys["open-window"], ev("Enter", { metaKey: true })));
 assert.ok(matches(keys.escape, ev("Escape")));
 assert.ok(matches(keys["code-alt"], ev("`", { metaKey: true })));
 assert.ok(!matches(keys.bold, ev("b", { metaKey: true, altKey: true })));
+assert.ok(matches(keys["nav-deps"], ev("ArrowLeft")));
+assert.ok(matches(keys["nav-prev"], ev("Tab", { shiftKey: true })));
+assert.ok(!matches(keys["nav-next"], ev("Tab", { shiftKey: true })));
 console.log("keys ok");

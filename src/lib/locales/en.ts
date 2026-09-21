@@ -94,8 +94,8 @@ export default {
   // Canvas
   "canvas.empty.create": "Double-click anywhere to create a note.",
   "canvas.empty.drag.before": "Drag from a note's",
-  "canvas.empty.drag.after": "handle onto another note to make that one depend on it.",
-  "canvas.empty.keys": "Arrow keys walk the graph (← dependencies, → dependents), Enter edits the title.",
+  "canvas.empty.drag.after": "handle onto another note to create a dependency.",
+  "canvas.empty.keys": "Arrow keys walk the graph ({deps} dependencies, {dependents} dependents), {title} edits the title.",
 
   // Node card
   "node.progress": "{done} of {total} dependencies done",

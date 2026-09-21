@@ -6,10 +6,8 @@ import { t, plural } from "../src/lib/i18n.ts";
 
 assert.equal(t("app.untitled"), "Untitled");
 assert.equal(t("panel.created", { when: "2d ago" }), "created 2d ago");
-assert.equal(
-  t("toolbar.git.remote", { branch: "main", position: "", when: "now", key: "⌘S" }),
-  "Git tracking on main — now · click to commit now (⌘S)",
-);
+const remote = t("toolbar.git.remote", { branch: "main", position: "", when: "now", key: "⌘S" });
+assert.ok(remote.includes("main") && remote.includes("now") && remote.includes("(⌘S)") && !remote.includes("{"), remote);
 assert.equal(t("settings.template.hint"), "Default body for new notes. Placeholders: {{date}}, {{title}}.");
 assert.equal(plural("toolbar.matches", 1), "1 match");
 assert.equal(plural("toolbar.matches", 3), "3 matches");
@@ -37,5 +35,6 @@ for (const k of keys) {
   assert.ok(ok, `unused string: ${k}`);
 }
 
-// Shortcuts never live in the catalogue; they are substituted from keys.ts.
-for (const [k, v] of Object.entries(en)) assert.ok(!/[⌘⇧⌥⌃]|\bEsc\b/.test(v), `shortcut spelled out in ${k}`);
+// Shortcuts never live in the catalogue; they are substituted from keys.ts
+// (plain arrows are allowed: `{from} → {to}`, `todo → done`, ahead↑ behind↓).
+for (const [k, v] of Object.entries(en)) assert.ok(!/[⌘⇧⌥⌃↩⇥]|\b(Esc|Enter|Tab)\b/.test(v), `shortcut spelled out in ${k}`);

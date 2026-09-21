@@ -250,7 +250,7 @@ Builds are unsigned.
 - `src/lib/keys.ts` — every keyboard shortcut in display form (`keys["new-note"]` =
   `⌘N`); locale strings take a placeholder for them, never spell them out (the i18n
   test enforces it). `matches(hint, e)` checks a `KeyboardEvent` against one; the
-  window handler (`WINDOW_KEYS` in `App.svelte`), `Canvas` and `editor.ts` all go
+  window handler (`WINDOW_KEYS` in `App.svelte`), `Canvas` (chords and the `nav-*` / `edit-title` navigation keys) and `editor.ts` all go
   through it, and `menu.ts` derives accelerators from the same hints, so rebinding
   means changing one entry. Test: `tests/keys.test.mjs`.
 - `src/lib/history.ts` — pure undo stack (`History`, `NoteDiff`, `sameNote`). The

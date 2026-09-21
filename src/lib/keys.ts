@@ -19,6 +19,13 @@ export const keys = {
   paste: "⌘V",
   "open-window": "⌘↩",
   escape: "Esc",
+  "nav-deps": "←",
+  "nav-dependents": "→",
+  "nav-up": "↑",
+  "nav-down": "↓",
+  "nav-next": "⇥",
+  "nav-prev": "⇧⇥",
+  "edit-title": "↩",
   bold: "⌘B",
   italic: "⌘I",
   code: "⌘E",
@@ -30,7 +37,16 @@ export const keys = {
 
 export type KeyId = keyof typeof keys;
 
-const NAMED: Record<string, string> = { "↩": "enter", esc: "escape", "⌫": "backspace", "⇥": "tab" };
+const NAMED: Record<string, string> = {
+  "↩": "enter",
+  esc: "escape",
+  "⌫": "backspace",
+  "⇥": "tab",
+  "←": "arrowleft",
+  "→": "arrowright",
+  "↑": "arrowup",
+  "↓": "arrowdown",
+};
 
 /** Does `e` press the shortcut `hint` (`⌘` accepts Ctrl too, as everywhere in the app)? */
 export function matches(hint: string, e: KeyboardEvent): boolean {

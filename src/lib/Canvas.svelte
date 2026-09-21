@@ -284,40 +284,28 @@
   function navigate(e: KeyboardEvent): boolean {
     const cur = store.selectedId ? store.byId(store.selectedId) : null;
     const byY = (a: Note, b: Note) => centerOf(a).y - centerOf(b).y;
+    const arrows = ["nav-deps", "nav-dependents", "nav-up", "nav-down"] as const;
     if (!cur) {
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)) {
+      if (arrows.some((k) => pressed(keys[k], e))) {
         go(nearestToCenter());
         return true;
       }
       return false;
     }
-    switch (e.key) {
-      case "ArrowLeft":
-        go(closestByY(cur, store.dependencies(cur.id)));
-        return true;
-      case "ArrowRight":
-        go(closestByY(cur, store.dependents(cur.id)));
-        return true;
-      case "ArrowUp":
-        go(verticalNeighbour(cur, -1));
-        return true;
-      case "ArrowDown":
-        go(verticalNeighbour(cur, 1));
-        return true;
-      case "Tab": {
-        // Cycle through dependents (⇧: dependencies) in vertical order.
-        const list = (e.shiftKey ? store.dependencies(cur.id) : store.dependents(cur.id)).sort(byY);
-        if (!list.length) return true;
-        const cy = centerOf(cur).y;
-        const i = list.findIndex((n) => centerOf(n).y > cy);
-        go(list[i === -1 ? 0 : i]);
-        return true;
-      }
-      case "Enter":
-        store.focusTitle++;
-        return true;
-    }
-    return false;
+    if (pressed(keys["nav-deps"], e)) go(closestByY(cur, store.dependencies(cur.id)));
+    else if (pressed(keys["nav-dependents"], e)) go(closestByY(cur, store.dependents(cur.id)));
+    else if (pressed(keys["nav-up"], e)) go(verticalNeighbour(cur, -1));
+    else if (pressed(keys["nav-down"], e)) go(verticalNeighbour(cur, 1));
+    else if (pressed(keys["nav-next"], e) || pressed(keys["nav-prev"], e)) {
+      // Cycle through dependents (⇧: dependencies) in vertical order.
+      const list = (pressed(keys["nav-prev"], e) ? store.dependencies(cur.id) : store.dependents(cur.id)).sort(byY);
+      if (!list.length) return true;
+      const cy = centerOf(cur).y;
+      const i = list.findIndex((n) => centerOf(n).y > cy);
+      go(list[i === -1 ? 0 : i]);
+    } else if (pressed(keys["edit-title"], e)) store.focusTitle++;
+    else return false;
+    return true;
   }
 
   /** Create a note at the centre of the current view. */
@@ -899,7 +887,7 @@
     <div class="empty">
       <p>{t("canvas.empty.create")}</p>
       <p class="sub">{t("canvas.empty.drag.before")} <span class="dot"></span> {t("canvas.empty.drag.after")}</p>
-      <p class="sub">{t("canvas.empty.keys")}</p>
+      <p class="sub">{t("canvas.empty.keys", { deps: keys["nav-deps"], dependents: keys["nav-dependents"], title: keys["edit-title"] })}</p>
     </div>
   {/if}
 </div>
