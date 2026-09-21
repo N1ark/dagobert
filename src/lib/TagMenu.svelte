@@ -2,6 +2,7 @@
   import { store } from "./store.svelte";
   import TagColorPicker from "./TagColorPicker.svelte";
   import Tag from "phosphor-svelte/lib/Tag";
+  import { tooltip } from "./tooltip";
 
   let open = $state(false);
   let picking = $state<string | null>(null);
@@ -18,12 +19,14 @@
 
 <div class="tag-menu">
   <button
+    class="icon"
     class:ghost={!store.tagFilter.length}
     class:filtering={store.tagFilter.length > 0}
     onclick={() => (open = !open)}
-    title="Filter by tag"
+    use:tooltip={"Filter by tag"}
+    aria-label="Filter by tag"
   >
-    <Tag size={15} /> Tags{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
+    <Tag size={16} />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
   </button>
 
   {#if open}
@@ -70,12 +73,28 @@
     border-color: var(--accent);
     color: var(--color2);
   }
+  .icon {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
   .n {
-    margin-left: 6px;
-    padding: 0 6px;
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 4px;
     border-radius: 999px;
     background: var(--accent);
-    font-size: 11px;
+    color: var(--color2);
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
   }
   .popover {
     position: absolute;

@@ -29,6 +29,9 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Toolbar buttons (tags, trash, PRs, focus, tidy, fit, new note) are icon-only with
+  tooltips; the tag filter count sits as a badge on the icon.
+
 - The canvas viewport now lives in `dagobert.local.json` (per machine) instead of
   `dagobert.json`; an existing viewport is migrated on the next open.
 

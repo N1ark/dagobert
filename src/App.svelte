@@ -515,7 +515,7 @@
       </span>
       {#if store.gitEnabled}
         <button
-          class="ghost git"
+          class="ghost icon git"
           class:syncing={store.gitState === "syncing"}
           class:error={store.gitState === "error"}
           class:local={store.gitStatus ? !store.gitStatus.has_remote : false}
@@ -523,22 +523,36 @@
           use:tooltip={gitTip}
           aria-label="git tracking"
         >
-          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={15} /></span>{:else}<GitBranch size={15} />{/if}
+          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={16} /></span>{:else}<GitBranch size={16} />{/if}
         </button>
       {/if}
       <TagMenu />
-      <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
-      <button class="ghost" class:on={showPRs} onclick={togglePRs} title="Pull requests linked from notes (⇧⌘P)"
-        ><GitPullRequest size={15} /> PRs</button
+      <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={"Deleted notes"} aria-label="Deleted notes"
+        ><Trash size={16} /></button
       >
-      <button class="ghost" class:on={focus} onclick={toggleFocus} title="Focus: dim notes outside the selected note's chain"
-        ><Crosshair size={15} /> Focus</button
+      <button
+        class="ghost icon"
+        class:on={showPRs}
+        onclick={togglePRs}
+        use:tooltip={"Pull requests linked from notes (⇧⌘P)"}
+        aria-label="Pull requests"><GitPullRequest size={16} /></button
       >
-      <button class="ghost" onclick={() => canvas?.tidy()} title="Auto-layout (selection, or everything)"
-        ><TreeStructure size={15} /> Tidy</button
+      <button
+        class="ghost icon"
+        class:on={focus}
+        onclick={toggleFocus}
+        use:tooltip={"Focus: dim notes outside the selected note's chain"}
+        aria-label="Focus"><Crosshair size={16} /></button
       >
-      <button class="ghost" onclick={() => canvas?.fitAll()} title="Fit all notes in view"><CornersOut size={15} /> Fit</button>
-      <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
+      <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={"Auto-layout (selection, or everything)"} aria-label="Tidy"
+        ><TreeStructure size={16} /></button
+      >
+      <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={"Fit all notes in view"} aria-label="Fit all"
+        ><CornersOut size={16} /></button
+      >
+      <button class="primary icon" onclick={() => canvas?.createAtCenter()} use:tooltip={"New note (⌘N)"} aria-label="New note"
+        ><Plus size={16} weight="bold" /></button
+      >
     </div>
     <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
       {#if showPRs}
@@ -688,6 +702,14 @@
   }
   .toolbar button.on {
     color: var(--accent2);
+  }
+  .toolbar button.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
   }
   .stats {
     font-size: 12px;
