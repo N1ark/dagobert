@@ -105,15 +105,10 @@ async fn git_status(state: State<'_, AppState>, path: String) -> Result<git::Git
     .await?
 }
 
-/// Checks the folder is inside a repository (`Err("no-repo")` otherwise) and
-/// writes the `.gitignore` entries tracking needs.
+/// `Err("no-repo")` when the folder isn't inside a repository.
 #[tauri::command]
 fn git_enable(path: String) -> Result<(), String> {
-    let root = Path::new(&path);
-    if git::open(root)?.is_none() {
-        return Err("no-repo".into());
-    }
-    git::ensure_ignore(root)
+    git::enable(Path::new(&path))
 }
 
 #[tauri::command]
@@ -128,13 +123,15 @@ fn git_configure(app: AppHandle, state: State<AppState>, enabled: bool, interval
 }
 
 /// The full cycle: commit if dirty → pull → resolve → push. `stamp` is the
-/// local time the frontend puts in commit messages.
+/// local time the frontend puts in commit messages. The frontend has flushed
+/// its saves, so `Recent` is cleared: files the pull rewrites must echo.
 #[tauri::command]
 async fn git_sync(
     state: State<'_, AppState>,
     path: String,
     stamp: String,
 ) -> Result<SyncReport, String> {
+    state.recent.clear();
     sync::locked(state.git.lock.clone(), move || {
         sync::cycle(Path::new(&path), &stamp, sync::TIMEOUT)
     })
@@ -142,21 +139,25 @@ async fn git_sync(
 }
 
 /// The final sync before the window closes or the app exits (`reason`), with a
-/// short timeout; failures are logged, not shown.
+/// short timeout; failures are logged, not shown. No `path` (nothing to sync)
+/// just lets the quit through.
 #[tauri::command]
 async fn git_quit(
     app: AppHandle,
     state: State<'_, AppState>,
-    path: String,
+    path: Option<String>,
     stamp: String,
     reason: String,
 ) -> Result<(), String> {
-    let r = sync::locked(state.git.lock.clone(), move || {
-        sync::cycle(Path::new(&path), &stamp, sync::QUIT_TIMEOUT)
-    })
-    .await?;
-    if let Some(e) = r.error {
-        eprintln!("git sync on quit failed: {e}");
+    if let Some(path) = path {
+        state.recent.clear();
+        let r = sync::locked(state.git.lock.clone(), move || {
+            sync::cycle(Path::new(&path), &stamp, sync::QUIT_TIMEOUT)
+        })
+        .await?;
+        if let Some(e) = r.error {
+            eprintln!("git sync on quit failed: {e}");
+        }
     }
     sync::finish_quit(&app, &reason);
     Ok(())

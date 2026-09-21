@@ -49,27 +49,42 @@ Builds are unsigned.
   `notes/`, `trash/`, `dagobert.json` and `.gitignore` under the project are ever staged,
   via `TreeUpdateBuilder` on HEAD's tree so other staged files are untouched), `init`,
   `ensure_ignore` (adds `dagobert.local.json`, `.DS_Store`), `status` (restricted to our
-  pathspecs; `ahead/behind` vs `origin/<branch>`), `commit_if_dirty` (signature from git
-  config, else `Dagobert <dagobert@localhost>`), `pull` (fetch with the remote's refspecs;
-  up-to-date / fast-forward / adopt the remote branch on an unborn HEAD / `repo.merge`
-  **without rename detection**, always returning `Merging` so `merge::resolve` finishes it),
-  `push` (sets the upstream). Checkouts are safe with `allow_conflicts`: a file that would
-  be clobbered stays as a local modification and rides along in the next commit.
+  pathspecs; `ahead/behind` vs the remote branch), `enable` (`Err("no-repo")`, refuses a
+  project the repository ignores, then `ensure_ignore`), `commit_if_dirty` (signature from
+  git config, else `Dagobert <dagobert@localhost>`), `fetch` (with the remote's refspecs)
+  and `merge_fetched` (up-to-date / fast-forward / adopt the remote branch on an unborn
+  HEAD / `repo.merge` **without rename detection**, always returning `Merging` so
+  `merge::resolve` finishes it; `pull` chains both, tests only), `push` (sets the
+  upstream). `remote_branch` picks the branch on `origin` the local one tracks (its
+  upstream when it lives there, else its own name) and pull, push and ahead/behind all
+  use it. The cycle commits again between fetch and merge: a fast-forward checkout is
+  `safe().allow_conflicts` and would keep a note saved meanwhile as a local
+  modification, silently burying the remote's version at the next commit; committing it
+  first turns that into a real merge. libgit2 refuses `repo.merge` over any staged change
+  in the repository (e.g. the user's own in a parent repo); that error is reworded.
   Credentials (`callbacks`): ssh-agent, then `~/.ssh/id_*`, then the credential helper;
-  never prompts. `timeout` aborts transfers via `transfer_progress`. Tests use temp repos
-  sharing a bare remote (`tests::pair`).
+  never prompts. `timeout` aborts a fetch via `transfer_progress` (a push's upload can't be
+  interrupted through git2); an error past the deadline reads "timed out". Tests use temp
+  repos sharing a bare remote (`tests::pair`).
 - `src-tauri/src/merge.rs` — `resolve(root, message)` completes a merge: notes are
   matched **by id** across the conflicted paths (ours / theirs / ancestor blobs parsed with
-  `parse_note`), then the frontmatter rule below is applied, the body is three-way merged
-  with `merge_file_from_index` (labels `mine` / `theirs`; markers kept as body content
-  when it conflicts), and the result is written and staged at the winner's file name.
+  `parse_note`; when the conflicted path has no ancestor — a rename on both sides — the
+  merge base's note with that id, `Ctx.base`, serves), then the frontmatter rule below is
+  applied, the body is three-way merged with `merge_file_from_index` (labels `mine` /
+  `theirs`; markers kept as body content when it conflicts), and the result is written
+  and staged at the winner's file name. A conflicted note neither side can parse is left
+  as git merged it (never deleted); one side unparseable ⇒ the other wins and is reported.
   After that, `dedupe` folds files sharing an id (a title change on both sides is two adds
   to git), `drop_trash_copies` removes `trash/` copies of live notes, `break_cycles`
-  applies rule 3, `dagobert.json` gets rule 6 (`serde_json::Value`), anything else is
-  staged as libgit2 left it. Returns the `Conflict { id, title, file, body_conflict }`
-  list for the popup (also notes merged automatically).
+  applies rule 3 over the whole graph (every edge absent from the merge base, so edges git
+  merged cleanly count too; stamped by the side that added it when known, else the note's
+  `modified`), `dagobert.json` gets rule 6 (`serde_json::Value`; both sides invalid ⇒ the
+  ancestor). A conflict in any other file (a project nested in a larger repo) is an error:
+  the merge stays in progress for the user to finish with git and every cycle reports it.
+  Returns the `Conflict { id, title, file, body_conflict }` list for the popup (also notes
+  merged automatically).
 - `src-tauri/src/sync.rs` — the cycle (`cycle`: resolve a leftover merge → commit if
-  dirty → pull → resolve → push when ahead or unpublished; errors land in
+  dirty → fetch → commit again → merge → resolve → push when ahead or unpublished; errors land in
   `SyncReport.error` after whatever succeeded), the process-wide lock (`locked` runs
   on a blocking thread), the tick thread (`configure`; emits `git-tick`, generation
   counter retires old threads) and `intercept_quit`. Commit messages are
@@ -78,10 +93,13 @@ Builds are unsigned.
   `git_enable` (`Err("no-repo")`), `git_init`, `git_configure`, `git_sync`, `git_quit`.
   Closing the main window or quitting with tracking on is held back once
   (`prevent_close`/`prevent_exit`), `git-quit` is emitted with the reason, the frontend
-  flushes saves and calls `git_quit` (10 s transfer timeout, failures logged), and Rust
+  flushes saves and calls `git_quit` (10 s transfer timeout, failures logged; `path: null`
+  when it has nothing to sync, so the quit still goes through), and Rust
   then destroys the window or exits (`finish_quit`, also fired by a 20 s `QUIT_DEADLINE`
-  thread so a hung connect or a silent frontend can't block quitting). The watcher is untouched: pulled/merged files echo as
-  `project-changed` and reach the store through `applyExternal`.
+  thread so a hung connect or a silent frontend can't block quitting). `git_sync`/`git_quit`
+  clear `Recent` first (the frontend has awaited its writes), so files the pull rewrites
+  echo as `project-changed` even when the same note was flushed a moment earlier, and
+  reach the store through `applyExternal`.
 
 - `src-tauri/src/watch.rs` — file watcher (`notify` + `notify-debouncer-mini`, 300 ms).
   `watch_project`/`unwatch_project` commands; emits `project-changed` events
@@ -89,7 +107,8 @@ Builds are unsigned.
   (Tauri managed state) holds the watcher and `Recent`: every writing command marks the
   path it touched, and events for paths marked < 1 s ago are dropped so our own saves
   don't echo. The frontend applies events in `store.applyExternal` (matching notes by
-  id, so external renames just update `file`; a pending local save wins over disk).
+  id, so external renames just update `file`; a pending local save wins over disk; a note
+  in `#deleted` that reappears on disk — a merge restored it — comes back).
 - `src/lib/backend.ts` — wraps `invoke`; falls back to an in-memory mock when
   `window.__TAURI_INTERNALS__` is absent. All Tauri calls go through here, including
   cross-window sync (`broadcast`/`subscribe`: Tauri events, BroadcastChannel in the
@@ -104,8 +123,9 @@ Builds are unsigned.
   (`idle | syncing | error`), `gitLastSync`, `conflictIds` (notes whose body has a
   `<<<<<<< ` line; `hasConflict`), `conflictReport` (drives the popup), `needsRepo`
   (drives the no-repo popup). `enableGit` → `git_enable` (no-repo → popup → `initRepo`);
-  `syncNow(manual)` flushes and awaits in-flight writes (`flushAndWait`) then calls
-  `git_sync`; errors toast only when manual. `quitSync` answers `git-quit`. `open()`
+  `syncNow(manual)` flushes and awaits every in-flight write (`flushAndWait`: note saves in
+  `#inflight`, meta/local saves and deletes in `#writes`) then calls `git_sync`; a report
+  that comes back after the project changed is dropped (`#syncingPath`); errors toast only when manual. `quitSync` answers `git-quit`. `open()`
   reconfigures the timer and syncs right away when tracking is on; `syncs` (false in
   standalone note windows, set by `App.svelte`) gates the timer and every cycle. Last-opened path is in localStorage and
   restored on startup (`restore`). Writes are serialised per note (`#inflight`) and

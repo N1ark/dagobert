@@ -150,7 +150,13 @@
             <input
               type="checkbox"
               checked={store.gitEnabled}
-              onchange={() => (store.gitEnabled ? store.disableGit() : store.enableGit())}
+              onchange={async (e) => {
+                const box = e.currentTarget;
+                if (store.gitEnabled) store.disableGit();
+                else await store.enableGit();
+                // Enabling can be declined (no repository): keep the box honest.
+                box.checked = store.gitEnabled;
+              }}
             />
             Track this project with git
           </label>

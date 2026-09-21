@@ -207,24 +207,40 @@ class Store {
     backend.gitConfigure(this.gitEnabled && !!this.path, this.gitInterval).catch((e) => this.fail(e));
   }
 
-  /** Every pending save written to disk (so a commit sees the latest bodies). */
+  /** Writes outside `#inflight` (meta, deletes) still in flight. */
+  #writes = new Set<Promise<unknown>>();
+
+  #track<T>(p: Promise<T>): Promise<T> {
+    this.#writes.add(p);
+    void p.finally(() => this.#writes.delete(p)).catch(() => {});
+    return p;
+  }
+
+  /** Every pending write on disk (so a commit sees the latest state). */
   async flushAndWait() {
     this.flushAll();
-    await Promise.all([...this.#inflight.values()]);
+    await Promise.allSettled([...this.#inflight.values(), ...this.#writes]);
   }
 
   #syncing: Promise<void> | null = null;
+  #syncingPath: string | null = null;
 
   /** One sync cycle. Errors toast only when `manual`; the timer stays quiet. */
   syncNow(manual = false): Promise<void> {
     if (!this.path || !this.gitEnabled || !this.syncs) return Promise.resolve();
-    if (this.#syncing) return this.#syncing;
+    if (this.#syncing) {
+      // Another project's cycle is running: sync this one when it's done.
+      if (this.#syncingPath !== this.path) return this.#syncing.then(() => this.syncNow(manual));
+      return this.#syncing;
+    }
     const path = this.path;
+    this.#syncingPath = path;
     this.gitState = "syncing";
     this.#syncing = (async () => {
       try {
         await this.flushAndWait();
         const r = await backend.gitSync(path, stamp());
+        if (this.path !== path) return;
         if (r.status) this.gitStatus = r.status;
         if (r.conflicts.length) this.conflictReport = r.conflicts;
         if (r.error) {
@@ -238,6 +254,7 @@ class Store {
           if (manual) this.#toast(r.pushed ? "Committed and pushed" : r.committed ? "Committed" : "Nothing to commit");
         }
       } catch (e) {
+        if (this.path !== path) return;
         this.gitState = "error";
         this.gitError = String(e);
         if (manual) this.fail(e);
@@ -250,10 +267,12 @@ class Store {
 
   /** The close/exit was held back by Rust: sync, then let it through. */
   async quitSync(reason: string) {
-    const path = this.path;
-    if (!path || !this.gitEnabled) return;
-    await this.flushAndWait();
-    await backend.gitQuit(path, stamp(), reason).catch((e) => console.error("git quit", e));
+    const path = this.path && this.gitEnabled ? this.path : null;
+    try {
+      if (path) await this.flushAndWait();
+    } finally {
+      await backend.gitQuit(path, stamp(), reason).catch((e) => console.error("git quit", e));
+    }
   }
 
   async refreshGitStatus() {
@@ -589,7 +608,7 @@ class Store {
     await this.#inflight.get(id);
     try {
       if (n.file) {
-        const trashed = await backend.deleteNote(path, n.file, now());
+        const trashed = await this.#track(backend.deleteNote(path, n.file, now()));
         diff.trashFile = trashed?.file;
       }
       backend.broadcast({ type: "note-removed", id });
@@ -614,7 +633,7 @@ class Store {
     this.#last.delete(id);
     await this.#inflight.get(id);
     try {
-      if (n.file) await backend.discardNote(path, n.file);
+      if (n.file) await this.#track(backend.discardNote(path, n.file));
       backend.broadcast({ type: "note-removed", id });
     } catch (e) {
       this.fail(e);
@@ -780,7 +799,11 @@ class Store {
       if (msg.meta.tracking_template !== undefined) this.trackingTemplate = msg.meta.tracking_template;
       if (msg.meta.repos) this.repos = msg.meta.repos;
       if (msg.meta.palette) this.palette = msg.meta.palette;
-      if (msg.meta.git) this.#applyGitSettings(msg.meta.git);
+      if (msg.meta.git) {
+        const was = `${this.gitEnabled}|${this.gitInterval}`;
+        this.#applyGitSettings(msg.meta.git);
+        if (`${this.gitEnabled}|${this.gitInterval}` !== was) this.#configureGit();
+      }
     }
   }
 
@@ -788,7 +811,9 @@ class Store {
   async applyExternal(change: ProjectChange) {
     if (change.kind === "note") {
       const incoming = change.note;
-      if (this.#deleted.has(incoming.id)) return;
+      // A note we trashed that is back on disk (a merge restored it) is authoritative.
+      this.#deleted.delete(incoming.id);
+      this.trash = this.trash.filter((t) => t.id !== incoming.id);
       const local = this.byId(incoming.id);
       // Our own pending save wins over the disk version.
       if (local && this.#saveTimers.has(local.id)) return;
@@ -1012,7 +1037,7 @@ class Store {
   #flushMeta() {
     if (!this.path) return;
     const patch = this.#metaPatch();
-    backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
+    this.#track(backend.saveMeta(this.path, patch)).catch((e) => this.fail(e));
     backend.broadcast({ type: "meta", meta: patch });
   }
 
@@ -1025,7 +1050,7 @@ class Store {
 
   #flushLocal() {
     if (!this.path) return;
-    backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) }).catch((e) => this.fail(e));
+    this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) })).catch((e) => this.fail(e));
   }
 
   saveViewport() {

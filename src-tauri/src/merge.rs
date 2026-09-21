@@ -244,6 +244,8 @@ struct Sides {
     ancestor: HashMap<String, Note>,
     /// Every conflicted path in this directory (file names).
     paths: Vec<String>,
+    /// Ids whose other side existed but didn't parse: report them anyway.
+    broken: HashSet<String>,
 }
 
 struct Ctx<'a> {
@@ -251,6 +253,9 @@ struct Ctx<'a> {
     /// Project root relative to the work tree.
     prefix: PathBuf,
     root: &'a Path,
+    /// Every note in the merge base, by id (a rename on both sides leaves the
+    /// conflicted paths without an ancestor).
+    base: HashMap<String, Note>,
     report: Vec<Conflict>,
     /// (dependent id, dep id, stamp of the side that has the edge).
     candidates: Vec<(String, String, String)>,
@@ -291,6 +296,29 @@ impl Ctx<'_> {
         let blob = self.repo.find_blob(entry.id()).ok()?;
         let text = String::from_utf8(blob.content().to_vec()).ok()?;
         store::parse_note(&text, file).ok()
+    }
+
+    /// Every note under `notes/` and `trash/` in `tree`, by id (`notes/` wins).
+    fn notes_in(&self, tree: Option<&git2::Tree>) -> HashMap<String, Note> {
+        let mut out = HashMap::new();
+        for dir in NOTE_DIRS.iter().rev() {
+            let Some(t) = tree else { break };
+            let Ok(entry) = t.get_path(&self.prefix.join(dir)) else {
+                continue;
+            };
+            let Ok(sub) = entry.to_object(self.repo).and_then(|o| o.peel_to_tree()) else {
+                continue;
+            };
+            for e in sub.iter() {
+                let Some(file) = e.name().filter(|n| n.ends_with(".md")) else {
+                    continue;
+                };
+                if let Some(n) = self.note_in(tree, dir, file) {
+                    out.insert(n.id.clone(), n);
+                }
+            }
+        }
+        out
     }
 
     /// Merges two versions of one note and writes the result at the winner's
@@ -360,16 +388,18 @@ impl Ctx<'_> {
         their_ids.sort();
         ids.extend(their_ids);
         for id in ids {
+            let anc = s.ancestor.get(id).or_else(|| self.base.get(id)).cloned();
+            let report = dir == "notes" && (anc.is_some() || s.broken.contains(id));
             match (s.ours.get(id), s.theirs.get(id)) {
                 (Some((_, o)), Some((_, t))) => {
-                    let m = self.merge_pair(index, dir, o, t, s.ancestor.get(id))?;
+                    let m = self.merge_pair(index, dir, o, t, anc.as_ref())?;
                     written.insert(m.file);
                 }
                 (Some((_, o)), None) => {
                     // Theirs deleted (or never had) it; ours stays.
                     self.write_note(index, dir, o)?;
                     written.insert(o.file.clone());
-                    if dir == "notes" && s.ancestor.contains_key(id) {
+                    if report {
                         self.report(o, false);
                     }
                 }
@@ -381,7 +411,7 @@ impl Ctx<'_> {
                     }
                     self.write_note(index, dir, &t)?;
                     written.insert(t.file.clone());
-                    if dir == "notes" && s.ancestor.contains_key(id) {
+                    if report {
                         self.report(&t, false);
                     }
                 }
@@ -403,7 +433,6 @@ impl Ctx<'_> {
         index: &mut git2::Index,
         dir: &str,
         head: Option<&git2::Tree>,
-        base: Option<&git2::Tree>,
     ) -> Result<()> {
         let path = self.root.join(dir);
         if !path.exists() {
@@ -432,26 +461,20 @@ impl Ctx<'_> {
             }
             let ours_at = group
                 .iter()
-                .position(|n| self.note_in(head, dir, &n.file).is_some())
+                .position(|n| self.note_in(head, dir, &n.file).is_some_and(|h| h.id == id))
                 .unwrap_or(0);
             let mut cur = group.remove(ours_at);
+            let anc = self.base.get(&id).cloned();
             for theirs in group {
-                let anc = self
-                    .note_in(base, dir, &cur.file)
-                    .or_else(|| self.note_in(base, dir, &theirs.file))
-                    .filter(|n| n.id == id);
                 cur = self.merge_pair(index, dir, &cur, &theirs, anc.as_ref())?;
             }
         }
         Ok(())
     }
 
-    /// Rule 3: of the edges added on one side only, newest first, keep those
-    /// that don't close a cycle.
+    /// Rule 3: of the edges added since the merge base (on either side, whether
+    /// or not git saw a conflict), newest first, keep those that don't close a cycle.
     fn break_cycles(&mut self, index: &mut git2::Index) -> Result<()> {
-        if self.candidates.is_empty() {
-            return Ok(());
-        }
         let mut notes: HashMap<String, Note> = store::read_notes(&store::notes_dir(self.root))?
             .into_iter()
             .map(|n| (n.id.clone(), n))
@@ -460,13 +483,32 @@ impl Ctx<'_> {
             .iter()
             .map(|(k, n)| (k.clone(), n.deps.clone()))
             .collect();
-        for (id, dep, _) in &self.candidates {
+        // A merged note's stamp is the later side's; `merge_pair` knows which
+        // side actually added each edge.
+        let stamps: HashMap<(&str, &str), &str> = self
+            .candidates
+            .iter()
+            .map(|(id, dep, s)| ((id.as_str(), dep.as_str()), s.as_str()))
+            .collect();
+        let mut order: Vec<(String, String, String)> = Vec::new();
+        for (id, n) in &notes {
+            let base_deps = self.base.get(id).map(|b| b.deps.as_slice()).unwrap_or(&[]);
+            for dep in n.deps.iter().filter(|d| !base_deps.contains(d)) {
+                let stamp = stamps
+                    .get(&(id.as_str(), dep.as_str()))
+                    .map_or(n.modified.as_str(), |s| s);
+                order.push((id.clone(), dep.clone(), stamp.to_string()));
+            }
+        }
+        if order.is_empty() {
+            return Ok(());
+        }
+        for (id, dep, _) in &order {
             if let Some(n) = notes.get_mut(id) {
                 n.deps.retain(|d| d != dep);
             }
         }
-        let mut order = self.candidates.clone();
-        order.sort_by(|a, b| b.2.cmp(&a.2));
+        order.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| (&a.0, &a.1).cmp(&(&b.0, &b.1))));
         let mut dropped: HashSet<(String, String)> = HashSet::new();
         for (id, dep, _) in order {
             if reaches(&notes, &dep, &id) {
@@ -546,43 +588,70 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         .filter_map(|c| c.ok())
         .collect();
     let mut sides: HashMap<&'static str, Sides> = HashMap::new();
-    let mut meta: Option<(Blob, Blob)> = None;
+    let mut meta: Option<(Blob, Blob, Blob)> = None;
+    let mut foreign: Vec<String> = Vec::new();
     let mut ctx = Ctx {
         repo: &repo,
         prefix,
         root,
+        base: HashMap::new(),
         report: Vec::new(),
         candidates: Vec::new(),
     };
+    ctx.base = ctx.notes_in(base_tree.as_ref());
 
     for c in conflicts {
         let entry = c.our.as_ref().or(c.their.as_ref()).or(c.ancestor.as_ref());
         let Some(entry) = entry else { continue };
         let path = PathBuf::from(String::from_utf8_lossy(&entry.path).to_string());
-        let rel = match path.strip_prefix(&ctx.prefix) {
-            Ok(r) => r.to_path_buf(),
-            Err(_) => {
-                keep_worktree(&mut index, &path)?;
-                continue;
-            }
-        };
-        match classify(&rel) {
+        let kind = path.strip_prefix(&ctx.prefix).map_or(Kind::Other, classify);
+        match kind {
             Kind::Note { dir, file } => {
+                let (ours, theirs) = (blob(&repo, &c.our)?, blob(&repo, &c.their)?);
+                let (o, t) = (side(&ours, &file).note, side(&theirs, &file).note);
                 let s = sides.entry(dir).or_default();
+                // A file neither side can parse is left as git merged it.
+                if o.is_none() && t.is_none() {
+                    keep_worktree(&mut index, &path)?;
+                    continue;
+                }
                 s.paths.push(file.clone());
                 if let Some(n) = side(&blob(&repo, &c.ancestor)?, &file).note {
                     s.ancestor.insert(n.id.clone(), n);
                 }
-                if let Some(n) = side(&blob(&repo, &c.our)?, &file).note {
+                for (n, other, other_blob) in [(&o, &t, &theirs), (&t, &o, &ours)] {
+                    if let Some(n) = n
+                        .as_ref()
+                        .filter(|_| other.is_none() && other_blob.is_some())
+                    {
+                        s.broken.insert(n.id.clone());
+                    }
+                }
+                if let Some(n) = o {
                     s.ours.insert(n.id.clone(), (file.clone(), n));
                 }
-                if let Some(n) = side(&blob(&repo, &c.their)?, &file).note {
+                if let Some(n) = t {
                     s.theirs.insert(n.id.clone(), (file.clone(), n));
                 }
             }
-            Kind::Meta => meta = Some((blob(&repo, &c.our)?, blob(&repo, &c.their)?)),
-            Kind::Other => keep_worktree(&mut index, &path)?,
+            Kind::Meta => {
+                meta = Some((
+                    blob(&repo, &c.our)?,
+                    blob(&repo, &c.their)?,
+                    blob(&repo, &c.ancestor)?,
+                ))
+            }
+            Kind::Other => foreign.push(path.to_string_lossy().to_string()),
         }
+    }
+    // Conflicts in files that aren't ours are the user's to resolve with git;
+    // the merge stays in progress and every cycle reports it until then.
+    if !foreign.is_empty() {
+        foreign.sort();
+        return Err(format!(
+            "Merge conflict outside Dagobert's files: {}. Resolve it with git, then sync again.",
+            foreign.join(", ")
+        ));
     }
 
     for dir in NOTE_DIRS {
@@ -591,17 +660,17 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         }
     }
     for dir in NOTE_DIRS {
-        ctx.dedupe(&mut index, dir, head_tree.as_ref(), base_tree.as_ref())?;
+        ctx.dedupe(&mut index, dir, head_tree.as_ref())?;
     }
     ctx.drop_trash_copies(&mut index)?;
     ctx.break_cycles(&mut index)?;
 
-    if let Some((ours, theirs)) = meta {
+    if let Some((ours, theirs, ancestor)) = meta {
         let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
         let merged = match (parse(ours), parse(theirs)) {
             (Some(o), Some(t)) => Some(merge_meta(&o, &t)),
             (Some(v), None) | (None, Some(v)) => Some(v),
-            (None, None) => None,
+            (None, None) => parse(ancestor),
         };
         match merged {
             Some(v) => {
@@ -886,6 +955,117 @@ mod tests {
             "the newer edge stays"
         );
         assert!(notes["q"].deps.is_empty(), "{:?}", notes["q"].deps);
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn cycle_across_cleanly_merged_notes_is_broken() {
+        let (base, a, b) = seeded(
+            "merge-cycle-clean",
+            vec![note("p", "P", "m", &[]), note("q", "Q", "m", &[])],
+        );
+        // Each side touches a different file, so git merges without conflict.
+        edit(&a, "p", |n| {
+            n.deps = vec!["q".into()];
+            n.modified = "m9".into();
+        });
+        edit(&b, "q", |n| {
+            n.deps = vec!["p".into()];
+            n.modified = "m5".into();
+        });
+        sync_b(&a, &b);
+        let p = open(&b).unwrap();
+        let notes: HashMap<String, Note> = p.notes.into_iter().map(|n| (n.id.clone(), n)).collect();
+        assert_eq!(
+            notes["p"].deps,
+            vec!["q".to_string()],
+            "the newer edge stays"
+        );
+        assert!(notes["q"].deps.is_empty(), "{:?}", notes["q"].deps);
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn rename_on_both_sides_still_merges_three_way() {
+        let (base, a, b) = seeded(
+            "merge-rename-both",
+            vec![
+                {
+                    let mut n = note("x", "X", "m1", &["d"]);
+                    n.tags = vec!["keep".into(), "drop".into()];
+                    n
+                },
+                note("d", "D", "m1", &[]),
+            ],
+        );
+        // Both rename (two adds, no conflicted path), only a edits the body,
+        // only b removes a tag and the dep.
+        edit(&a, "x", |n| {
+            n.title = "From a".into();
+            n.body = "edited on a".into();
+            n.modified = "m2".into();
+        });
+        edit(&b, "x", |n| {
+            n.title = "From b".into();
+            n.tags = vec!["keep".into()];
+            n.deps = vec![];
+            n.modified = "m3".into();
+        });
+        let report = sync_b(&a, &b);
+        assert!(report.iter().all(|c| !c.body_conflict), "{report:?}");
+        let p = open(&b).unwrap();
+        let x = p.notes.iter().find(|n| n.id == "x").unwrap();
+        assert_eq!(p.notes.len(), 2);
+        assert_eq!(x.title, "From b");
+        assert_eq!(x.body, "edited on a", "one-sided body edit merges cleanly");
+        assert_eq!(x.tags, vec!["keep".to_string()], "removal sticks");
+        assert!(x.deps.is_empty());
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn unparseable_side_is_kept_and_reported() {
+        let (base, a, b) = seeded("merge-broken", vec![note("x", "X", "m", &[])]);
+        edit(&a, "x", |n| n.body = "fine on a".into());
+        fs::write(b.join("notes/x.md"), "---\nid: [\n---\nbroken").unwrap();
+        let report = sync_b(&a, &b);
+        assert_eq!(report.len(), 1);
+        assert_eq!(open(&b).unwrap().notes[0].body, "fine on a");
+        // Neither side parses: the file is left as git merged it, not deleted.
+        commit_if_dirty(&b, "b").unwrap();
+        push(&b, None).unwrap();
+        pull(&a, None).unwrap();
+        fs::write(a.join("notes/x.md"), "---\nid: [\n---\nfrom a").unwrap();
+        fs::write(b.join("notes/x.md"), "---\nid: [\n---\nfrom b").unwrap();
+        sync_b(&a, &b);
+        let text = fs::read_to_string(b.join("notes/x.md")).unwrap();
+        assert!(text.contains("<<<<<<<"), "{text}");
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn foreign_conflict_leaves_the_merge_to_the_user() {
+        let (base, a, b) = seeded("merge-foreign", vec![]);
+        for (root, text) in [(&a, "a"), (&b, "b")] {
+            fs::write(root.join("README"), text).unwrap();
+            let repo = Repository::open(root).unwrap();
+            let mut index = repo.index().unwrap();
+            index.add_path(Path::new("README")).unwrap();
+            index.write().unwrap();
+            let tree = repo.find_tree(index.write_tree().unwrap()).unwrap();
+            let sig = repo.signature().unwrap();
+            let head = repo.head().unwrap().peel_to_commit().unwrap();
+            repo.commit(Some("HEAD"), &sig, &sig, "readme", &tree, &[&head])
+                .unwrap();
+        }
+        push(&a, None).unwrap();
+        assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
+        let e = resolve(&b, "merge").unwrap_err();
+        assert!(e.contains("README"), "{e}");
+        assert_eq!(
+            Repository::open(&b).unwrap().state(),
+            git2::RepositoryState::Merge
+        );
         fs::remove_dir_all(&base).unwrap();
     }
 

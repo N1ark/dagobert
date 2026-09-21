@@ -26,7 +26,7 @@ assert.equal(isConflict("<<<<<<< mine\nunterminated"), false);
 assert.deepEqual(conflictSides(conflict), { mine: "ours\n\nmore", theirs: "theirs" });
 assert.equal(resolveConflict(conflict, "mine"), "ours\n\nmore");
 assert.equal(resolveConflict(conflict, "theirs"), "theirs");
-assert.equal(resolveConflict(conflict, "both"), "ours\n\nmore\ntheirs");
+assert.equal(resolveConflict(conflict, "both"), "ours\n\nmore\n\ntheirs");
 assert.equal(stripMarkers(`a\n${conflict}`), "a\nours\n\nmore\ntheirs");
 // A fence inside a conflict side doesn't derail the block.
 assert.deepEqual(splitBlocks("<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs\n\nz"), [

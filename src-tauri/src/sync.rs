@@ -50,8 +50,16 @@ pub fn cycle(root: &Path, stamp: &str, timeout: Duration) -> SyncReport {
     let step = |r: &mut SyncReport| -> Result<(), String> {
         // A merge left half-done by a crash is finished first.
         r.conflicts = merge::resolve(root, &format!("dagobert merge {stamp}"))?;
-        r.committed = git::commit_if_dirty(root, &format!("dagobert auto-save {stamp}"))?;
-        let pulled = git::pull(root, Some(timeout))?;
+        let save = format!("dagobert auto-save {stamp}");
+        r.committed = git::commit_if_dirty(root, &save)?;
+        let pulled = if git::fetch(root, Some(timeout))? {
+            // A note saved while fetching would otherwise be skipped by the
+            // checkout and silently overwrite the remote's version.
+            r.committed |= git::commit_if_dirty(root, &save)?;
+            git::merge_fetched(root)?
+        } else {
+            PullOutcome::NoRemote
+        };
         if pulled == PullOutcome::Merging {
             r.conflicts
                 .extend(merge::resolve(root, &format!("dagobert merge {stamp}"))?);
@@ -170,6 +178,26 @@ mod tests {
         assert!(r.conflicts[0].body_conflict && r.pushed);
         let st = r.status.unwrap();
         assert!(!st.dirty && st.ahead == 0 && st.behind == 0);
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn edit_during_fetch_merges_instead_of_overwriting() {
+        let (base, a, b) = pair("sync-fetch-window");
+        write_note(&a, "a.md", "a", "A", "v1");
+        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&b, "t", TIMEOUT).error.is_none());
+        write_note(&a, "a.md", "a", "A", "v2 from a");
+        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        // b saves while the fetch is in flight: a plain fast-forward would keep
+        // b's text and the next commit would bury a's v2.
+        assert!(git::fetch(&b, Some(TIMEOUT)).unwrap());
+        write_note(&b, "a.md", "a", "A", "v2 from b");
+        assert!(git::commit_if_dirty(&b, "late save").unwrap());
+        assert_eq!(git::merge_fetched(&b).unwrap(), PullOutcome::Merging);
+        let conflicts = merge::resolve(&b, "merge").unwrap();
+        assert_eq!(conflicts.len(), 1);
+        assert!(conflicts[0].body_conflict);
         std::fs::remove_dir_all(&base).unwrap();
     }
 

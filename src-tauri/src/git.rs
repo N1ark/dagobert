@@ -136,18 +136,37 @@ fn current_branch(repo: &Repository) -> Result<Option<String>> {
     }
 }
 
-/// `refs/remotes/origin/<branch>` (the upstream if configured), if it exists.
-fn remote_ref(repo: &Repository, branch: &str) -> Option<Oid> {
-    let upstream = repo
-        .find_branch(branch, git2::BranchType::Local)
+/// The branch on `origin` that `branch` tracks (its upstream when that lives on
+/// `origin`, else its own name). Pull, push and ahead/behind all use this.
+fn remote_branch(repo: &Repository, branch: &str) -> String {
+    repo.find_branch(branch, git2::BranchType::Local)
         .ok()
         .and_then(|b| b.upstream().ok())
-        .and_then(|u| u.get().target());
-    upstream.or_else(|| {
-        repo.find_reference(&format!("refs/remotes/{REMOTE}/{branch}"))
-            .ok()
-            .and_then(|r| r.target())
-    })
+        .and_then(|u| u.name().ok().flatten().map(str::to_string))
+        .and_then(|n| n.strip_prefix(&format!("{REMOTE}/")).map(str::to_string))
+        .unwrap_or_else(|| branch.to_string())
+}
+
+/// `refs/remotes/origin/<remote branch>`, if it exists.
+fn remote_ref(repo: &Repository, branch: &str) -> Option<Oid> {
+    let name = remote_branch(repo, branch);
+    repo.find_reference(&format!("refs/remotes/{REMOTE}/{name}"))
+        .ok()
+        .and_then(|r| r.target())
+}
+
+/// Checks the folder is inside a repository (`Err("no-repo")` otherwise) and
+/// that the repository doesn't ignore it, then writes the `.gitignore` entries.
+pub fn enable(root: &Path) -> Result<()> {
+    let repo = open(root)?.ok_or("no-repo")?;
+    for s in specs(&repo, root)? {
+        if repo.is_path_ignored(&s).map_err(err)? {
+            return Err(format!(
+                "`{s}` is ignored by the repository's .gitignore, so nothing would be committed."
+            ));
+        }
+    }
+    ensure_ignore(root)
 }
 
 pub fn status(root: &Path) -> Result<GitStatus> {
@@ -274,12 +293,21 @@ fn callbacks<'a>(deadline: Option<Instant>) -> RemoteCallbacks<'a> {
         }
         Err(git2::Error::from_str("no usable credentials"))
     });
+    // Aborts a fetch past the deadline; a push's upload can't be interrupted
+    // through git2 (its progress callback has no return value).
     if let Some(d) = deadline {
         cb.transfer_progress(move |_| Instant::now() < d);
-        cb.push_transfer_progress(move |_, _, _| {});
         cb.sideband_progress(move |_| Instant::now() < d);
     }
     cb
+}
+
+/// Reports a transfer error as a timeout when the deadline has passed.
+fn transfer_err(what: &str, deadline: Option<Instant>, e: git2::Error) -> String {
+    match deadline {
+        Some(d) if Instant::now() >= d => format!("{what} timed out"),
+        _ => format!("{what} failed: {}", e.message()),
+    }
 }
 
 fn ssh_keys() -> Vec<PathBuf> {
@@ -306,8 +334,37 @@ fn deadline(timeout: Option<Duration>) -> Option<Instant> {
     timeout.map(|t| Instant::now() + t)
 }
 
-/// Fetches the branch's remote counterpart and merges it in.
+/// Fetches `origin`; `false` when there is no remote (or no branch).
+pub fn fetch(root: &Path, timeout: Option<Duration>) -> Result<bool> {
+    let repo = require(root)?;
+    if current_branch(&repo)?.is_none() {
+        return Ok(false);
+    }
+    let mut remote = match repo.find_remote(REMOTE) {
+        Ok(r) => r,
+        Err(_) => return Ok(false),
+    };
+    let d = deadline(timeout);
+    let mut fo = FetchOptions::new();
+    fo.remote_callbacks(callbacks(d));
+    remote
+        .fetch(&[] as &[&str], Some(&mut fo), None)
+        .map_err(|e| transfer_err("fetch", d, e))?;
+    Ok(true)
+}
+
+/// `fetch` then `merge_fetched`.
+#[cfg(test)]
 pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
+    if !fetch(root, timeout)? {
+        return Ok(PullOutcome::NoRemote);
+    }
+    merge_fetched(root)
+}
+
+/// Merges the fetched remote branch in. Commit first: a local modification
+/// to a file the merge touches makes libgit2 refuse.
+pub fn merge_fetched(root: &Path) -> Result<PullOutcome> {
     let repo = require(root)?;
     if repo.state() != RepositoryState::Clean {
         return Err("The repository has an operation in progress (merge/rebase).".into());
@@ -316,15 +373,6 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
         Some(b) => b,
         None => return Ok(PullOutcome::NoRemote),
     };
-    let mut remote = match repo.find_remote(REMOTE) {
-        Ok(r) => r,
-        Err(_) => return Ok(PullOutcome::NoRemote),
-    };
-    let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(deadline(timeout)));
-    remote
-        .fetch(&[] as &[&str], Some(&mut fo), None)
-        .map_err(|e| format!("fetch failed: {}", e.message()))?;
     let their_oid = match remote_ref(&repo, &branch) {
         Some(o) => o,
         None => return Ok(PullOutcome::NoRemote),
@@ -359,8 +407,16 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
     // not merge into the trashed copy; `merge::resolve` pairs files by id.
     let mut mo = MergeOptions::new();
     mo.find_renames(false);
+    // libgit2 refuses to merge over any staged change (anywhere in the
+    // repository) or an unstaged change to a file the merge touches.
     repo.merge(&[&theirs], Some(&mut mo), Some(&mut checkout()))
-        .map_err(err)?;
+        .map_err(|e| {
+            if e.message().contains("would be overwritten by merge") {
+                "Uncommitted changes elsewhere in the repository block the merge; commit or stash them, then sync again.".to_string()
+            } else {
+                err(e)
+            }
+        })?;
     Ok(PullOutcome::Merging)
 }
 
@@ -412,7 +468,8 @@ pub fn push(root: &Path, timeout: Option<Duration>) -> Result<()> {
     let mut remote = repo
         .find_remote(REMOTE)
         .map_err(|_| "no remote named origin".to_string())?;
-    let mut cb = callbacks(deadline(timeout));
+    let d = deadline(timeout);
+    let mut cb = callbacks(d);
     let failure = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
     let f = failure.clone();
     cb.push_update_reference(move |_, status| {
@@ -423,10 +480,11 @@ pub fn push(root: &Path, timeout: Option<Duration>) -> Result<()> {
     });
     let mut po = PushOptions::new();
     po.remote_callbacks(cb);
-    let spec = format!("refs/heads/{branch}:refs/heads/{branch}");
+    let target = remote_branch(&repo, &branch);
+    let spec = format!("refs/heads/{branch}:refs/heads/{target}");
     remote
         .push(&[spec.as_str()], Some(&mut po))
-        .map_err(|e| format!("push failed: {}", e.message()))?;
+        .map_err(|e| transfer_err("push", d, e))?;
     if let Some(msg) = failure.borrow().clone() {
         return Err(format!("push rejected: {msg}"));
     }
@@ -434,7 +492,7 @@ pub fn push(root: &Path, timeout: Option<Duration>) -> Result<()> {
         .find_branch(&branch, git2::BranchType::Local)
         .map_err(err)?;
     if local.upstream().is_err() {
-        let _ = local.set_upstream(Some(&format!("{REMOTE}/{branch}")));
+        let _ = local.set_upstream(Some(&format!("{REMOTE}/{target}")));
     }
     Ok(())
 }
@@ -495,11 +553,23 @@ pub(crate) mod tests {
         fs::create_dir_all(&sub).unwrap();
         assert!(open(&sub).unwrap().is_some());
         let st = status(&dir).unwrap();
-        assert_eq!(
-            st.branch.as_deref(),
-            Some("master").or(st.branch.as_deref())
-        );
+        assert!(st.branch.is_some(), "unborn HEAD still names its branch");
         assert!(st.dirty && !st.has_remote && st.last_commit_at.is_none());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn enable_refuses_an_ignored_project() {
+        let dir = tmp("git-ignored");
+        init(&dir).unwrap();
+        let project = dir.join("scratch/notes-project");
+        fs::create_dir_all(&project).unwrap();
+        let none = tmp("git-ignored-none");
+        assert_eq!(enable(&none).unwrap_err(), "no-repo".to_string());
+        fs::remove_dir_all(&none).unwrap();
+        assert!(enable(&project).is_ok());
+        fs::write(dir.join(".gitignore"), "scratch/\n").unwrap();
+        assert!(enable(&project).unwrap_err().contains("ignored"));
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -544,6 +614,10 @@ pub(crate) mod tests {
         cfg.set_str("user.name", "Test").unwrap();
         cfg.set_str("user.email", "t@example.com").unwrap();
         fs::write(dir.join("README"), "x").unwrap();
+        // A change the user staged themselves stays staged, uncommitted.
+        let mut index = repo.index().unwrap();
+        index.add_path(Path::new("README")).unwrap();
+        index.write().unwrap();
         write_note(&project, "a.md", "a", "A", "hello");
         ensure_ignore(&project).unwrap();
         assert!(commit_if_dirty(&project, "nested").unwrap());
@@ -551,8 +625,42 @@ pub(crate) mod tests {
         assert!(head.get_path(Path::new("docs/plan/notes/a.md")).is_ok());
         assert!(head.get_path(Path::new("docs/plan/.gitignore")).is_ok());
         assert!(head.get_path(Path::new("README")).is_err());
+        assert!(repo
+            .index()
+            .unwrap()
+            .get_path(Path::new("README"), 0)
+            .is_some());
         assert!(!status(&project).unwrap().dirty);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn push_and_pull_follow_the_upstream_branch() {
+        let (base, a, b) = pair("git-upstream");
+        write_note(&a, "a.md", "a", "A", "x");
+        commit_if_dirty(&a, "a1").unwrap();
+        push(&a, None).unwrap();
+        pull(&b, None).unwrap();
+        // b works on a local branch `work` tracking origin/<a's branch>.
+        let repo = Repository::open(&b).unwrap();
+        let head = repo.head().unwrap().peel_to_commit().unwrap();
+        let upstream = repo.head().unwrap().shorthand().unwrap().to_string();
+        repo.branch("work", &head, false).unwrap();
+        repo.set_head("refs/heads/work").unwrap();
+        repo.find_branch("work", git2::BranchType::Local)
+            .unwrap()
+            .set_upstream(Some(&format!("origin/{upstream}")))
+            .unwrap();
+        write_note(&b, "b.md", "b", "B", "y");
+        commit_if_dirty(&b, "b1").unwrap();
+        assert_eq!(status(&b).unwrap().ahead, 1);
+        push(&b, None).unwrap();
+        let st = status(&b).unwrap();
+        assert!(st.ahead == 0 && st.has_upstream, "{st:?}");
+        assert!(repo.find_reference("refs/remotes/origin/work").is_err());
+        assert_eq!(pull(&a, None).unwrap(), PullOutcome::FastForward);
+        assert!(a.join("notes/b.md").exists());
+        fs::remove_dir_all(&base).unwrap();
     }
 
     #[test]

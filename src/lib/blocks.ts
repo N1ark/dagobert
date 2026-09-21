@@ -107,7 +107,8 @@ export function resolveConflict(block: string, keep: "mine" | "theirs" | "both")
   const { mine, theirs } = conflictSides(block);
   if (keep === "mine") return mine;
   if (keep === "theirs") return theirs;
-  return [mine, theirs].filter((s) => s.trim()).join("\n");
+  // Separate paragraphs, so a list on one side doesn't swallow the other.
+  return [mine, theirs].filter((s) => s.trim()).join("\n\n");
 }
 
 /** The body without git conflict marker lines (for search, links, previews). */

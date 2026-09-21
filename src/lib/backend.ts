@@ -199,8 +199,8 @@ export const backend = {
     return invoke<SyncReport>("git_sync", { path, stamp });
   },
 
-  /** The final sync before the window closes / the app exits; Rust finishes the quit. */
-  async gitQuit(path: string, stamp: string, reason: string): Promise<void> {
+  /** The final sync before the window closes / the app exits (`path` null = nothing to sync); Rust finishes the quit. */
+  async gitQuit(path: string | null, stamp: string, reason: string): Promise<void> {
     if (!inTauri) return;
     return invoke("git_quit", { path, stamp, reason });
   },

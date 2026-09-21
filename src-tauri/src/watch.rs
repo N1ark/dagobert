@@ -28,6 +28,10 @@ impl Recent {
         self.mark_at(path, Instant::now());
     }
 
+    pub fn clear(&self) {
+        self.map.lock().unwrap().clear();
+    }
+
     fn mark_at(&self, path: impl Into<PathBuf>, at: Instant) {
         let mut m = self.map.lock().unwrap();
         m.insert(path.into(), at);
