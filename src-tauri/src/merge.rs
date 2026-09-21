@@ -1,6 +1,6 @@
 //! Resolves the conflicts a pull leaves behind so the repository is never left
 //! mid-merge. Notes are merged by rule (see `CLAUDE.md`): the side with the
-//! later `modified` wins the frontmatter, tags and deps are unioned, and the
+//! later `modified` wins the frontmatter, tags and deps are merged three-way, and the
 //! body is three-way merged, keeping git's conflict markers when it can't be.
 
 use crate::git::{self, Result};
@@ -49,24 +49,32 @@ fn side(bytes: &Blob, file: &str) -> Side {
     }
 }
 
-fn union(a: &[String], b: &[String]) -> Vec<String> {
-    let mut out = a.to_vec();
+/// Three-way list merge: ours first, then theirs' additions; an item one side
+/// removed (it was in the ancestor) stays removed.
+fn merge_list(anc: &[String], a: &[String], b: &[String]) -> Vec<String> {
+    let removed = |x: &String| anc.contains(x) && (!a.contains(x) || !b.contains(x));
+    let mut out: Vec<String> = a.iter().filter(|x| !removed(x)).cloned().collect();
     for x in b {
-        if !out.contains(x) {
+        if !out.contains(x) && !removed(x) {
             out.push(x.clone());
         }
     }
     out
 }
 
-/// Merged frontmatter, whether ours won, and the deps present on one side only
+/// Merged frontmatter, whether ours won, and the deps added on one side only
 /// (each with the `modified` of the side that has it, for the cycle check).
-fn merge_frontmatter(ours: &Note, theirs: &Note) -> (Note, bool, Vec<(String, String)>) {
+fn merge_frontmatter(
+    ours: &Note,
+    theirs: &Note,
+    ancestor: Option<&Note>,
+) -> (Note, bool, Vec<(String, String)>) {
     let ours_win = ours.modified >= theirs.modified;
     let winner = if ours_win { ours } else { theirs };
     let mut out = winner.clone();
-    out.tags = union(&ours.tags, &theirs.tags);
-    out.deps = union(&ours.deps, &theirs.deps);
+    let (anc_tags, anc_deps) = ancestor.map_or((&[][..], &[][..]), |a| (&a.tags[..], &a.deps[..]));
+    out.tags = merge_list(anc_tags, &ours.tags, &theirs.tags);
+    out.deps = merge_list(anc_deps, &ours.deps, &theirs.deps);
     out.created = std::cmp::min(&ours.created, &theirs.created).clone();
     out.modified = std::cmp::max(&ours.modified, &theirs.modified).clone();
     let candidates = out
@@ -295,7 +303,7 @@ impl Ctx<'_> {
         theirs: &Note,
         ancestor: Option<&Note>,
     ) -> Result<Note> {
-        let (mut merged, ours_won, candidates) = merge_frontmatter(ours, theirs);
+        let (mut merged, ours_won, candidates) = merge_frontmatter(ours, theirs, ancestor);
         let (body, marked) = merge_body(
             self.repo,
             ancestor.map(|n| n.body.as_str()),
@@ -743,6 +751,23 @@ mod tests {
         assert_eq!(x.deps, vec!["d2".to_string(), "d1".to_string()]);
         assert_eq!(x.modified, "2026-01-03T00:00:00.000Z");
         assert_eq!(x.body, "body");
+        // A removal on one side beats the other side keeping it.
+        pull(&a, None).unwrap();
+        edit(&a, "x", |n| {
+            n.tags = vec!["a".into()];
+            n.deps = vec!["d1".into()];
+            n.modified = "2026-01-04T00:00:00.000Z".into();
+        });
+        edit(&b, "x", |n| {
+            n.body = "kept".into();
+            n.modified = "2026-01-05T00:00:00.000Z".into();
+        });
+        sync_b(&a, &b);
+        let p = open(&b).unwrap();
+        let x = p.notes.iter().find(|n| n.id == "x").unwrap();
+        assert_eq!(x.tags, vec!["a".to_string()]);
+        assert_eq!(x.deps, vec!["d1".to_string()]);
+        assert_eq!(x.body, "kept");
         // A picks the merge up cleanly.
         assert_eq!(pull(&a, None).unwrap(), PullOutcome::FastForward);
         assert_eq!(

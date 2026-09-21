@@ -344,8 +344,9 @@ Builds are unsigned.
   ("Commit now", also inside text fields), right after opening, and on close/quit. No
   `origin` ⇒ commit only (toolbar icon greyed "local"). Merge rule for a note edited on
   both sides: (1) the side with the later `modified` wins the whole frontmatter;
-  (2) `tags` and `deps` are unioned (ours first), `created` = earlier, `modified` =
-  later; (3) unioned edges that would close a cycle are dropped, newest edge first kept;
+  (2) `tags` and `deps` are merged three-way against the ancestor (ours first, then
+  theirs' additions; an item either side removed stays removed), `created` = earlier,
+  `modified` = later; (3) added edges that would close a cycle are dropped, newest edge first kept;
   (4) deleted on one side, edited on the other ⇒ the edit wins and the trash copy goes;
   (5) same filename added on both sides with different ids ⇒ theirs gets the `-<id>`
   suffix; (6) `dagobert.json`: maps unioned (ours wins per key), palette unioned,

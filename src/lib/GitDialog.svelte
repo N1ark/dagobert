@@ -48,8 +48,10 @@
     {:else}
       <div class="body">
         <p class="help">
-          Each note keeps the frontmatter of the side edited last, with tags and links from both sides. Bodies were merged line by line;
-          where both sides changed the same lines, the note keeps git's <code>&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code> markers for you to pick from.
+          Each note keeps the frontmatter of the side edited last; tags and links added on either side are kept, removed ones stay removed.
+          Bodies were merged line by line; where both sides changed the same lines, the note keeps git's <code
+            >&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code
+          > markers for you to pick from.
         </p>
         <ul>
           {#each conflicts as c (c.id)}

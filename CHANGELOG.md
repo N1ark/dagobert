@@ -12,7 +12,7 @@ All notable changes to Dagobert are documented here. The format follows
   committed on a timer (default every 5 minutes), on `⌘S`, right after opening and
   when the app quits; with an `origin` remote it also pulls and pushes. Conflicting
   edits from another machine are merged by rule (later edit wins the frontmatter,
-  tags and links from both sides, bodies merged line by line) and listed in a popup;
+  tags and links merged three-way so a removal on either side sticks, bodies merged line by line) and listed in a popup;
   a note whose body kept git's conflict markers shows a warning badge, and the
   toolbar counts them. The toolbar's branch icon shows the sync state.
 - In the editor, a merge conflict region renders as two stacked panes (mine / theirs) with
