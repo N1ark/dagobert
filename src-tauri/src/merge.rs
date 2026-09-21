@@ -785,7 +785,6 @@ mod tests {
             tags: vec![],
             created: "2026-01-01T00:00:00.000Z".into(),
             modified: modified.into(),
-            opened: "o".into(),
             workflow: None,
             status: "todo".into(),
             tracking: false,
@@ -1239,7 +1238,7 @@ mod tests {
 
     #[test]
     fn parse_survives_markers_in_body() {
-        let n = parse_note("---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\n---\n<<<<<<< mine\na\n=======\nb\n>>>>>>> theirs\n", "x.md").unwrap();
+        let n = parse_note("---\nid: x\ntitle: t\ncreated: c\nmodified: m\n---\n<<<<<<< mine\na\n=======\nb\n>>>>>>> theirs\n", "x.md").unwrap();
         assert!(n.body.starts_with("<<<<<<< mine"));
     }
 }

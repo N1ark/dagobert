@@ -68,7 +68,7 @@
       .filter((n) => !tag || n.tags.some((t) => t.toLowerCase().startsWith(tag)))
       .map((note) => ({ note, m: fuzzyMatch(parsed.text, note.title || "Untitled") }))
       .filter((x) => x.m.score > 0)
-      .sort((a, b) => b.m.score - a.m.score || b.note.opened.localeCompare(a.note.opened))
+      .sort((a, b) => b.m.score - a.m.score || b.note.modified.localeCompare(a.note.modified))
       .slice(0, 10)
       .map(({ note, m }): Row => ({ kind: "note", note, indices: m.indices }));
     const text = parsed.text;

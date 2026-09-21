@@ -6,7 +6,6 @@ const n = (o) => ({
   tags: [],
   created: "",
   modified: "",
-  opened: "",
   workflow: null,
   status: "todo",
   x: 0,
@@ -16,12 +15,12 @@ const n = (o) => ({
   file: "",
   ...o,
 });
-assert.ok(sameNote(n({}), n({ opened: "x", modified: "y", file: "z" })));
+assert.ok(sameNote(n({}), n({ modified: "y", file: "z" })));
 assert.ok(!sameNote(n({}), n({ x: 1 })));
 assert.ok(!sameNote(n({ tags: ["a"] }), n({ tags: ["b"] })));
 assert.ok(!sameNote(null, n({})));
 const h = new History(3);
-assert.equal(h.push({ label: "noop", diffs: [{ id: "a", before: n({}), after: n({ opened: "q" }) }], at: 0 }), null);
+assert.equal(h.push({ label: "noop", diffs: [{ id: "a", before: n({}), after: n({ modified: "q" }) }], at: 0 }), null);
 h.push({ label: "type", diffs: [{ id: "a", before: n({ body: "" }), after: n({ body: "h" }) }], at: 0 });
 h.push({ label: "type", diffs: [{ id: "a", before: n({ body: "h" }), after: n({ body: "hi" }) }], at: 100 });
 assert.equal(h.undo.length, 1, "typing coalesces");

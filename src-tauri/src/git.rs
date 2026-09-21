@@ -561,7 +561,7 @@ pub(crate) mod tests {
         fs::write(
             root.join("notes").join(file),
             format!(
-                "---\nid: {id}\ntitle: {title}\ncreated: c\nmodified: 2026-01-01T00:00:00.000Z\nopened: o\n---\n{body}"
+                "---\nid: {id}\ntitle: {title}\ncreated: c\nmodified: 2026-01-01T00:00:00.000Z\n---\n{body}"
             ),
         )
         .unwrap();

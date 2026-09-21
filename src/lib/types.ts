@@ -4,7 +4,6 @@ export interface Note {
   tags: string[];
   created: string;
   modified: string;
-  opened: string;
   /** Workflow id; null means the built-in todo/done workflow. */
   workflow: string | null;
   /** Current stage name within the workflow. */

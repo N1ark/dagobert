@@ -19,7 +19,7 @@ export interface Entry {
 }
 
 /** Fields that change without meaning a user edit happened. */
-const IGNORED: (keyof Note)[] = ["opened", "modified", "file"];
+const IGNORED: (keyof Note)[] = ["modified", "file"];
 
 export function sameNote(a: Note | null, b: Note | null): boolean {
   if (a === null || b === null) return a === b;

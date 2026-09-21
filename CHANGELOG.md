@@ -35,6 +35,10 @@ All notable changes to Dagobert are documented here. The format follows
 - The canvas viewport now lives in `dagobert.local.json` (per machine) instead of
   `dagobert.json`; an existing viewport is migrated on the next open.
 
+- Notes no longer record an `opened` timestamp: selecting a note no longer rewrites
+  its file, so git history only carries real edits. Pickers sort by last edit
+  instead; a legacy `opened:` line is dropped on the next save.
+
 ## [0.6.0] - 2026-09-21
 
 ### Added

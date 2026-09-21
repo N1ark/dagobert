@@ -188,7 +188,6 @@
       <div class="meta">
         <span title={absolute(note.created)}>created {relative(note.created)}</span>
         <span title={absolute(note.modified)}>edited {relative(note.modified)}</span>
-        <span title={absolute(note.opened)}>opened {relative(note.opened)}</span>
       </div>
 
       <div class="tags">

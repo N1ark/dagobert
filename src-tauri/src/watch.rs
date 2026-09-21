@@ -194,7 +194,7 @@ mod tests {
         assert!(classify(&dir, &dir.join("notes/x.txt")).is_none());
         std::fs::write(
             dir.join("notes/a.md"),
-            "---\nid: a\ntitle: A\ncreated: c\nmodified: m\nopened: o\n---\nhi",
+            "---\nid: a\ntitle: A\ncreated: c\nmodified: m\n---\nhi",
         )
         .unwrap();
         match classify(&dir, &dir.join("notes/a.md")) {

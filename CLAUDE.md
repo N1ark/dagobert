@@ -248,7 +248,7 @@ Builds are unsigned.
   their `trashFile` (falls back to recreating from the snapshot if the trash was
   emptied); notes that must vanish go through `remove()`. `#applying` suppresses
   recording during replay; `applySync`/`applyExternal` update `#last` without
-  recording. `opened`/`modified`/`file` changes never count as edits (`sameNote`).
+  recording. `modified`/`file` changes never count as edits (`sameNote`).
   Pass `label` to `touch` for a readable "Undid: …" toast (`store.notice`).
 - `src/lib/wikilinks.ts` — `[[Title]]` links: `renderWikilinks` (pre-pass before
   marked, skips code; resolved → `<a class="wikilink" href="#note-<id>">`, missing →

@@ -547,7 +547,6 @@ class Store {
       tags: [],
       created: t,
       modified: t,
-      opened: t,
       workflow: null,
       status: DEFAULT_WORKFLOW.stages[0].name,
       x,
@@ -578,13 +577,6 @@ class Store {
     const prev = this.selectedId ? this.byId(this.selectedId) : null;
     if (prev && prev.id !== id && this.isEmpty(prev)) void this.discard(prev.id);
     this.selectedId = id;
-    if (id) {
-      const n = this.byId(id);
-      if (n) {
-        n.opened = now();
-        this.save(id, true);
-      }
-    }
   }
 
   /** Mark a note as edited and schedule a save. */

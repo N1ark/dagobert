@@ -31,7 +31,7 @@
     return store.notes
       .filter((n) => !exclude.has(n.id) && filter(n))
       .filter((n) => !q || n.title.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => b.opened.localeCompare(a.opened))
+      .sort((a, b) => b.modified.localeCompare(a.modified))
       .slice(0, 8);
   });
 

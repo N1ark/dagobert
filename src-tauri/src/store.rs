@@ -23,7 +23,6 @@ pub struct Note {
     pub tags: Vec<String>,
     pub created: String,
     pub modified: String,
-    pub opened: String,
     /// Workflow id; `None` means the built-in todo/done workflow.
     #[serde(default)]
     pub workflow: Option<String>,
@@ -62,7 +61,6 @@ struct FrontMatter {
     tags: Vec<String>,
     created: String,
     modified: String,
-    opened: String,
     /// Legacy boolean from before workflows existed; read-only, migrated to `status`.
     #[serde(default, skip_serializing)]
     done: bool,
@@ -274,7 +272,6 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
         tags: fm.tags,
         created: fm.created,
         modified: fm.modified,
-        opened: fm.opened,
         workflow: fm.workflow,
         status: fm
             .status
@@ -297,7 +294,6 @@ pub fn serialize_note(note: &Note) -> Result<String, String> {
         tags: note.tags.clone(),
         created: note.created.clone(),
         modified: note.modified.clone(),
-        opened: note.opened.clone(),
         done: false,
         workflow: note.workflow.clone(),
         status: Some(note.status.clone()),
@@ -552,7 +548,6 @@ mod tests {
             tags: vec!["a".into(), "b c".into()],
             created: "2026-09-16T10:00:00.000Z".into(),
             modified: "2026-09-16T10:00:00.000Z".into(),
-            opened: "2026-09-16T10:00:00.000Z".into(),
             workflow: None,
             status: "todo".into(),
             tracking: false,
@@ -752,13 +747,17 @@ mod tests {
     #[test]
     fn legacy_done_migrates_to_status() {
         let n = parse_note(
-            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\ndone: true\n---\nbody",
+            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\ndone: true\n---\nbody",
             "x.md",
         )
         .unwrap();
         assert_eq!(n.status, "done");
         assert_eq!(n.workflow, None);
-        let n = parse_note("---\nid: x\ntitle: t\ncreated: c\nmodified: m\nopened: o\nworkflow: pr\nstatus: review\n---\n", "x.md").unwrap();
+        let n = parse_note(
+            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\nworkflow: pr\nstatus: review\n---\n",
+            "x.md",
+        )
+        .unwrap();
         assert_eq!(n.status, "review");
         assert_eq!(n.workflow.as_deref(), Some("pr"));
         let out = serialize_note(&n).unwrap();

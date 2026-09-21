@@ -27,10 +27,10 @@
       .filter((n) => n.id !== excludeId && n.title.trim())
       .filter((n) => !q || n.title.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q)))
       .sort((a, b) => {
-        // Prefix matches first, then most recently opened.
+        // Prefix matches first, then most recently edited.
         const ap = q && a.title.toLowerCase().startsWith(q) ? 0 : 1;
         const bp = q && b.title.toLowerCase().startsWith(q) ? 0 : 1;
-        return ap - bp || b.opened.localeCompare(a.opened);
+        return ap - bp || b.modified.localeCompare(a.modified);
       })
       .slice(0, 8);
   });
