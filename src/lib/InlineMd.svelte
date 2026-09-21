@@ -47,7 +47,7 @@
     color: var(--accent2);
     text-decoration: none;
   }
-  .inline-md :global(a:hover) {
+  .inline-md :global(a:not(.ghref):hover) {
     text-decoration: underline;
   }
   .inline-md :global(img) {
