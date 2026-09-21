@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-21
+
 ### Fixed
 
 - PR state icons also show in node previews on the graph, and anywhere else an
