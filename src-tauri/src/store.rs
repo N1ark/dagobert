@@ -483,14 +483,24 @@ pub struct MetaPatch {
 }
 
 pub fn read_meta(root: &Path) -> Meta {
-    fs::read_to_string(root.join(META_FILE))
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+    try_read_meta(root).ok().flatten().unwrap_or_default()
 }
 
+/// `None` when there is no file; an unparseable one is an error.
+fn try_read_meta(root: &Path) -> Result<Option<Meta>, String> {
+    match fs::read_to_string(root.join(META_FILE)) {
+        Ok(s) => serde_json::from_str(&s)
+            .map(Some)
+            .map_err(|e| format!("{META_FILE} is not valid: {e}")),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Refuses to write over a file it can't parse, so a damaged `dagobert.json`
+/// is never silently replaced by defaults.
 pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
-    let mut meta = read_meta(root);
+    let mut meta = try_read_meta(root)?.unwrap_or_default();
     if let Some(t) = patch.tag_colors {
         meta.tag_colors = t;
     }
@@ -684,6 +694,24 @@ mod tests {
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
         purge_trash(&dir, None).unwrap();
         assert!(list_trash(&dir).unwrap().is_empty());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn corrupt_meta_is_never_overwritten() {
+        let dir = std::env::temp_dir().join(format!("dagobert-badmeta-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(META_FILE), "{ not json").unwrap();
+        assert!(save_meta(&dir, MetaPatch::default()).is_err());
+        assert_eq!(
+            fs::read_to_string(dir.join(META_FILE)).unwrap(),
+            "{ not json"
+        );
+        assert!(
+            read_meta(&dir).palette.is_empty(),
+            "reads fall back to defaults"
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

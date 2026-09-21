@@ -80,7 +80,8 @@
     selectedId = store.workflows[0]?.id ?? null;
   }
   function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
+    // The no-repo dialog stacked on top takes the Escape.
+    if (e.key === "Escape" && !store.needsRepo) {
       e.stopPropagation();
       onclose();
     }

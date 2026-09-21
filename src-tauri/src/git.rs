@@ -52,13 +52,30 @@ fn err(e: git2::Error) -> String {
 }
 
 /// The repository containing `root`, or `None` when it isn't inside a work tree.
+/// The search walks up (a project may live inside a larger repository) but never
+/// past the home directory, so a dotfiles repo at `~` is never adopted.
 pub fn open(root: &Path) -> Result<Option<Repository>> {
-    match Repository::discover(root) {
-        Ok(r) if r.workdir().is_some() => Ok(Some(r)),
-        Ok(_) => Ok(None),
-        Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
-        Err(e) => Err(err(e)),
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let ceiling = home
+        .as_deref()
+        .filter(|h| root.canonicalize().is_ok_and(|r| r != *h))
+        .into_iter();
+    let path = match Repository::discover_path(root, ceiling) {
+        Ok(p) => p,
+        Err(e) if e.code() == git2::ErrorCode::NotFound => return Ok(None),
+        Err(e) => return Err(err(e)),
+    };
+    let repo = Repository::open(path).map_err(err)?;
+    let Some(wd) = repo.workdir() else {
+        return Ok(None);
+    };
+    // The ceiling stops the walk below `~` but still lets `~` itself match.
+    if home.is_some_and(|h| wd.canonicalize().ok() == h.canonicalize().ok())
+        && root.canonicalize().ok() != wd.canonicalize().ok()
+    {
+        return Ok(None);
     }
+    Ok(Some(repo))
 }
 
 fn require(root: &Path) -> Result<Repository> {
@@ -159,7 +176,15 @@ fn remote_ref(repo: &Repository, branch: &str) -> Option<Oid> {
 /// that the repository doesn't ignore it, then writes the `.gitignore` entries.
 pub fn enable(root: &Path) -> Result<()> {
     let repo = open(root)?.ok_or("no-repo")?;
-    for s in specs(&repo, root)? {
+    let mut probes = specs(&repo, root)?;
+    // A parent rule like `*.md` ignores the files, not the folders.
+    for dir in ["notes", "trash"] {
+        probes.push(format!(
+            "{}/{dir}/probe.md",
+            probes[0].trim_end_matches("notes")
+        ));
+    }
+    for s in probes {
         if repo.is_path_ignored(&s).map_err(err)? {
             return Err(format!(
                 "`{s}` is ignored by the repository's .gitignore, so nothing would be committed."
@@ -330,6 +355,14 @@ fn checkout() -> CheckoutBuilder<'static> {
     cb
 }
 
+/// Safe checkout that fails (`ErrorCode::Conflict`, before touching anything)
+/// when a local modification is in the way.
+fn strict_checkout() -> CheckoutBuilder<'static> {
+    let mut cb = CheckoutBuilder::new();
+    cb.safe();
+    cb
+}
+
 fn deadline(timeout: Option<Duration>) -> Option<Instant> {
     timeout.map(|t| Instant::now() + t)
 }
@@ -359,12 +392,14 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
     if !fetch(root, timeout)? {
         return Ok(PullOutcome::NoRemote);
     }
-    merge_fetched(root)
+    merge_fetched(root, "dagobert auto-save")
 }
 
 /// Merges the fetched remote branch in. Commit first: a local modification
-/// to a file the merge touches makes libgit2 refuse.
-pub fn merge_fetched(root: &Path) -> Result<PullOutcome> {
+/// to a file the merge touches makes libgit2 refuse. A file saved after that
+/// (a standalone window) and in the way of a fast-forward is committed with
+/// `save` and merged instead, never left as a silent local modification.
+pub fn merge_fetched(root: &Path, save: &str) -> Result<PullOutcome> {
     let repo = require(root)?;
     if repo.state() != RepositoryState::Clean {
         return Err("The repository has an operation in progress (merge/rebase).".into());
@@ -400,8 +435,13 @@ pub fn merge_fetched(root: &Path) -> Result<PullOutcome> {
         return Ok(PullOutcome::UpToDate);
     }
     if analysis.is_fast_forward() {
-        fast_forward(&repo, &branch, &theirs)?;
-        return Ok(PullOutcome::FastForward);
+        match fast_forward(&repo, &branch, &theirs) {
+            Ok(()) => return Ok(PullOutcome::FastForward),
+            Err(e) if e.code() == git2::ErrorCode::Conflict => {
+                commit_if_dirty(root, save)?;
+            }
+            Err(e) => return Err(err(e)),
+        }
     }
     // No rename detection: a note moved to trash/ must conflict with an edit,
     // not merge into the trashed copy; `merge::resolve` pairs files by id.
@@ -420,15 +460,15 @@ pub fn merge_fetched(root: &Path) -> Result<PullOutcome> {
     Ok(PullOutcome::Merging)
 }
 
-fn fast_forward(repo: &Repository, branch: &str, target: &AnnotatedCommit) -> Result<()> {
-    let obj = repo.find_object(target.id(), None).map_err(err)?;
-    repo.checkout_tree(&obj, Some(&mut checkout()))
-        .map_err(err)?;
-    let mut r = repo
-        .find_reference(&format!("refs/heads/{branch}"))
-        .map_err(err)?;
-    r.set_target(target.id(), "dagobert: fast-forward")
-        .map_err(err)?;
+fn fast_forward(
+    repo: &Repository,
+    branch: &str,
+    target: &AnnotatedCommit,
+) -> std::result::Result<(), git2::Error> {
+    let obj = repo.find_object(target.id(), None)?;
+    repo.checkout_tree(&obj, Some(&mut strict_checkout()))?;
+    let mut r = repo.find_reference(&format!("refs/heads/{branch}"))?;
+    r.set_target(target.id(), "dagobert: fast-forward")?;
     Ok(())
 }
 
@@ -600,6 +640,40 @@ pub(crate) mod tests {
         assert!(head.get_path(Path::new("notes/a.md")).is_err());
         assert_eq!(pull(&dir, None).unwrap(), PullOutcome::NoRemote);
         assert!(status(&dir).unwrap().last_commit_at.is_some());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn discovery_stops_below_home() {
+        let base = tmp("git-home");
+        let home = base.join("home");
+        let project = home.join("Notes");
+        fs::create_dir_all(&project).unwrap();
+        Repository::init(&home).unwrap();
+        let saved = std::env::var_os("HOME");
+        std::env::set_var("HOME", &home);
+        let found = open(&project);
+        let nested = base.join("home/code");
+        fs::create_dir_all(nested.join("plan")).unwrap();
+        Repository::init(&nested).unwrap();
+        let inside = open(&nested.join("plan"));
+        match saved {
+            Some(h) => std::env::set_var("HOME", h),
+            None => std::env::remove_var("HOME"),
+        }
+        assert!(found.unwrap().is_none(), "a repo at ~ is not adopted");
+        assert!(inside.unwrap().is_some(), "a repo below ~ still is");
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn enable_refuses_a_parent_rule_that_ignores_the_notes() {
+        let dir = tmp("git-parent-ignore");
+        init(&dir).unwrap();
+        fs::write(dir.join(".gitignore"), "*.md\n").unwrap();
+        let project = dir.join("docs/plan");
+        fs::create_dir_all(&project).unwrap();
+        assert!(enable(&project).unwrap_err().contains("probe.md"));
         fs::remove_dir_all(&dir).unwrap();
     }
 

@@ -4,6 +4,7 @@ import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
+import { isConflict, splitBlocks } from "./blocks";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -25,9 +26,9 @@ function newId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
 }
 
-/** A body still carrying git conflict markers from a merge. */
+/** A body still carrying git conflict markers from a merge (fenced code doesn't count). */
 export function hasMarkers(body: string): boolean {
-  return /^<{7} /m.test(body);
+  return /^<{7} /m.test(body) && splitBlocks(body).some(isConflict);
 }
 
 class Store {
@@ -99,6 +100,8 @@ class Store {
   notice = $state<string | null>(null);
   /** Writes currently in flight, so a delete can wait for them. */
   #inflight = new Map<string, Promise<void>>();
+  /** Each note's body as last read from or written to disk. */
+  #disk = new Map<string, string>();
   /** IDs removed this session; late writes for them are dropped. */
   #deleted = new Set<string>();
   #metaTimer: ReturnType<typeof setTimeout> | null = null;
@@ -224,6 +227,7 @@ class Store {
 
   #syncing: Promise<void> | null = null;
   #syncingPath: string | null = null;
+  #queued: Promise<void> | null = null;
 
   /** One sync cycle. Errors toast only when `manual`; the timer stays quiet. */
   syncNow(manual = false): Promise<void> {
@@ -231,7 +235,14 @@ class Store {
     if (this.#syncing) {
       // Another project's cycle is running: sync this one when it's done.
       if (this.#syncingPath !== this.path) return this.#syncing.then(() => this.syncNow(manual));
-      return this.#syncing;
+      // Edits made since the running cycle flushed get their own cycle, once.
+      if (!this.#queued) {
+        this.#queued = this.#syncing.then(() => {
+          this.#queued = null;
+          return this.syncNow(manual);
+        });
+      }
+      return this.#queued;
     }
     const path = this.path;
     this.#syncingPath = path;
@@ -280,6 +291,7 @@ class Store {
     try {
       this.gitStatus = await backend.gitStatus(this.path);
     } catch (e) {
+      this.gitState = "error";
       this.gitError = String(e);
     }
   }
@@ -449,6 +461,7 @@ class Store {
   }
 
   async open(path: string) {
+    this.flushAll();
     try {
       const p = await backend.openProject(path);
       this.path = p.path;
@@ -465,6 +478,7 @@ class Store {
       this.tagFilter = [];
       this.#history.clear();
       this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
+      this.#disk = new Map(p.notes.map((n) => [n.id, n.body]));
       this.#syncDepths();
       this.viewport = {
         x: Number.isFinite(v.x) ? v.x : 0,
@@ -478,12 +492,13 @@ class Store {
       localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
       localStorage.setItem(LAST_KEY, p.path);
       this.error = null;
-      backend.watchProject(p.path).catch((e) => this.fail(e));
       this.gitStatus = null;
       this.gitState = "idle";
       this.gitError = null;
       this.conflictReport = null;
       this.#configureGit();
+      // The watcher must be up before the first pull rewrites files.
+      await backend.watchProject(p.path);
       if (this.gitEnabled) void this.syncNow(false);
     } catch (e) {
       this.fail(e);
@@ -492,7 +507,7 @@ class Store {
 
   #applyGitSettings(g: { enabled: boolean; interval_min: number } | undefined) {
     this.gitEnabled = !!g?.enabled;
-    this.gitInterval = g?.interval_min && g.interval_min > 0 ? g.interval_min : 5;
+    this.gitInterval = g?.interval_min && g.interval_min > 0 ? Math.min(120, Math.round(g.interval_min)) : 5;
   }
 
   /** Reopen whatever was open last time (called once at startup). */
@@ -656,12 +671,13 @@ class Store {
   async restoreNote(file: string) {
     if (!this.path) return;
     try {
-      const n = await backend.restoreNote(this.path, file);
+      const n = await this.#track(backend.restoreNote(this.path, file));
       this.#deleted.delete(n.id);
       // Deps pointing at notes that are still deleted are dropped.
       n.deps = n.deps.filter((d) => this.byId(d));
       n.deleted = null;
       this.notes.push(n);
+      this.#disk.set(n.id, n.body);
       this.trash = this.trash.filter((t) => t.file !== file);
       this.#record("restore", { id: n.id, before: null, after: structuredClone(n) });
       backend.broadcast({ type: "note", note: $state.snapshot(n) });
@@ -674,7 +690,7 @@ class Store {
   async purge(file: string | null) {
     if (!this.path) return;
     try {
-      await backend.purgeTrash(this.path, file);
+      await this.#track(backend.purgeTrash(this.path, file));
       this.trash = file ? this.trash.filter((t) => t.file !== file) : [];
     } catch (e) {
       this.fail(e);
@@ -781,6 +797,7 @@ class Store {
       if (local) Object.assign(local, msg.note);
       else this.notes.push(msg.note);
       this.#last.set(msg.note.id, structuredClone(msg.note));
+      this.#disk.set(msg.note.id, msg.note.body);
     } else if (msg.type === "note-file") {
       const local = this.byId(msg.id);
       if (local) local.file = msg.file;
@@ -815,8 +832,19 @@ class Store {
       this.#deleted.delete(incoming.id);
       this.trash = this.trash.filter((t) => t.id !== incoming.id);
       const local = this.byId(incoming.id);
-      // Our own pending save wins over the disk version.
-      if (local && this.#saveTimers.has(local.id)) return;
+      const disk = this.#disk.get(incoming.id);
+      this.#disk.set(incoming.id, incoming.body);
+      // Our own pending or in-flight save wins over the disk version (a rename is
+      // still adopted), unless a pull changed the body meanwhile: then the
+      // remote's text is kept next to ours as a conflict rather than dropped.
+      if (local && (this.#saveTimers.has(local.id) || this.#inflight.has(local.id))) {
+        local.file = incoming.file;
+        if (disk === undefined || incoming.body === disk) return;
+        const mine = local.body;
+        local.body = mine === disk ? incoming.body : `<<<<<<< mine\n${mine}\n=======\n${incoming.body}\n>>>>>>> theirs`;
+        this.touch(local.id, { label: "merge from another machine" });
+        return;
+      }
       // Match by id, so an external rename updates `file` rather than duplicating.
       if (local) Object.assign(local, incoming);
       else this.notes.push(incoming);
@@ -825,10 +853,13 @@ class Store {
     } else if (change.kind === "note-removed") {
       const local = this.notes.find((n) => n.file === change.file);
       if (!local) return;
+      // An edit in progress wins over the deletion: the save recreates the file.
+      if (this.#saveTimers.has(local.id) || this.#inflight.has(local.id)) {
+        local.file = "";
+        return;
+      }
       // The file is already gone; just forget it (no trash, no #deleted).
-      const t = this.#saveTimers.get(local.id);
-      if (t) clearTimeout(t);
-      this.#saveTimers.delete(local.id);
+      this.#disk.delete(local.id);
       if (this.selectedId === local.id) this.selectedId = null;
       this.multi = this.multi.filter((x) => x !== local.id);
       this.notes = this.notes.filter((n) => n.id !== local.id);
@@ -1000,7 +1031,9 @@ class Store {
     const job = prev.then(async () => {
       if (this.#deleted.has(id)) return;
       try {
-        const saved = await backend.saveNote(this.path!, $state.snapshot(n));
+        const snap = $state.snapshot(n);
+        const saved = await backend.saveNote(this.path!, snap);
+        this.#disk.set(id, snap.body);
         if (saved.file !== n.file) {
           n.file = saved.file;
           backend.broadcast({ type: "note-file", id, file: saved.file });

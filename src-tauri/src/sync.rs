@@ -56,7 +56,7 @@ pub fn cycle(root: &Path, stamp: &str, timeout: Duration) -> SyncReport {
             // A note saved while fetching would otherwise be skipped by the
             // checkout and silently overwrite the remote's version.
             r.committed |= git::commit_if_dirty(root, &save)?;
-            git::merge_fetched(root)?
+            git::merge_fetched(root, &save)?
         } else {
             PullOutcome::NoRemote
         };
@@ -115,10 +115,15 @@ pub fn configure(app: AppHandle, state: &GitState, enabled: bool, interval_min: 
 
 /// Whether a close/exit should be held back for a final sync. The first call
 /// with tracking on answers `true` and emits `git-quit` (carrying `reason`);
-/// the frontend syncs and then calls `git_quit`, which lets the next one through.
+/// the frontend syncs and then calls `git_quit`, whose `finish_quit` lets the
+/// close/exit it triggers through.
 pub fn intercept_quit(app: &AppHandle, state: &GitState, reason: &str) -> bool {
-    if !state.enabled.load(Ordering::SeqCst) || state.quitting.swap(true, Ordering::SeqCst) {
+    if !state.enabled.load(Ordering::SeqCst) || state.finished.load(Ordering::SeqCst) {
         return false;
+    }
+    // A second request while the sync runs keeps waiting for it.
+    if state.quitting.swap(true, Ordering::SeqCst) {
+        return true;
     }
     if app.emit_to("main", "git-quit", reason).is_err() {
         state.quitting.store(false, Ordering::SeqCst);
@@ -194,7 +199,33 @@ mod tests {
         assert!(git::fetch(&b, Some(TIMEOUT)).unwrap());
         write_note(&b, "a.md", "a", "A", "v2 from b");
         assert!(git::commit_if_dirty(&b, "late save").unwrap());
-        assert_eq!(git::merge_fetched(&b).unwrap(), PullOutcome::Merging);
+        assert_eq!(
+            git::merge_fetched(&b, "save").unwrap(),
+            PullOutcome::Merging
+        );
+        let conflicts = merge::resolve(&b, "merge").unwrap();
+        assert_eq!(conflicts.len(), 1);
+        assert!(conflicts[0].body_conflict);
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn edit_before_fast_forward_merges_instead_of_overwriting() {
+        let (base, a, b) = pair("sync-ff-window");
+        write_note(&a, "a.md", "a", "A", "v1");
+        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&b, "t", TIMEOUT).error.is_none());
+        write_note(&a, "a.md", "a", "A", "v2 from a");
+        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        // b (a standalone window) saves after the second commit, right before
+        // the fast-forward checkout would have skipped the file.
+        assert!(git::fetch(&b, Some(TIMEOUT)).unwrap());
+        assert!(!git::commit_if_dirty(&b, "nothing").unwrap());
+        write_note(&b, "a.md", "a", "A", "v2 from b");
+        assert_eq!(
+            git::merge_fetched(&b, "late save").unwrap(),
+            PullOutcome::Merging
+        );
         let conflicts = merge::resolve(&b, "merge").unwrap();
         assert_eq!(conflicts.len(), 1);
         assert!(conflicts[0].body_conflict);

@@ -136,6 +136,28 @@ fn merge_body(
     Ok((text, !r.is_automergeable()))
 }
 
+/// `.gitignore`: ours, then the lines only theirs has.
+fn merge_ignore(ours: &str, theirs: &str) -> String {
+    let mut lines: Vec<&str> = ours.lines().collect();
+    for l in theirs.lines() {
+        if !lines.contains(&l) {
+            lines.push(l);
+        }
+    }
+    let mut out = lines.join("\n");
+    out.push('\n');
+    out
+}
+
+/// `dagobert.json` text with the struct's field order when it parses as `Meta`.
+fn meta_text(v: &Value) -> Result<String> {
+    match serde_json::from_value::<store::Meta>(v.clone()) {
+        Ok(m) => serde_json::to_string_pretty(&m),
+        Err(_) => serde_json::to_string_pretty(v),
+    }
+    .map_err(|e| e.to_string())
+}
+
 /// Rule 6: maps are unioned (ours wins per key), workflows merged by id, scalars ours.
 fn merge_meta(ours: &Value, theirs: &Value) -> Value {
     let (o, t) = match (ours.as_object(), theirs.as_object()) {
@@ -213,6 +235,7 @@ const NOTE_DIRS: [&str; 2] = ["notes", "trash"];
 enum Kind {
     Note { dir: &'static str, file: String },
     Meta,
+    Ignore,
     Other,
 }
 
@@ -220,6 +243,9 @@ fn classify(rel: &Path) -> Kind {
     let s = rel.to_string_lossy();
     if s == "dagobert.json" {
         return Kind::Meta;
+    }
+    if s == ".gitignore" {
+        return Kind::Ignore;
     }
     for dir in NOTE_DIRS {
         if let Some(file) = s.strip_prefix(&format!("{dir}/")) {
@@ -291,10 +317,15 @@ impl Ctx<'_> {
         )
     }
 
-    fn note_in(&self, tree: Option<&git2::Tree>, dir: &str, file: &str) -> Option<Note> {
-        let entry = tree?.get_path(&self.prefix.join(dir).join(file)).ok()?;
+    fn blob_in(&self, tree: Option<&git2::Tree>, rel: &Path) -> Blob {
+        let entry = tree?.get_path(&self.prefix.join(rel)).ok()?;
         let blob = self.repo.find_blob(entry.id()).ok()?;
-        let text = String::from_utf8(blob.content().to_vec()).ok()?;
+        Some(blob.content().to_vec())
+    }
+
+    fn note_in(&self, tree: Option<&git2::Tree>, dir: &str, file: &str) -> Option<Note> {
+        let bytes = self.blob_in(tree, &Path::new(dir).join(file))?;
+        let text = String::from_utf8(bytes).ok()?;
         store::parse_note(&text, file).ok()
     }
 
@@ -576,6 +607,9 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
     })
     .map_err(|e| e.message().to_string())?;
     let head_tree = head_oid.and_then(|o| repo.find_commit(o).ok()?.tree().ok());
+    let their_tree = merge_heads
+        .first()
+        .and_then(|o| repo.find_commit(*o).ok()?.tree().ok());
     let base_tree = head_oid
         .zip(merge_heads.first().copied())
         .and_then(|(h, m)| repo.merge_base(h, m).ok())
@@ -589,6 +623,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         .collect();
     let mut sides: HashMap<&'static str, Sides> = HashMap::new();
     let mut meta: Option<(Blob, Blob, Blob)> = None;
+    let mut ignore: Option<(Blob, Blob)> = None;
     let mut foreign: Vec<String> = Vec::new();
     let mut ctx = Ctx {
         repo: &repo,
@@ -641,6 +676,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
                     blob(&repo, &c.ancestor)?,
                 ))
             }
+            Kind::Ignore => ignore = Some((blob(&repo, &c.our)?, blob(&repo, &c.their)?)),
             Kind::Other => foreign.push(path.to_string_lossy().to_string()),
         }
     }
@@ -665,25 +701,45 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
     ctx.drop_trash_copies(&mut index)?;
     ctx.break_cycles(&mut index)?;
 
+    if let Some((ours, theirs)) = ignore {
+        let text = |b: Blob| b.map(|b| String::from_utf8_lossy(&b).to_string());
+        let merged = match (text(ours), text(theirs)) {
+            (Some(o), Some(t)) => merge_ignore(&o, &t),
+            (Some(v), None) | (None, Some(v)) => v,
+            (None, None) => String::new(),
+        };
+        ctx.stage(&mut index, Path::new(".gitignore"), &merged)?;
+    }
+
+    // Rule 6. Git can also line-merge two edits "cleanly" into invalid JSON, in
+    // which case the file is rebuilt from both sides' versions.
+    let meta_rel = Path::new("dagobert.json");
+    let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+    let on_disk = fs::read(root.join(meta_rel)).ok();
+    let meta = match meta {
+        Some(m) => Some(m),
+        None if on_disk.is_some() && parse(on_disk).is_none() => Some((
+            ctx.blob_in(head_tree.as_ref(), meta_rel),
+            ctx.blob_in(their_tree.as_ref(), meta_rel),
+            ctx.blob_in(base_tree.as_ref(), meta_rel),
+        )),
+        None => None,
+    };
     if let Some((ours, theirs, ancestor)) = meta {
-        let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
         let merged = match (parse(ours), parse(theirs)) {
             (Some(o), Some(t)) => Some(merge_meta(&o, &t)),
             (Some(v), None) | (None, Some(v)) => Some(v),
             (None, None) => parse(ancestor),
         };
         match merged {
-            Some(v) => {
-                let text = serde_json::to_string_pretty(&v).map_err(|e| e.to_string())?;
-                ctx.stage(&mut index, Path::new("dagobert.json"), &text)?;
-            }
-            None => keep_worktree(&mut index, &ctx.prefix.join("dagobert.json"))?,
+            Some(v) => ctx.stage(&mut index, meta_rel, &meta_text(&v)?)?,
+            None => keep_worktree(&mut index, &ctx.prefix.join(meta_rel))?,
         }
     }
 
     index.write().map_err(|e| e.message().to_string())?;
     let report = ctx.report;
-    drop((index, head_tree, base_tree));
+    drop((index, head_tree, their_tree, base_tree));
     git::commit_merge(&mut repo, message)?;
     Ok(report)
 }
@@ -1137,6 +1193,47 @@ mod tests {
         assert_eq!(m.default_template, "from b");
         let names: Vec<&str> = m.workflows.iter().map(|w| w.name.as_str()).collect();
         assert_eq!(names, vec!["B1", "B"]);
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn gitignore_conflict_unions_lines() {
+        let (base, a, b) = seeded("merge-ignore", vec![]);
+        fs::write(
+            a.join(".gitignore"),
+            "dagobert.local.json\n.DS_Store\nfrom-a\n",
+        )
+        .unwrap();
+        fs::write(
+            b.join(".gitignore"),
+            "dagobert.local.json\n.DS_Store\nfrom-b\n",
+        )
+        .unwrap();
+        sync_b(&a, &b);
+        assert_eq!(
+            fs::read_to_string(b.join(".gitignore")).unwrap(),
+            "dagobert.local.json\n.DS_Store\nfrom-b\nfrom-a\n"
+        );
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn invalid_meta_after_a_clean_merge_is_rebuilt() {
+        let (base, a, b) = seeded("merge-badmeta", vec![note("n", "N", "m", &[])]);
+        fs::write(a.join("dagobert.json"), r##"{"palette":["#1"]}"##).unwrap();
+        commit_if_dirty(&a, "seed").unwrap();
+        push(&a, None).unwrap();
+        pull(&b, None).unwrap();
+        fs::write(a.join("dagobert.json"), r##"{"palette":["#1","#2"]}"##).unwrap();
+        commit_if_dirty(&a, "a").unwrap();
+        push(&a, None).unwrap();
+        edit(&b, "n", |n| n.body = "b".into());
+        commit_if_dirty(&b, "b").unwrap();
+        assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
+        // Stand-in for a line merge that produced invalid JSON.
+        fs::write(b.join("dagobert.json"), "{ broken").unwrap();
+        resolve(&b, "merge").unwrap();
+        assert_eq!(store::read_meta(&b).palette, vec!["#1", "#2"]);
         fs::remove_dir_all(&base).unwrap();
     }
 

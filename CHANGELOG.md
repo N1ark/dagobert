@@ -19,7 +19,12 @@ All notable changes to Dagobert are documented here. The format follows
   Dagobert's (a project inside a larger repository) is left for you to resolve with git.
 - In the editor, a merge conflict region renders as two stacked panes (mine / theirs) with
   "Keep mine", "Keep theirs" and "Keep both" buttons (undoable); search and card
-  previews ignore the marker lines.
+  previews ignore the marker lines. A region inside a paragraph stays part of it.
+- An edit you're typing while a pull changes the same note is kept next to the pulled
+  text as a conflict instead of silently overwriting it; a `.gitignore` edited on both
+  machines is merged by unioning its lines; a `dagobert.json` that a merge left invalid
+  is rebuilt from both sides, and settings are never written over a damaged one. A
+  repository at your home folder is never picked up by a project inside it.
 
 ### Changed
 

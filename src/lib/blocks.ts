@@ -8,8 +8,9 @@ export const MARKER_RE = /^(<{7} |={7}$|>{7} )/;
 
 /**
  * Blocks are separated by blank lines, except inside fenced code and git
- * conflict regions (`<<<<<<<` … `>>>>>>>`), where blank lines are kept.
- * Runs of blank lines collapse to one on re-join.
+ * conflict regions (`<<<<<<<` … `>>>>>>>`), where blank lines are kept. A
+ * region is part of the paragraph around it, so resolving one never adds
+ * paragraph breaks. Runs of blank lines collapse to one on re-join.
  */
 export function splitBlocks(text: string): string[] {
   const out: string[] = [];
@@ -19,16 +20,11 @@ export function splitBlocks(text: string): string[] {
   for (const line of text.split("\n")) {
     if (conflict) {
       cur.push(line);
-      if (CONFLICT_END.test(line)) {
-        conflict = false;
-        out.push(cur.join("\n"));
-        cur = [];
-      }
+      if (CONFLICT_END.test(line)) conflict = false;
       continue;
     }
     if (!fence && CONFLICT_START.test(line)) {
-      if (cur.length) out.push(cur.join("\n"));
-      cur = [line];
+      cur.push(line);
       conflict = true;
       continue;
     }
@@ -49,6 +45,17 @@ export function splitBlocks(text: string): string[] {
     } else {
       cur.push(line);
     }
+  }
+  if (conflict) {
+    // No closing marker: the "region" is ordinary text after all.
+    let part: string[] = [];
+    for (const line of cur) {
+      if (line.trim() === "") {
+        if (part.length) out.push(part.join("\n"));
+        part = [];
+      } else part.push(line);
+    }
+    cur = part;
   }
   if (cur.length) out.push(cur.join("\n"));
   return out;
@@ -88,27 +95,52 @@ export function isCode(block: string): boolean {
   return /^\s*(```|~~~)/.test(block);
 }
 
-/** True when the block is a git conflict region. */
-export function isConflict(block: string): boolean {
-  return CONFLICT_START.test(block) && CONFLICT_END.test(block.slice(block.lastIndexOf("\n") + 1));
+/** The line ranges of the conflict region inside a block, if it holds one. */
+function region(lines: string[]): { start: number; mid: number; end: number } | null {
+  const start = lines.findIndex((l) => CONFLICT_START.test(l));
+  if (start < 0) return null;
+  const end = lines.findIndex((l, i) => i > start && CONFLICT_END.test(l));
+  if (end < 0) return null;
+  const mid = lines.findIndex((l, i) => i > start && i < end && CONFLICT_MID.test(l));
+  return { start, mid, end };
 }
 
-/** The two sides of a conflict block, without the marker lines. */
+/** True when the block holds a git conflict region. */
+export function isConflict(block: string): boolean {
+  return region(block.split("\n")) !== null;
+}
+
+/** The block as each side wrote it (text around the region included), without the marker lines. */
 export function conflictSides(block: string): { mine: string; theirs: string } {
   const lines = block.split("\n");
-  const mid = lines.findIndex((l) => CONFLICT_MID.test(l));
-  const end = lines.length - 1;
-  if (mid < 0) return { mine: lines.slice(1, end).join("\n"), theirs: "" };
-  return { mine: lines.slice(1, mid).join("\n"), theirs: lines.slice(mid + 1, end).join("\n") };
+  const r = region(lines);
+  if (!r) return { mine: block, theirs: block };
+  const before = lines.slice(0, r.start);
+  const after = lines.slice(r.end + 1);
+  const mine = lines.slice(r.start + 1, r.mid < 0 ? r.end : r.mid);
+  const theirs = r.mid < 0 ? [] : lines.slice(r.mid + 1, r.end);
+  return {
+    mine: [...before, ...mine, ...after].join("\n"),
+    theirs: [...before, ...theirs, ...after].join("\n"),
+  };
 }
 
-/** Replace a conflict block by one side, or both in order. */
+/** Replace the conflict region of a block by one side, or both in order. */
 export function resolveConflict(block: string, keep: "mine" | "theirs" | "both"): string {
-  const { mine, theirs } = conflictSides(block);
-  if (keep === "mine") return mine;
-  if (keep === "theirs") return theirs;
-  // Separate paragraphs, so a list on one side doesn't swallow the other.
-  return [mine, theirs].filter((s) => s.trim()).join("\n\n");
+  const lines = block.split("\n");
+  const r = region(lines);
+  if (!r) return block;
+  const before = lines.slice(0, r.start);
+  const after = lines.slice(r.end + 1);
+  const mine = lines.slice(r.start + 1, r.mid < 0 ? r.end : r.mid).join("\n");
+  const theirs = r.mid < 0 ? "" : lines.slice(r.mid + 1, r.end).join("\n");
+  let middle: string;
+  if (keep === "mine") middle = mine;
+  else if (keep === "theirs") middle = theirs;
+  // Separate paragraphs when the region stands alone, so a list on one side
+  // doesn't swallow the other; inside a paragraph, keep it one paragraph.
+  else middle = [mine, theirs].filter((s) => s.trim()).join(before.length || after.length ? "\n" : "\n\n");
+  return [...before, ...(middle ? [middle] : []), ...after].join("\n");
 }
 
 /** The body without git conflict marker lines (for search, links, previews). */
