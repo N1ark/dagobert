@@ -46,8 +46,12 @@ export interface Workflow {
   template: string;
 }
 
-export interface Meta {
+/** Per-machine state in `dagobert.local.json`; never synced between machines. */
+export interface Local {
   viewport: Viewport;
+}
+
+export interface Meta {
   /** Tag name -> CSS colour. */
   tag_colors: Record<string, string>;
   /** User-defined workflows; the default todo/done one is implicit. */
@@ -69,4 +73,5 @@ export interface Project {
   path: string;
   notes: Note[];
   meta: Meta;
+  local: Local;
 }

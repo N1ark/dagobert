@@ -292,8 +292,8 @@ class Store {
       const p = await backend.openProject(path);
       this.path = p.path;
       this.notes = p.notes;
-      // Guard against a malformed dagobert.json: a zero/NaN zoom poisons every coordinate.
-      const v = p.meta.viewport;
+      // Guard against a malformed dagobert.local.json: a zero/NaN zoom poisons every coordinate.
+      const v = p.local.viewport;
       this.tagColors = p.meta.tag_colors ?? {};
       this.workflows = p.meta.workflows ?? [];
       this.defaultTemplate = p.meta.default_template ?? "";
@@ -830,22 +830,15 @@ class Store {
     if (this.#inflight.get(id) === job) this.#inflight.delete(id);
   }
 
-  #metaDirty = { viewport: false, settings: false };
-
-  /** What's changed since the last meta write; only those fields are sent. */
-  #metaPatch() {
-    const patch: MetaPatch = {};
-    if (this.#metaDirty.viewport) patch.viewport = $state.snapshot(this.viewport);
-    if (this.#metaDirty.settings) {
-      patch.tag_colors = $state.snapshot(this.tagColors);
-      patch.workflows = $state.snapshot(this.workflows);
-      patch.default_template = this.defaultTemplate;
-      patch.tracking_template = this.trackingTemplate;
-      patch.repos = $state.snapshot(this.repos);
-      patch.palette = $state.snapshot(this.palette);
-    }
-    this.#metaDirty = { viewport: false, settings: false };
-    return patch;
+  #metaPatch(): MetaPatch {
+    return {
+      tag_colors: $state.snapshot(this.tagColors),
+      workflows: $state.snapshot(this.workflows),
+      default_template: this.defaultTemplate,
+      tracking_template: this.trackingTemplate,
+      repos: $state.snapshot(this.repos),
+      palette: $state.snapshot(this.palette),
+    };
   }
 
   #scheduleMeta() {
@@ -859,31 +852,28 @@ class Store {
   #flushMeta() {
     if (!this.path) return;
     const patch = this.#metaPatch();
-    if (!Object.keys(patch).length) return;
     backend.saveMeta(this.path, patch).catch((e) => this.fail(e));
-    if (patch.tag_colors || patch.workflows)
-      backend.broadcast({
-        type: "meta",
-        meta: {
-          tag_colors: patch.tag_colors,
-          workflows: patch.workflows,
-          default_template: patch.default_template,
-          tracking_template: patch.tracking_template,
-          repos: patch.repos,
-          palette: patch.palette,
-        },
-      });
+    backend.broadcast({ type: "meta", meta: patch });
   }
 
   /** Tag colours / workflows changed. */
   saveMeta() {
-    this.#metaDirty.settings = true;
     this.#scheduleMeta();
   }
 
+  #localTimer: ReturnType<typeof setTimeout> | null = null;
+
+  #flushLocal() {
+    if (!this.path) return;
+    backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) }).catch((e) => this.fail(e));
+  }
+
   saveViewport() {
-    this.#metaDirty.viewport = true;
-    this.#scheduleMeta();
+    if (this.#localTimer) clearTimeout(this.#localTimer);
+    this.#localTimer = setTimeout(() => {
+      this.#localTimer = null;
+      this.#flushLocal();
+    }, 400);
   }
 
   flushAll() {
@@ -896,6 +886,11 @@ class Store {
       clearTimeout(this.#metaTimer);
       this.#metaTimer = null;
       this.#flushMeta();
+    }
+    if (this.#localTimer) {
+      clearTimeout(this.#localTimer);
+      this.#localTimer = null;
+      this.#flushLocal();
     }
   }
 }

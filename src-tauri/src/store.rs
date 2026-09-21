@@ -2,7 +2,8 @@
 //!
 //! A project is a folder. Each note is `notes/<slug>.md` with a YAML
 //! frontmatter block holding metadata, followed by the markdown body.
-//! Canvas state (viewport) lives in `dagobert.json` at the project root.
+//! Shared settings live in `dagobert.json` at the project root; per-machine
+//! state (the viewport) in `dagobert.local.json` next to it.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -12,6 +13,7 @@ use std::path::{Path, PathBuf};
 pub const NOTES_DIR: &str = "notes";
 const TRASH_DIR: &str = "trash";
 pub const META_FILE: &str = "dagobert.json";
+pub const LOCAL_FILE: &str = "dagobert.local.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Note {
@@ -132,11 +134,19 @@ impl Default for Viewport {
     }
 }
 
+/// Per-machine state stored in `dagobert.local.json` (never synced).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct Local {
+    #[serde(default)]
+    pub viewport: Viewport,
+}
+
 /// Project-wide settings stored in `dagobert.json`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Meta {
-    #[serde(default)]
-    pub viewport: Viewport,
+    /// Legacy location of the viewport; migrated to `Local` on read, never written back.
+    #[serde(default, skip_serializing)]
+    viewport: Option<Viewport>,
     /// Tag name -> CSS colour.
     #[serde(default)]
     pub tag_colors: BTreeMap<String, String>,
@@ -162,6 +172,7 @@ pub struct Project {
     pub path: String,
     pub notes: Vec<Note>,
     pub meta: Meta,
+    pub local: Local,
 }
 
 pub fn notes_dir(root: &Path) -> PathBuf {
@@ -308,12 +319,25 @@ pub fn open(root: &Path) -> Result<Project, String> {
         n.deps.retain(|d| ids.contains(d));
     }
 
-    let meta = read_meta(root);
+    let mut meta = read_meta(root);
+    let local = match read_local(root) {
+        Some(l) => l,
+        None => {
+            // A viewport still in dagobert.json moves to the local file.
+            let l = Local {
+                viewport: meta.viewport.take().unwrap_or_default(),
+            };
+            let _ = save_local(root, &l);
+            l
+        }
+    };
+    meta.viewport = None;
 
     Ok(Project {
         path: root.to_string_lossy().to_string(),
         notes,
         meta,
+        local,
     })
 }
 
@@ -425,7 +449,6 @@ pub fn purge_trash(root: &Path, file: Option<&str>) -> Result<(), String> {
 /// Partial update of `Meta`; absent fields keep their stored value.
 #[derive(Debug, Default, Deserialize)]
 pub struct MetaPatch {
-    pub viewport: Option<Viewport>,
     pub tag_colors: Option<BTreeMap<String, String>>,
     pub workflows: Option<Vec<Workflow>>,
     pub repos: Option<BTreeMap<String, String>>,
@@ -443,9 +466,6 @@ pub fn read_meta(root: &Path) -> Meta {
 
 pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     let mut meta = read_meta(root);
-    if let Some(v) = patch.viewport {
-        meta.viewport = v;
-    }
     if let Some(t) = patch.tag_colors {
         meta.tag_colors = t;
     }
@@ -470,6 +490,17 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
 fn write_meta(root: &Path, meta: &Meta) -> Result<(), String> {
     let text = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
     fs::write(root.join(META_FILE), text).map_err(|e| e.to_string())
+}
+
+fn read_local(root: &Path) -> Option<Local> {
+    fs::read_to_string(root.join(LOCAL_FILE))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+}
+
+pub fn save_local(root: &Path, local: &Local) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(local).map_err(|e| e.to_string())?;
+    fs::write(root.join(LOCAL_FILE), text).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -525,18 +556,20 @@ mod tests {
         assert!(!dir.join("notes/migrations.md").exists());
         assert_eq!(open(&dir).unwrap().notes.len(), 2);
 
-        assert_eq!(p.meta.viewport.zoom, 1.0, "fresh project has a usable zoom");
+        assert_eq!(
+            p.local.viewport.zoom, 1.0,
+            "fresh project has a usable zoom"
+        );
         let mut tag_colors = BTreeMap::new();
         tag_colors.insert("a".to_string(), "#61afef".to_string());
-        save_meta(
+        save_local(
             &dir,
-            MetaPatch {
-                viewport: Some(Viewport {
+            &Local {
+                viewport: Viewport {
                     x: 1.0,
                     y: 2.0,
                     zoom: 0.5,
-                }),
-                ..Default::default()
+                },
             },
         )
         .unwrap();
@@ -568,10 +601,11 @@ mod tests {
             },
         )
         .unwrap();
-        let m = open(&dir).unwrap().meta;
+        let p = open(&dir).unwrap();
+        let m = p.meta;
         assert_eq!(m.palette, vec!["#ff8800".to_string()]);
         assert_eq!(
-            m.viewport.zoom, 0.5,
+            p.local.viewport.zoom, 0.5,
             "patching tag colours keeps the viewport"
         );
         assert_eq!(m.tag_colors["a"], "#61afef");
@@ -621,6 +655,40 @@ mod tests {
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
         purge_trash(&dir, None).unwrap();
         assert!(list_trash(&dir).unwrap().is_empty());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn legacy_viewport_moves_to_local_file() {
+        let dir = std::env::temp_dir().join(format!("dagobert-local-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join(META_FILE),
+            r##"{"viewport":{"x":3.0,"y":4.0,"zoom":2.0},"palette":["#123456"]}"##,
+        )
+        .unwrap();
+        let p = open(&dir).unwrap();
+        assert_eq!(p.local.viewport.zoom, 2.0);
+        assert_eq!(p.meta.palette, vec!["#123456".to_string()]);
+        assert!(dir.join(LOCAL_FILE).exists());
+        // The local file now wins, and the next meta write drops the legacy field.
+        save_local(
+            &dir,
+            &Local {
+                viewport: Viewport {
+                    x: 0.0,
+                    y: 0.0,
+                    zoom: 0.25,
+                },
+            },
+        )
+        .unwrap();
+        save_meta(&dir, MetaPatch::default()).unwrap();
+        assert!(!fs::read_to_string(dir.join(META_FILE))
+            .unwrap()
+            .contains("viewport"));
+        assert_eq!(open(&dir).unwrap().local.viewport.zoom, 0.25);
         fs::remove_dir_all(&dir).unwrap();
     }
 

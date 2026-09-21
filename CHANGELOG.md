@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The canvas viewport now lives in `dagobert.local.json` (per machine) instead of
+  `dagobert.json`; an existing viewport is migrated on the next open.
+
 ## [0.6.0] - 2026-09-21
 
 ### Added

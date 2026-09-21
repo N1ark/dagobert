@@ -9,7 +9,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { Meta, MetaPatch, Note, Project } from "./types";
+import type { Local, Meta, MetaPatch, Note, Project } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -25,11 +25,11 @@ export type SyncMessage =
 
 const channel = inTauri ? null : new BroadcastChannel("dagobert");
 
-const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta } = {
+const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local } = {
   notes: new Map(),
   trash: [],
+  local: { viewport: { x: 0, y: 0, zoom: 1 } },
   meta: {
-    viewport: { x: 0, y: 0, zoom: 1 },
     tag_colors: {},
     workflows: [],
     default_template: "",
@@ -47,7 +47,7 @@ export const backend = {
   },
 
   async openProject(path: string): Promise<Project> {
-    if (!inTauri) return { path, notes: [...mock.notes.values()], meta: mock.meta };
+    if (!inTauri) return { path, notes: [...mock.notes.values()], meta: mock.meta, local: mock.local };
     return invoke<Project>("open_project", { path });
   },
 
@@ -116,6 +116,15 @@ export const backend = {
       return;
     }
     return invoke("save_meta", { path, meta });
+  },
+
+  /** Per-machine state (viewport); separate from `saveMeta` so it never syncs. */
+  async saveLocal(path: string, local: Local): Promise<void> {
+    if (!inTauri) {
+      Object.assign(mock.local, local);
+      return;
+    }
+    return invoke("save_local", { path, local });
   },
 
   // ---- file watching ---------------------------------------------------------

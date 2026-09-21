@@ -3,7 +3,7 @@ mod symbols;
 mod watch;
 
 use std::path::{Path, PathBuf};
-use store::{Meta, MetaPatch, Note, Project};
+use store::{Local, Meta, MetaPatch, Note, Project};
 use tauri::{AppHandle, Manager, State};
 use watch::AppState;
 
@@ -77,6 +77,11 @@ fn save_meta(state: State<AppState>, path: String, meta: MetaPatch) -> Result<()
 }
 
 #[tauri::command]
+fn save_local(path: String, local: Local) -> Result<(), String> {
+    store::save_local(Path::new(&path), &local)
+}
+
+#[tauri::command]
 fn watch_project(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
     watch::start(app, &state, PathBuf::from(path))
 }
@@ -131,6 +136,7 @@ pub fn run() {
             purge_trash,
             read_meta,
             save_meta,
+            save_local,
             github_cli_token,
             sf_symbol,
             watch_project,
