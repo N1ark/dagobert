@@ -7,6 +7,7 @@
   import TrashDialog from "./lib/TrashDialog.svelte";
   import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
+  import PullRequests from "./lib/PullRequests.svelte";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import Plus from "phosphor-svelte/lib/Plus";
@@ -19,6 +20,7 @@
   import Terminal from "phosphor-svelte/lib/Terminal";
   import FolderOpen from "phosphor-svelte/lib/FolderOpen";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
+  import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
   import Kanban from "phosphor-svelte/lib/Kanban";
   import CheckSquare from "phosphor-svelte/lib/CheckSquare";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
@@ -50,11 +52,47 @@
     localStorage.setItem(GRAIN_KEY, grain ? "1" : "0");
   }
 
+  // Left sidebar listing the GitHub PRs referenced across notes.
+  const PRS_KEY = "dagobert.prs";
+  const PRS_W_KEY = "dagobert.prsWidth";
+  let showPRs = $state(localStorage.getItem(PRS_KEY) === "1");
+  let prsW = $state(Number(localStorage.getItem(PRS_W_KEY)) || 300);
+  /** Shift the viewport as the canvas's left edge moves so the graph stays put on
+   *  screen (the pane reads as an overlay). Canvas keeps the background still itself. */
+  function absorb(dx: number) {
+    if (!store.path || !dx) return;
+    store.viewport.x -= dx;
+    store.saveViewport();
+  }
+  function togglePRs() {
+    showPRs = !showPRs;
+    localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
+    absorb(showPRs ? prsW : -prsW);
+  }
+  let prsResizing = $state<{ startX: number; w: number } | null>(null);
+  function onPrsResizeDown(e: PointerEvent) {
+    e.preventDefault(); // otherwise the drag also starts a text selection
+    prsResizing = { startX: e.clientX, w: prsW };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onPrsResizeMove(e: PointerEvent) {
+    if (!prsResizing) return;
+    const w = Math.round(Math.max(220, Math.min(window.innerWidth * 0.5, prsResizing.w + (e.clientX - prsResizing.startX))));
+    absorb(w - prsW);
+    prsW = w;
+  }
+  function onPrsResizeUp() {
+    if (!prsResizing) return;
+    prsResizing = null;
+    localStorage.setItem(PRS_W_KEY, String(prsW));
+  }
+
   const PANEL_KEY = "dagobert.panelWidth";
   let panelW = $state(Number(localStorage.getItem(PANEL_KEY)) || 440);
   let resizing = $state<{ startX: number; w: number } | null>(null);
 
   function onResizeDown(e: PointerEvent) {
+    e.preventDefault(); // otherwise the drag also starts a text selection
     resizing = { startX: e.clientX, w: panelW };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
@@ -259,6 +297,14 @@
         menu: "Tools",
         enabled: has,
       }),
+      a("prs", `${showPRs ? "Hide" : "Show"} pull requests`, () => togglePRs(), {
+        hint: "⇧⌘P",
+        icon: GitPullRequest,
+        symbol: ["arrow.triangle.pull", "arrow.triangle.branch"],
+        menu: "View",
+        menuLabel: "Toggle pull requests",
+        enabled: has,
+      }),
       a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), {
         icon: GithubLogo,
         symbol: ["link"],
@@ -332,11 +378,13 @@
           ? e.shiftKey
             ? "commands"
             : "quick-open"
-          : k === "f"
-            ? "search"
-            : k === "o"
-              ? "open-folder"
-              : null;
+          : k === "p" && e.shiftKey
+            ? "prs"
+            : k === "f"
+              ? "search"
+              : k === "o"
+                ? "open-folder"
+                : null;
     if (!id) return;
     const action = paletteActions.find((a) => a.id === id);
     if (!action || action.enabled === false) return;
@@ -405,6 +453,9 @@
       </span>
       <TagMenu />
       <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
+      <button class="ghost" class:on={showPRs} onclick={togglePRs} title="Pull requests linked from notes (⇧⌘P)"
+        ><GitPullRequest size={15} /> PRs</button
+      >
       <button class="ghost" class:on={focus} onclick={toggleFocus} title="Focus: dim notes outside the selected note's chain"
         ><Crosshair size={15} /> Focus</button
       >
@@ -414,7 +465,19 @@
       <button class="ghost" onclick={() => canvas?.fitAll()} title="Fit all notes in view"><CornersOut size={15} /> Fit</button>
       <button class="primary" onclick={() => canvas?.createAtCenter()} title="New note (⌘N)"><Plus size={15} weight="bold" /> Note</button>
     </div>
-    <div class="main" style="--panel-w:{panelW}px">
+    <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
+      {#if showPRs}
+        <PullRequests onclose={togglePRs} onjump={jump} />
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="resizer left"
+          class:active={!!prsResizing}
+          onpointerdown={onPrsResizeDown}
+          onpointermove={onPrsResizeMove}
+          onpointerup={onPrsResizeUp}
+          onpointercancel={onPrsResizeUp}
+        ></div>
+      {/if}
       <Canvas bind:this={canvas} {matches} {focus} {grain} />
       {#if store.selected}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -559,6 +622,11 @@
     min-height: 0;
     position: relative;
   }
+  .main.resizing {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: col-resize;
+  }
   .resizer {
     flex: none;
     width: 5px;
@@ -566,6 +634,10 @@
     z-index: 5;
     cursor: col-resize;
     transition: background 0.15s;
+  }
+  .resizer.left {
+    margin-right: 0;
+    margin-left: -5px;
   }
   .resizer:hover,
   .resizer.active {

@@ -8,6 +8,9 @@ export interface IssueRef {
   state: "open" | "closed" | "merged";
   url: string;
   updated: string;
+  author: string;
+  draft: boolean;
+  comments: number;
 }
 
 const TOKEN_KEY = "dagobert.githubToken";
@@ -58,24 +61,68 @@ interface RawIssue {
   state: string;
   html_url: string;
   updated_at: string;
+  user?: { login: string } | null;
+  draft?: boolean;
+  comments?: number;
   pull_request?: { merged_at: string | null };
 }
 
 function toRef(r: RawIssue): IssueRef {
   const isPr = !!r.pull_request;
   const state = isPr && r.pull_request?.merged_at ? "merged" : r.state === "closed" ? "closed" : "open";
-  return { number: r.number, title: r.title, isPr, state, url: r.html_url, updated: r.updated_at };
+  return {
+    number: r.number,
+    title: r.title,
+    isPr,
+    state,
+    url: r.html_url,
+    updated: r.updated_at,
+    author: r.user?.login ?? "",
+    draft: isPr && !!r.draft,
+    comments: r.comments ?? 0,
+  };
 }
 
 const cache = new Map<string, { at: number; refs: IssueRef[] }>();
+/** Requests in flight, so concurrent callers share one fetch instead of each firing their own. */
+const inflight = new Map<string, Promise<IssueRef[]>>();
 const TTL = 5 * 60_000;
 
-async function cached(key: string, fetcher: () => Promise<IssueRef[]>): Promise<IssueRef[]> {
+function cached(key: string, fetcher: () => Promise<IssueRef[]>): Promise<IssueRef[]> {
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL) return hit.refs;
-  const refs = await fetcher();
-  cache.set(key, { at: Date.now(), refs });
-  return refs;
+  if (hit && Date.now() - hit.at < TTL) return Promise.resolve(hit.refs);
+  let p = inflight.get(key);
+  if (!p) {
+    p = fetcher()
+      .then((refs) => {
+        cache.set(key, { at: Date.now(), refs });
+        return refs;
+      })
+      .finally(() => inflight.delete(key));
+    inflight.set(key, p);
+  }
+  return p;
+}
+
+/** Drop everything cached so the next call hits the network again. */
+export function invalidate() {
+  cache.clear();
+}
+
+/**
+ * One issue/PR by number. Served from the repo's recent list when it's there,
+ * otherwise fetched (and cached) on its own. Null when it doesn't exist.
+ */
+export async function issue(repo: string, number: number): Promise<IssueRef | null> {
+  const recent = await recentIssues(repo);
+  const hit = recent.find((r) => r.number === number);
+  if (hit) return hit;
+  const one = await cached(`issue ${repo} ${number}`, () =>
+    api<RawIssue>(`/repos/${repo}/issues/${number}`)
+      .then((r) => [toRef(r)])
+      .catch((e: Error) => (/not found/i.test(e.message) ? [] : Promise.reject(e))),
+  );
+  return one[0] ?? null;
 }
 
 /** The 100 most recently updated issues + PRs of a repo (one request, cached). */

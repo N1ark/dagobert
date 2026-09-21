@@ -62,7 +62,23 @@ Builds are unsigned.
   `remove` awaits them before trashing; `#deleted` stops late writes resurrecting a
   note. Trash state: `trash`, `loadTrash`, `restoreNote`, `purge`.
 - `src/lib/Canvas.svelte` — pan/zoom/drag/link interactions and edge rendering.
-  Exposes `focusNode`, `createAtCenter`, `fitAll` via `bind:this`.
+  Exposes `focusNode`, `createAtCenter`, `fitAll` via `bind:this`. Arrowheads are plain
+  `<path class="head">` triangles (`head()`), never SVG `<marker>`s: WebKit re-renders
+  markers on every paint, and a few hundred of them on screen (zoomed out) dropped
+  panning to ~25 fps. Wheel events are queued and applied once per animation frame
+  (`applyWheel`): a trackpad fires far more often than the display refreshes, and
+  WebKit re-flushes style and hit-tests the world after each one. `.world` carries
+  `will-change: transform` so it's a compositor layer from the start (panning
+  translates tiles; otherwise WebKit promotes it mid-gesture with a ~65 ms hitch) and
+  its transform is inline rather than via custom properties on `.canvas` (changing an
+  inherited property re-resolves every descendant). `Grain`'s loop skips a frame the
+  input effect already drew. The world edge (shade outside the square + dashed rim) is
+  drawn as screen-space bands clamped to the view (`worldEdge`), never as world-sized
+  shapes inside `.world`: WebKit repaints a shape that large for every tile it
+  rasterises, which alone ate a third of the frame budget while zooming or panning
+  fast. Profile in Safari, not Chrome (Chrome is fine either way);
+  `main.ts` exposes `window.store` in dev builds so a script can seed a big graph, and
+  simulate panning with dispatched `WheelEvent`s, not by writing `store.viewport`.
 - `src/lib/layout.ts` — pure layered layout (`layout(nodes, opts)`): longest-path
   layering, barycenter ordering sweeps, columns centred on the tallest, components
   stacked vertically (largest first). `Canvas.tidy()` applies it (selection-only
@@ -151,7 +167,20 @@ Builds are unsigned.
   command). `IssuePopup.svelte` is the `alias#query` picker in `LiveEditor` (same
   `handleKey` pattern as mentions). Repo aliases live in `Meta.repos` (`store.repos`,
   `setRepo`); `renderRepoRefs` in `wikilinks.ts` auto-links `alias#123` at render time
-  (class `.ghref`), so the raw markdown stays plain.
+  (class `.ghref`), so the raw markdown stays plain. `repoRefs(md)` lists those refs.
+- `src/lib/PullRequests.svelte` — left sidebar (toolbar "PRs", `⇧⌘P`, localStorage
+  `dagobert.prs`) listing every PR referenced as `alias#123` across notes: state icon
+  (open/draft/merged/closed), title (opens GitHub), author, updated, comment count and
+  chips for the notes mentioning it (click = jump). `github.issue(repo, n)` serves each
+  from the cached recent list, else one request per number; `invalidate()` backs the
+  refresh button. Results live in `prs.svelte.ts` (`prCache`, module-level `$state`)
+  so reopening the pane is instant; fetching is batched and, in the first seconds
+  after launch, deferred to an idle callback. Rows are grouped per repo with a
+  divider. Plain issues are dropped. "Hide closed/merged" toggle persists in
+  `dagobert.prsHideClosed`. Width is `--prs-w` (`prsW` in `App.svelte`, localStorage
+  `dagobert.prsWidth`, dragged via `.resizer.left`). Toggling or resizing calls
+  `absorb(dx)`, which shifts the viewport by the canvas's left-edge move so the graph
+  doesn't move; `Canvas` cancels the matching background parallax shift.
 - `src/lib/MentionPopup.svelte` — the `@` autocomplete in `LiveEditor`; parent
   forwards keys via `handleKey`. Offers "Create …" when no title matches.
 - `src/lib/menu.ts` — builds the native app menu from `paletteActions` in
@@ -188,7 +217,9 @@ Builds are unsigned.
 - `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow
   stage colours; `allowAuto` adds an "Automatic" swatch: dashed ring + lightning bolt).
 - `src/lib/tooltip.ts` — `use:tooltip={"text"}` action: an instant tooltip (one shared
-  `.tooltip` element on `<body>`, styled in `app.css`). Prefer it over `title` on
+  `.tooltip` element on `<body>`, styled in `app.css`). Also takes `{ html }` (must be
+  DOMPurify output, e.g. `inlineHtml` from `inline.ts`, the renderer `InlineMd` uses)
+  or a function evaluated per hover (`PullRequests` uses it to show overflowing titles). Prefer it over `title` on
   icon-only controls, since native tooltips take a second to appear. `TagColorPicker.svelte` wraps it; `TagMenu.svelte` — toolbar
   popover listing all tags (click name = toggle filter, click dot = recolour).
   Tag chips share the global `.tag-chip` class with `--tag` set to the colour.

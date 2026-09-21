@@ -19,10 +19,12 @@ function ensure() {
   return el;
 }
 
-function show(target: HTMLElement, text: string) {
+function show(target: HTMLElement, text: Content) {
   const t = ensure();
   owner = target;
-  t.textContent = text;
+  // `html` must already be sanitised (DOMPurify) by the caller.
+  if (typeof text === "string") t.textContent = text;
+  else t.innerHTML = text.html;
   t.classList.add("show");
   const r = target.getBoundingClientRect();
   const gap = 6;
@@ -41,10 +43,18 @@ function hide(target: HTMLElement) {
   el.classList.remove("show");
 }
 
-export const tooltip: Action<HTMLElement, string | null | undefined> = (node, text) => {
+/** Plain text, or pre-sanitised HTML (e.g. rendered inline markdown). */
+type Content = string | { html: string };
+type Text = Content | null | undefined;
+/** Static content, or a function evaluated on each hover (e.g. only when the label overflows). */
+type Source = Text | ((node: HTMLElement) => Text);
+
+export const tooltip: Action<HTMLElement, Source> = (node, text) => {
   let current = text;
+  const resolve = () => (typeof current === "function" ? current(node) : current);
   const enter = () => {
-    if (current) show(node, current);
+    const t = resolve();
+    if (t) show(node, t);
   };
   const leave = () => hide(node);
   node.addEventListener("pointerenter", enter);
@@ -56,7 +66,8 @@ export const tooltip: Action<HTMLElement, string | null | undefined> = (node, te
     update(next) {
       current = next;
       if (owner === node) {
-        if (current) show(node, current);
+        const t = resolve();
+        if (t) show(node, t);
         else hide(node);
       }
     },

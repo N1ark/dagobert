@@ -28,6 +28,26 @@ function codeRanges(md: string): (i: number) => boolean {
   return (i) => code.some(([a, b]) => i >= a && i < b);
 }
 
+/** A `alias#123` reference to a configured repo, as found in a note. */
+export interface RepoRef {
+  alias: string;
+  repo: string;
+  number: number;
+}
+
+/** Every `alias#123` in `md` whose alias is a configured repo (code skipped). */
+export function repoRefs(md: string): RepoRef[] {
+  if (!Object.keys(store.repos).length) return [];
+  const inCode = codeRanges(md);
+  const out: RepoRef[] = [];
+  for (const m of md.matchAll(REPO_REF_RE)) {
+    const [, pre, alias, num] = m;
+    const repo = store.repos[alias];
+    if (repo && !inCode(m.index + pre.length)) out.push({ alias, repo, number: Number(num) });
+  }
+  return out;
+}
+
 /** Turn `alias#123` into a GitHub link when `alias` is a configured repo. */
 function renderRepoRefs(md: string): string {
   if (!Object.keys(store.repos).length) return md;

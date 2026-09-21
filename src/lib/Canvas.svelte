@@ -27,6 +27,8 @@
   let viewH = $state(0);
   let heights = $state<Record<string, number>>({});
   let selectedEdge = $state<{ from: string; to: string } | null>(null);
+  /** Edge under the pointer, so it can be drawn last (see `orderedEdges`). */
+  let hoveredEdge = $state<{ from: string; to: string } | null>(null);
   let linking = $state<{ from: string; x: number; y: number; over: string | null } | null>(null);
   let isPanning = $state(false);
   let menu = $state<{ x: number; y: number; target: MenuTarget } | null>(null);
@@ -93,7 +95,7 @@
   const softDim = $derived(matches === null && chain !== null);
 
   const edges = $derived.by(() => {
-    const out: { from: string; to: string; d: string; dim: boolean; chain: boolean }[] = [];
+    const out: { from: string; to: string; d: string; head: string; dim: boolean; chain: boolean }[] = [];
     for (const n of store.notes) {
       for (const dep of n.deps) {
         const s = store.byId(dep);
@@ -103,12 +105,26 @@
           from: dep,
           to: n.id,
           d: path(rightOf(s), leftOf(n)),
+          head: head(leftOf(n)),
           dim: !inSet,
           chain: chain !== null && inSet && matches === null,
         });
       }
     }
     return out;
+  });
+
+  const sameEdge = (e: { from: string; to: string } | null, edge: { from: string; to: string }) =>
+    e?.from === edge.from && e?.to === edge.to;
+  const isNear = (edge: { from: string; to: string; chain: boolean }) =>
+    edge.chain || store.selectedId === edge.from || store.selectedId === edge.to;
+
+  const orderedEdges = $derived.by(() => {
+    const top = (e: (typeof edges)[number]) => (sameEdge(hoveredEdge, e) ? 2 : isNear(e) || sameEdge(selectedEdge, e) ? 1 : 0);
+    return edges
+      .map((e, i) => ({ e, i }))
+      .sort((a, b) => top(a.e) - top(b.e) || a.i - b.i)
+      .map((x) => x.e);
   });
 
   function h(id: string) {
@@ -123,9 +139,20 @@
   function handle(a: { x: number; y: number }, b: { x: number; y: number }) {
     return Math.max(40, Math.abs(b.x - a.x) * 0.5);
   }
+  /** The edge line. It stops inside the arrowhead so its square cap never pokes past the tip. */
   function path(a: { x: number; y: number }, b: { x: number; y: number }) {
     const dx = handle(a, b);
-    return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x} ${b.y}`;
+    return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x - 5} ${b.y}`;
+  }
+  /**
+   * Arrowhead at the end of an edge: a plain triangle path, not an SVG `<marker>`.
+   * WebKit re-renders markers from scratch on every paint, and with a few hundred
+   * edges on screen (zoomed out) that alone dropped panning to ~25 fps; plain paths
+   * are essentially free. The curve always arrives horizontally (its last handle is
+   * `(b.x - dx, b.y)`), so the head always points +x.
+   */
+  function head(b: { x: number; y: number }) {
+    return `M ${b.x - 7} ${b.y - 3.5} L ${b.x} ${b.y} L ${b.x - 7} ${b.y + 3.5} z`;
   }
 
   /** World-space cubic beziers of every edge in the selected node's chain, for the grain flow. */
@@ -536,21 +563,43 @@
     createAt(w.x - NODE_W / 2, w.y - 20);
   }
 
+  /**
+   * Wheel input is coalesced and applied once per animation frame. A trackpad fires
+   * wheel events far more often than the display refreshes, and WebKit flushes style
+   * and re-hit-tests the world after each one (it refreshes hover state on wheel
+   * input); applying the viewport per event made every one of those flushes real work,
+   * which halved the frame rate when zoomed out. Queued events replay in order, so the
+   * zoom-about-cursor maths is unchanged.
+   */
+  let wheelQueue: { dx: number; dy: number; zoom: boolean; cx: number; cy: number }[] = [];
+  let wheelRaf = 0;
+
   function onWheel(e: WheelEvent) {
     e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
-      const factor = Math.exp(-e.deltaY * 0.01);
-      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * factor));
-      const r = container.getBoundingClientRect();
-      const mx = e.clientX - r.left;
-      const my = e.clientY - r.top;
-      // Keep the point under the cursor fixed.
-      vp.x = mx - ((mx - vp.x) / vp.zoom) * zoom;
-      vp.y = my - ((my - vp.y) / vp.zoom) * zoom;
-      vp.zoom = zoom;
-    } else {
-      vp.x -= e.deltaX;
-      vp.y -= e.deltaY;
+    wheelQueue.push({ dx: e.deltaX, dy: e.deltaY, zoom: e.ctrlKey || e.metaKey, cx: e.clientX, cy: e.clientY });
+    if (!wheelRaf) wheelRaf = requestAnimationFrame(applyWheel);
+  }
+
+  function applyWheel() {
+    wheelRaf = 0;
+    const queue = wheelQueue;
+    wheelQueue = [];
+    let rect: DOMRect | null = null;
+    for (const w of queue) {
+      if (w.zoom) {
+        const factor = Math.exp(-w.dy * 0.01);
+        const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * factor));
+        rect ??= container.getBoundingClientRect();
+        const mx = w.cx - rect.left;
+        const my = w.cy - rect.top;
+        // Keep the point under the cursor fixed.
+        vp.x = mx - ((mx - vp.x) / vp.zoom) * zoom;
+        vp.y = my - ((my - vp.y) / vp.zoom) * zoom;
+        vp.zoom = zoom;
+      } else {
+        vp.x -= w.dx;
+        vp.y -= w.dy;
+      }
     }
     store.saveViewport();
   }
@@ -624,6 +673,7 @@
     container.addEventListener("wheel", onWheel, { passive: false });
     window.addEventListener("keydown", onKeyDown);
     return () => {
+      cancelAnimationFrame(wheelRaf);
       container.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKeyDown);
     };
@@ -653,15 +703,22 @@
   const PARALLAX = 0.7;
   let comp = $state({ x: 0, y: 0 });
   let lastCentre: { x: number; y: number } | null = null;
+  let lastOrigin: { x: number; y: number } | null = null;
   $effect(() => {
     const c = { x: viewW / 2, y: viewH / 2 };
+    // Where the canvas sits in the window: when a sidebar pushes it sideways, App
+    // shifts the viewport the other way so the nodes stay put, which moves the
+    // background by (1 − P)·Δorigin; cancel that too.
+    const r = container?.getBoundingClientRect();
+    const o = r ? { x: r.left, y: r.top } : { x: 0, y: 0 };
     // Only real resizes count: the first layout (0 → size) must not shift the anchor.
     if (lastCentre && lastCentre.x && lastCentre.y && viewW && viewH) {
-      const dx = (1 - PARALLAX) * (lastCentre.x - c.x);
-      const dy = (1 - PARALLAX) * (lastCentre.y - c.y);
+      const dx = (1 - PARALLAX) * (lastCentre.x - c.x + (lastOrigin ? lastOrigin.x - o.x : 0));
+      const dy = (1 - PARALLAX) * (lastCentre.y - c.y + (lastOrigin ? lastOrigin.y - o.y : 0));
       if (dx || dy) comp = { x: comp.x + dx, y: comp.y + dy };
     }
     lastCentre = c;
+    lastOrigin = o;
   });
   const bg = $derived({
     x: PARALLAX * vp.x + (1 - PARALLAX) * (viewW / 2) + comp.x,
@@ -689,13 +746,43 @@
     return `left:${x}px; top:${y}px; width:${w}px; height:${h}px; --dot:${grid.radius / bg.zoom}px; opacity:${grid.alpha}`;
   });
 
+  /**
+   * The world's edge, as screen-space pieces clamped to the view: shade bands over the
+   * area outside the world square and a dashed rim along its border. These used to be
+   * two world-sized SVG shapes inside `.world`, but WebKit repaints a shape that large
+   * for every tile it rasterises, whatever the shape is made of, and that alone cost a
+   * third of the frame budget while panning fast or zooming. Bands the size of the
+   * viewport are a handful of rect fills.
+   */
+  const worldEdge = $derived.by(() => {
+    const l = vp.x - WORLD * vp.zoom;
+    const t = vp.y - WORLD * vp.zoom;
+    const r = vp.x + WORLD * vp.zoom;
+    const b = vp.y + WORLD * vp.zoom;
+    const cl = Math.max(0, Math.min(viewW, l));
+    const ct = Math.max(0, Math.min(viewH, t));
+    const cr = Math.max(0, Math.min(viewW, r));
+    const cb = Math.max(0, Math.min(viewH, b));
+    const shades: { x: number; y: number; w: number; h: number }[] = [];
+    if (cl > 0) shades.push({ x: 0, y: 0, w: cl, h: viewH });
+    if (cr < viewW) shades.push({ x: cr, y: 0, w: viewW - cr, h: viewH });
+    if (ct > 0) shades.push({ x: cl, y: 0, w: cr - cl, h: ct });
+    if (cb < viewH) shades.push({ x: cl, y: cb, w: cr - cl, h: viewH - cb });
+    const rims: { v: boolean; x: number; y: number; len: number }[] = [];
+    if (l >= 0 && l <= viewW) rims.push({ v: true, x: l - 1, y: ct, len: cb - ct });
+    if (r >= 0 && r <= viewW) rims.push({ v: true, x: r - 1, y: ct, len: cb - ct });
+    if (t >= 0 && t <= viewH) rims.push({ v: false, x: cl, y: t - 1, len: cr - cl });
+    if (b >= 0 && b <= viewH) rims.push({ v: false, x: cl, y: b - 1, len: cr - cl });
+    return { shades, rims };
+  });
+
   const linkPath = $derived.by(() => {
-    if (!linking) return "";
+    if (!linking) return null;
     const s = store.byId(linking.from);
-    if (!s) return "";
+    if (!s) return null;
     const a = rightOf(s);
     const b = linking.over ? leftOf(store.byId(linking.over)!) : { x: linking.x, y: linking.y };
-    return path(a, b);
+    return { d: path(a, b), head: head(b) };
   });
 </script>
 
@@ -714,7 +801,6 @@
   onpointercancel={onPointerUp}
   ondblclick={onDblClick}
   oncontextmenu={onContextMenu}
-  style="--vx:{vp.x}px; --vy:{vp.y}px; --zoom:{vp.zoom}"
 >
   {#if grain}
     <Grain rects={glowRects} curves={flowCurves} offset={{ x: vp.x, y: vp.y }} zoom={vp.zoom} {bg} {grid} />
@@ -728,27 +814,24 @@
       <div class="grid" style={gridStyle}></div>
     </div>
   {/if}
-  <div class="world">
+  {#each worldEdge.shades as sh, i (i)}
+    <div class="shade" style="left:{sh.x}px; top:{sh.y}px; width:{sh.w}px; height:{sh.h}px"></div>
+  {/each}
+  {#each worldEdge.rims as rim, i (i)}
+    <div
+      class="rim"
+      class:v={rim.v}
+      class:h={!rim.v}
+      style="left:{rim.x}px; top:{rim.y}px; {rim.v ? `height:${rim.len}px` : `width:${rim.len}px`}"
+    ></div>
+  {/each}
+  <!-- Inline transform rather than custom properties on .canvas: a changed inherited
+       property re-resolves style for every descendant on each pan. -->
+  <div class="world" style="transform: translate({vp.x}px, {vp.y}px) scale({vp.zoom})">
     <svg class="edges" overflow="visible">
-      <defs>
-        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#555" />
-        </marker>
-        <marker id="arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#b045ab" />
-        </marker>
-      </defs>
-      <!-- World bounds: the camera and nodes are clamped inside this square (viewport.ts).
-           Everything outside is shaded so the edge reads as the end of the canvas. -->
-      <path
-        class="outside"
-        fill-rule="evenodd"
-        d="M{-WORLD * 4} {-WORLD * 4}h{WORLD * 8}v{WORLD * 8}h{-WORLD * 8}z M{-WORLD} {-WORLD}h{WORLD * 2}v{WORLD * 2}h{-WORLD * 2}z"
-      />
-      <rect class="bounds" x={-WORLD} y={-WORLD} width={WORLD * 2} height={WORLD * 2} />
-      {#each edges as edge (edge.from + ">" + edge.to)}
-        {@const sel = selectedEdge?.from === edge.from && selectedEdge?.to === edge.to}
-        {@const near = edge.chain || store.selectedId === edge.from || store.selectedId === edge.to}
+      {#each orderedEdges as edge (edge.from + ">" + edge.to)}
+        {@const sel = sameEdge(selectedEdge, edge)}
+        {@const near = isNear(edge)}
         <!-- svelte-ignore a11y_click_events_have_key_events -->
         <g
           class="edge"
@@ -760,6 +843,8 @@
           data-to={edge.to}
           role="button"
           tabindex="-1"
+          onpointerenter={() => (hoveredEdge = { from: edge.from, to: edge.to })}
+          onpointerleave={() => sameEdge(hoveredEdge, edge) && (hoveredEdge = null)}
           onclick={(e) => {
             e.stopPropagation();
             selectedEdge = { from: edge.from, to: edge.to };
@@ -772,11 +857,13 @@
           }}
         >
           <path class="hit" d={edge.d} />
-          <path class="line" d={edge.d} marker-end={sel || near ? "url(#arrow-sel)" : "url(#arrow)"} />
+          <path class="line" d={edge.d} />
+          <path class="head" d={edge.head} />
         </g>
       {/each}
-      {#if linking}
-        <path class="link-preview" d={linkPath} marker-end="url(#arrow-sel)" />
+      {#if linkPath}
+        <path class="link-preview" d={linkPath.d} />
+        <path class="link-preview head" d={linkPath.head} />
       {/if}
     </svg>
 
@@ -837,6 +924,8 @@
     position: relative;
     /* Own stacking context so the grain's negative z-index sits under every child. */
     isolation: isolate;
+    flex: 1;
+    min-width: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
@@ -877,21 +966,34 @@
     left: 0;
     top: 0;
     z-index: 2;
-    transform: translate(var(--vx), var(--vy)) scale(var(--zoom));
     transform-origin: 0 0;
+    /* Own compositor layer from the start. Panning then translates rasterised tiles and
+       only newly exposed ones are painted; without this WebKit repaints the whole view
+       every frame and, some 40 repaints into a gesture, promotes the layer anyway with
+       a ~65 ms hitch. */
+    will-change: transform;
   }
-  .outside {
-    fill: #00000059;
+  /* World edge, drawn in screen space (see `worldEdge`). */
+  .shade {
+    position: absolute;
+    z-index: 1;
+    background: #00000059;
     pointer-events: none;
   }
-  .bounds {
-    fill: none;
-    stroke: var(--accent2);
-    stroke-opacity: 0.55;
-    stroke-width: 2;
-    stroke-dasharray: 8 8;
-    vector-effect: non-scaling-stroke;
+  .rim {
+    position: absolute;
+    z-index: 1;
     pointer-events: none;
+    opacity: 0.55;
+    background: repeating-linear-gradient(var(--dir), var(--accent2) 0 8px, transparent 8px 16px);
+  }
+  .rim.h {
+    height: 2px;
+    --dir: to right;
+  }
+  .rim.v {
+    width: 2px;
+    --dir: to bottom;
   }
   .edges {
     position: absolute;
@@ -920,9 +1022,18 @@
       stroke 0.15s,
       opacity 0.15s;
   }
+  .edge .head {
+    fill: #555;
+    transition: fill 0.15s;
+  }
   .edge:hover .line,
   .edge.near .line {
     stroke: var(--accent2);
+  }
+  .edge:hover .head,
+  .edge.near .head,
+  .edge.sel .head {
+    fill: var(--accent2);
   }
   .edge.sel .line {
     stroke: var(--accent2);
@@ -943,6 +1054,10 @@
     stroke: var(--accent2);
     stroke-width: 1.5;
     stroke-dasharray: 5 4;
+  }
+  .link-preview.head {
+    fill: var(--accent2);
+    stroke: none;
   }
   .marquee {
     position: absolute;

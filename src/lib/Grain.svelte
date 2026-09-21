@@ -88,13 +88,21 @@
     return window.devicePixelRatio || 1;
   }
 
+  /** performance.now() of the last draw, so the loop can skip a frame the effect already drew. */
+  let drawnAt = -Infinity;
+
   function loop(t: number) {
     raf = requestAnimationFrame(loop);
+    // The input effect below draws synchronously whenever the camera or selection
+    // changes; while panning that happens every frame, and drawing again here would
+    // double the GPU work (a full-screen pass at device resolution) for no visible gain.
+    if (performance.now() - drawnAt < 6) return;
     render(t);
   }
 
   function render(t: number) {
     if (!renderer || document.hidden) return;
+    drawnAt = performance.now();
     // Reduced motion: a still texture that only re-renders when inputs change.
     if (reduced) {
       if (!dirty) return;

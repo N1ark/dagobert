@@ -1,16 +1,13 @@
 <script lang="ts">
-  import { marked } from "marked";
-  import DOMPurify from "dompurify";
   import { openUrl } from "@tauri-apps/plugin-opener";
-  import { renderWikilinks, wikilinkTarget } from "./wikilinks";
+  import { wikilinkTarget } from "./wikilinks";
+  import { inlineHtml } from "./inline";
   import { store } from "./store.svelte";
 
   /** Renders a single line of markdown (bold, code, links…) with no block wrapper. */
   let { source, fallback = "" }: { source: string; fallback?: string } = $props();
 
-  const html = $derived(
-    source.trim() ? DOMPurify.sanitize(marked.parseInline(renderWikilinks(source), { gfm: true, async: false }) as string) : "",
-  );
+  const html = $derived(inlineHtml(source));
 
   function onClick(e: MouseEvent) {
     const id = wikilinkTarget(e.target as HTMLElement);

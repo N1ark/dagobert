@@ -265,6 +265,7 @@
 
 <style>
   .panel {
+    flex: none; /* only the canvas gives way when a sidebar opens */
     width: var(--panel-w);
     height: 100%;
     background: var(--bg2);
