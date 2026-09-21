@@ -6,6 +6,7 @@
   import Check from "phosphor-svelte/lib/Check";
   import Warning from "phosphor-svelte/lib/Warning";
   import ProgressRing from "./ProgressRing.svelte";
+  import { MARKER_RE } from "./blocks";
 
   let {
     note,
@@ -40,7 +41,7 @@
     note.body
       .split("\n")
       .map((l) => l.replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+)/, "").trim())
-      .find((l) => l.length > 0 && !/^(```|---|\*\*\*|___)/.test(l)) ?? "",
+      .find((l) => l.length > 0 && !/^(```|---|\*\*\*|___)/.test(l) && !MARKER_RE.test(l)) ?? "",
   );
 
   function advance(e: MouseEvent) {

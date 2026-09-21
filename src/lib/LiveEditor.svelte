@@ -3,12 +3,13 @@
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import Markdown from "./Markdown.svelte";
+  import ConflictBlock from "./ConflictBlock.svelte";
   import MentionPopup from "./MentionPopup.svelte";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
   import { command, pasteLink } from "./editor";
   import { caretCoords } from "./wikilinks";
-  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode } from "./blocks";
+  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict } from "./blocks";
 
   /**
    * Obsidian-style live preview: the body is shown rendered, block by block.
@@ -34,15 +35,22 @@
 
   const activeIsCode = $derived(isCode(draft));
 
-  function edited() {
-    store.touch(note.id);
+  function edited(label?: string) {
+    store.touch(note.id, { label });
   }
 
-  function setBody(body: string) {
+  function setBody(body: string, label?: string) {
     if (body !== note.body) {
       note.body = body;
-      edited();
+      edited(label);
     }
+  }
+
+  /** Replace conflict block `i` by the chosen side(s); undoable as one step. */
+  function resolve(i: number, keep: "mine" | "theirs" | "both") {
+    const next = [...blocks];
+    next[i] = resolveConflict(blocks[i], keep);
+    setBody(joinBlocks(next), "resolve conflict");
   }
 
   /** Blocks with the active slot replaced by the draft (empty drafts drop out). */
@@ -390,6 +398,10 @@
           onblur={() => setTimeout(() => (mention = issue = null), 150)}
           spellcheck="false"
           rows="1"></textarea>
+      </div>
+    {:else if isConflict(block)}
+      <div class="block" data-block={i}>
+        <ConflictBlock {block} onresolve={(keep) => resolve(i, keep)} onedit={(e) => onBlockClick(e, i)} />
       </div>
     {:else}
       <div class="block" data-block={i} onclick={(e) => onBlockClick(e, i)}>

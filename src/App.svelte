@@ -12,6 +12,7 @@
   import { syncPRs } from "./lib/prs.svelte";
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
+  import { stripMarkers } from "./lib/blocks";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import Plus from "phosphor-svelte/lib/Plus";
@@ -165,7 +166,7 @@
       store.notes
         .filter((n) => !tags.length || n.tags.some((t) => tags.includes(t)))
         .filter((n) => {
-          const hay = `${n.title} ${n.tags.map((t) => "#" + t).join(" ")} ${n.body}`.toLowerCase();
+          const hay = `${n.title} ${n.tags.map((t) => "#" + t).join(" ")} ${stripMarkers(n.body)}`.toLowerCase();
           return terms.every((t) => hay.includes(t));
         })
         .map((n) => n.id),

@@ -1,14 +1,37 @@
 /** Split markdown into editable blocks and back. */
 
+const CONFLICT_START = /^<{7} /;
+const CONFLICT_MID = /^={7}$/;
+const CONFLICT_END = /^>{7} /;
+/** Any git conflict marker line. */
+export const MARKER_RE = /^(<{7} |={7}$|>{7} )/;
+
 /**
- * Blocks are separated by blank lines, except inside fenced code where blank
- * lines are kept. Runs of blank lines collapse to one on re-join.
+ * Blocks are separated by blank lines, except inside fenced code and git
+ * conflict regions (`<<<<<<<` … `>>>>>>>`), where blank lines are kept.
+ * Runs of blank lines collapse to one on re-join.
  */
 export function splitBlocks(text: string): string[] {
   const out: string[] = [];
   let cur: string[] = [];
   let fence: string | null = null;
+  let conflict = false;
   for (const line of text.split("\n")) {
+    if (conflict) {
+      cur.push(line);
+      if (CONFLICT_END.test(line)) {
+        conflict = false;
+        out.push(cur.join("\n"));
+        cur = [];
+      }
+      continue;
+    }
+    if (!fence && CONFLICT_START.test(line)) {
+      if (cur.length) out.push(cur.join("\n"));
+      cur = [line];
+      conflict = true;
+      continue;
+    }
     const f = /^\s*(```+|~~~+)/.exec(line);
     if (fence) {
       cur.push(line);
@@ -63,4 +86,34 @@ export function toggleCheckbox(block: string, nth: number): string {
 /** True when the block is a fenced code block. */
 export function isCode(block: string): boolean {
   return /^\s*(```|~~~)/.test(block);
+}
+
+/** True when the block is a git conflict region. */
+export function isConflict(block: string): boolean {
+  return CONFLICT_START.test(block) && CONFLICT_END.test(block.slice(block.lastIndexOf("\n") + 1));
+}
+
+/** The two sides of a conflict block, without the marker lines. */
+export function conflictSides(block: string): { mine: string; theirs: string } {
+  const lines = block.split("\n");
+  const mid = lines.findIndex((l) => CONFLICT_MID.test(l));
+  const end = lines.length - 1;
+  if (mid < 0) return { mine: lines.slice(1, end).join("\n"), theirs: "" };
+  return { mine: lines.slice(1, mid).join("\n"), theirs: lines.slice(mid + 1, end).join("\n") };
+}
+
+/** Replace a conflict block by one side, or both in order. */
+export function resolveConflict(block: string, keep: "mine" | "theirs" | "both"): string {
+  const { mine, theirs } = conflictSides(block);
+  if (keep === "mine") return mine;
+  if (keep === "theirs") return theirs;
+  return [mine, theirs].filter((s) => s.trim()).join("\n");
+}
+
+/** The body without git conflict marker lines (for search, links, previews). */
+export function stripMarkers(text: string): string {
+  return text
+    .split("\n")
+    .filter((l) => !MARKER_RE.test(l))
+    .join("\n");
 }

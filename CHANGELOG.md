@@ -15,6 +15,9 @@ All notable changes to Dagobert are documented here. The format follows
   tags and links from both sides, bodies merged line by line) and listed in a popup;
   a note whose body kept git's conflict markers shows a warning badge, and the
   toolbar counts them. The toolbar's branch icon shows the sync state.
+- In the editor, a merge conflict region renders as two stacked panes (mine / theirs) with
+  "Keep mine", "Keep theirs" and "Keep both" buttons (undoable); search and card
+  previews ignore the marker lines.
 
 ### Changed
 
