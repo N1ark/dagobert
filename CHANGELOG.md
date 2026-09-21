@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- PR state icons also show in node previews on the graph, and anywhere else an
+  `alias#123` reference is rendered inline (titles, dependency lists, pickers).
+
 ## [0.5.0] - 2026-09-21
 
 ### Added

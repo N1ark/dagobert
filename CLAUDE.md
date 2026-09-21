@@ -180,8 +180,8 @@ Builds are unsigned.
   deferred to an idle callback) and `refreshPRs()`. `PrIcon.svelte` is the shared state
   icon (PR open/draft/closed/merged, issue open/closed): pass `item` or a cache `key`.
   Used by the sidebar, `IssuePopup` and inline: `renderRepoRefs` puts `data-ref` on
-  each `.ghref` anchor and `Markdown.svelte` `mount()`s a `PrIcon` into every one after
-  render (the icon fills in when the fetch lands). Rows are grouped per repo with a
+  each `.ghref` anchor and the `prIcons` action (`prIcons.svelte.ts`, on `Markdown` and
+  `InlineMd`) `mount()`s a `PrIcon` into every one after render. Rows are grouped per repo with a
   divider. Plain issues are dropped. "Hide closed/merged" toggle persists in
   `dagobert.prsHideClosed`. Width is `--prs-w` (`prsW` in `App.svelte`, localStorage
   `dagobert.prsWidth`, dragged via `.resizer.left`). Toggling or resizing calls

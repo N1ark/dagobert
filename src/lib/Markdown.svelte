@@ -4,8 +4,7 @@
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { renderWikilinks, wikilinkTarget } from "./wikilinks";
   import { store } from "./store.svelte";
-  import { mount, unmount } from "svelte";
-  import PrIcon from "./PrIcon.svelte";
+  import { prIcons } from "./prIcons.svelte";
 
   let { source }: { source: string } = $props();
 
@@ -17,20 +16,6 @@
       "$1",
     ),
   );
-
-  let root = $state<HTMLDivElement>();
-
-  // Mount a live PR state icon into every `alias#123` anchor.
-  $effect(() => {
-    void html;
-    if (!root) return;
-    const mounted = [...root.querySelectorAll<HTMLAnchorElement>("a.ghref[data-ref]")].map((a) =>
-      mount(PrIcon, { target: a, anchor: a.firstChild ?? undefined, props: { key: a.dataset.ref!, detail: true } }),
-    );
-    return () => {
-      for (const m of mounted) void unmount(m);
-    };
-  });
 
   function onClick(e: MouseEvent) {
     const id = wikilinkTarget(e.target as HTMLElement);
@@ -49,7 +34,7 @@
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="markdown" bind:this={root} onclick={onClick}>
+<div class="markdown" use:prIcons={() => html} onclick={onClick}>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}

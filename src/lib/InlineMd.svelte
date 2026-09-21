@@ -3,6 +3,7 @@
   import { wikilinkTarget } from "./wikilinks";
   import { inlineHtml } from "./inline";
   import { store } from "./store.svelte";
+  import { prIcons } from "./prIcons.svelte";
 
   /** Renders a single line of markdown (bold, code, links…) with no block wrapper. */
   let { source, fallback = "" }: { source: string; fallback?: string } = $props();
@@ -29,7 +30,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 {#if html}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
-  <span class="inline-md" onclick={onClick}>{@html html}</span>
+  <span class="inline-md" use:prIcons={() => html} onclick={onClick}>{@html html}</span>
 {:else}
   <span class="inline-md fallback">{fallback}</span>
 {/if}
