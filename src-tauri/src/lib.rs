@@ -1,4 +1,5 @@
 mod git;
+mod merge;
 mod store;
 mod symbols;
 mod watch;

@@ -9,8 +9,9 @@
 
 use git2::{
     build::{CheckoutBuilder, TreeUpdateBuilder},
-    AnnotatedCommit, Cred, CredentialType, Delta, DiffOptions, FetchOptions, IndexAddOption, Oid,
-    PushOptions, RemoteCallbacks, Repository, RepositoryState, Signature, StatusOptions, Tree,
+    AnnotatedCommit, Cred, CredentialType, Delta, DiffOptions, FetchOptions, IndexAddOption,
+    MergeOptions, Oid, PushOptions, RemoteCallbacks, Repository, RepositoryState, Signature,
+    StatusOptions, Tree,
 };
 use serde::Serialize;
 use std::cell::Cell;
@@ -40,9 +41,9 @@ pub enum PullOutcome {
     NoRemote,
     UpToDate,
     FastForward,
-    Merged,
-    /// The merge left conflicts in the index (`MERGE_HEAD` is set); see `merge::resolve`.
-    Conflicted,
+    /// A merge is in progress (`MERGE_HEAD` is set, the index may hold
+    /// conflicts); `merge::resolve` finishes it.
+    Merging,
 }
 
 pub type Result<T> = std::result::Result<T, String>;
@@ -303,7 +304,7 @@ fn deadline(timeout: Option<Duration>) -> Option<Instant> {
 
 /// Fetches the branch's remote counterpart and merges it in.
 pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
-    let mut repo = require(root)?;
+    let repo = require(root)?;
     if repo.state() != RepositoryState::Clean {
         return Err("The repository has an operation in progress (merge/rebase).".into());
     }
@@ -350,14 +351,13 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
         fast_forward(&repo, &branch, &theirs)?;
         return Ok(PullOutcome::FastForward);
     }
-    repo.merge(&[&theirs], None, Some(&mut checkout()))
+    // No rename detection: a note moved to trash/ must conflict with an edit,
+    // not merge into the trashed copy; `merge::resolve` pairs files by id.
+    let mut mo = MergeOptions::new();
+    mo.find_renames(false);
+    repo.merge(&[&theirs], Some(&mut mo), Some(&mut checkout()))
         .map_err(err)?;
-    if repo.index().map_err(err)?.has_conflicts() {
-        return Ok(PullOutcome::Conflicted);
-    }
-    drop((theirs, remote));
-    commit_merge(&mut repo, "dagobert merge")?;
-    Ok(PullOutcome::Merged)
+    Ok(PullOutcome::Merging)
 }
 
 fn fast_forward(repo: &Repository, branch: &str, target: &AnnotatedCommit) -> Result<()> {
@@ -571,7 +571,8 @@ pub(crate) mod tests {
         write_note(&b, "b.md", "b", "B", "from b");
         commit_if_dirty(&b, "b1").unwrap();
         assert_eq!(status(&b).unwrap().ahead, 1);
-        assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merged);
+        assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
+        assert!(crate::merge::resolve(&b, "merge").unwrap().is_empty());
         assert!(b.join("notes/a2.md").exists() && b.join("notes/b.md").exists());
         assert_eq!(
             Repository::open(&b).unwrap().state(),

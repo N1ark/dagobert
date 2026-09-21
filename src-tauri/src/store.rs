@@ -179,12 +179,12 @@ pub fn notes_dir(root: &Path) -> PathBuf {
     root.join(NOTES_DIR)
 }
 
-fn trash_dir(root: &Path) -> PathBuf {
+pub fn trash_dir(root: &Path) -> PathBuf {
     root.join(TRASH_DIR)
 }
 
 /// Reads every note in a directory, skipping unparsable files and duplicate ids.
-fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
+pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
     let mut notes = Vec::new();
     let mut seen = HashSet::new();
     if !dir.exists() {
@@ -208,7 +208,7 @@ fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
 }
 
 /// A filename in `dir` that doesn't exist yet, based on `wanted`.
-fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
+pub fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
     if !dir.join(wanted).exists() {
         return wanted.to_string();
     }
@@ -266,7 +266,7 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
     })
 }
 
-fn serialize_note(note: &Note) -> Result<String, String> {
+pub fn serialize_note(note: &Note) -> Result<String, String> {
     let fm = FrontMatter {
         id: note.id.clone(),
         title: note.title.clone(),
