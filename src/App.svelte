@@ -15,6 +15,7 @@
   import { stripMarkers } from "./lib/blocks";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
+  import { t, plural } from "./lib/i18n";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
@@ -147,13 +148,13 @@
 
   /** Tooltip for the git status item in the toolbar. */
   function gitTip() {
-    if (store.gitState === "syncing") return "Syncing…";
-    if (store.gitState === "error") return `Sync failed: ${store.gitError ?? "unknown error"}`;
+    if (store.gitState === "syncing") return t("toolbar.git.syncing");
+    if (store.gitState === "error") return t("toolbar.git.failed", { error: store.gitError ?? t("toolbar.git.unknownError") });
     const st = store.gitStatus;
-    const when = store.gitLastSync ? `last sync ${relative(store.gitLastSync)}` : "not synced yet";
-    if (st && !st.has_remote) return `Git tracking (local only, no remote) — ${when}`;
-    const pos = st && (st.ahead || st.behind) ? ` · ${st.ahead}↑ ${st.behind}↓` : "";
-    return `Git tracking on ${st?.branch ?? ""}${pos} — ${when} · click to commit now (⌘S)`;
+    const when = store.gitLastSync ? t("toolbar.git.lastSync", { when: relative(store.gitLastSync) }) : t("toolbar.git.notSynced");
+    if (st && !st.has_remote) return t("toolbar.git.local", { when });
+    const position = st && (st.ahead || st.behind) ? t("toolbar.git.position", { ahead: st.ahead, behind: st.behind }) : "";
+    return t("toolbar.git.remote", { branch: st?.branch ?? "", position, when });
   }
 
   // Notes that pass the search box AND the tag filter; null when neither is active.
@@ -210,9 +211,20 @@
       ...extra,
     });
     return [
-      a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, symbol: ["plus"], menu: "File", enabled: has }),
-      a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, symbol: ["folder"], menu: "File" }),
-      a("git-sync", "Commit now", () => store.syncNow(true), {
+      a("new-note", t("action.new-note"), () => canvas?.createAtCenter(), {
+        hint: "⌘N",
+        icon: Plus,
+        symbol: ["plus"],
+        menu: "File",
+        enabled: has,
+      }),
+      a("open-folder", t("action.open-folder"), () => store.pickAndOpen(), {
+        hint: "⌘O",
+        icon: FolderOpen,
+        symbol: ["folder"],
+        menu: "File",
+      }),
+      a("git-sync", t("action.git-sync"), () => store.syncNow(true), {
         hint: "⌘S",
         icon: CloudArrowUp,
         symbol: ["arrow.triangle.2.circlepath", "arrow.clockwise"],
@@ -221,24 +233,24 @@
       }),
       a(
         "git-toggle",
-        `${store.gitEnabled ? "Disable" : "Enable"} git tracking`,
+        t(store.gitEnabled ? "action.git-toggle.disable" : "action.git-toggle.enable"),
         () => (store.gitEnabled ? store.disableGit() : store.enableGit()),
         {
           icon: GitBranch,
           symbol: ["arrow.triangle.branch"],
           menu: "File",
-          menuLabel: "Toggle git tracking",
+          menuLabel: t("action.git-toggle.menu"),
           enabled: has,
         },
       ),
-      a("undo", "Undo", () => editUndo("undo"), {
+      a("undo", t("action.undo"), () => editUndo("undo"), {
         hint: "⌘Z",
         icon: ArrowCounterClockwise,
         symbol: ["arrow.uturn.backward"],
         menu: "Edit",
         enabled: has,
       }),
-      a("redo", "Redo", () => editUndo("redo"), {
+      a("redo", t("action.redo"), () => editUndo("redo"), {
         hint: "⇧⌘Z",
         icon: ArrowClockwise,
         symbol: ["arrow.uturn.forward"],
@@ -247,112 +259,123 @@
       }),
       a(
         "toggle-done",
-        sel ? `${store.isDone(sel) ? "Mark as not done" : "Mark as done"}: ${sel.title || "Untitled"}` : "Toggle done",
+        sel
+          ? t("action.toggle-done.selected", {
+              verb: t(store.isDone(sel) ? "node.markNotDone" : "node.markDone"),
+              title: sel.title || t("app.untitled"),
+            })
+          : t("action.toggle-done"),
         () => {
           const n = store.selected;
           if (n) store.setDone(n.id, !store.isDone(n));
         },
-        { icon: CheckSquare, symbol: ["checkmark.square"], menu: "Note", menuLabel: "Toggle done", enabled: !!sel && !sel.tracking },
+        {
+          icon: CheckSquare,
+          symbol: ["checkmark.square"],
+          menu: "Note",
+          menuLabel: t("action.toggle-done"),
+          enabled: !!sel && !sel.tracking,
+        },
       ),
-      a("open-window", "Open in new window", () => store.selectedId && store.openInWindow(store.selectedId), {
+      a("open-window", t("action.open-window"), () => store.selectedId && store.openInWindow(store.selectedId), {
         icon: ArrowSquareOut,
         symbol: ["macwindow.badge.plus", "macwindow"],
         menu: "Note",
         enabled: !!sel,
       }),
-      a("reveal", "Reveal in Finder", () => store.selectedId && store.revealInFinder(store.selectedId), {
+      a("reveal", t("action.reveal"), () => store.selectedId && store.revealInFinder(store.selectedId), {
         icon: FolderOpen,
         symbol: ["folder.badge.questionmark", "folder"],
         menu: "Note",
         enabled: !!sel,
       }),
-      a("copy-note", "Copy note", () => store.selectedId && store.copy(store.selectedId), {
+      a("copy-note", t("action.copy-note"), () => store.selectedId && store.copy(store.selectedId), {
         icon: Copy,
         symbol: ["doc.on.doc"],
         menu: "Note",
         enabled: !!sel,
       }),
-      a("duplicate", "Duplicate note", () => duplicateSelected(), {
+      a("duplicate", t("action.duplicate"), () => duplicateSelected(), {
         hint: "⌘D",
         icon: CopySimple,
         symbol: ["plus.square.on.square"],
         menu: "Note",
         enabled: !!sel,
       }),
-      a("paste-note", "Paste note", () => pasteNote(), {
+      a("paste-note", t("action.paste-note"), () => pasteNote(), {
         icon: ClipboardText,
         symbol: ["doc.on.clipboard"],
         menu: "Note",
         enabled: has && !!store.clipboard,
       }),
-      a("quick-open", "Quick open", () => openPalette("notes"), {
+      a("quick-open", t("action.quick-open"), () => openPalette("notes"), {
         hint: "⌘K",
         icon: MagnifyingGlass,
         symbol: ["magnifyingglass"],
         menu: "View",
         enabled: has,
       }),
-      a("commands", "Command palette", () => openPalette("commands"), {
+      a("commands", t("action.commands"), () => openPalette("commands"), {
         hint: "⇧⌘K",
         icon: Terminal,
         symbol: ["terminal", "command"],
         menu: "View",
         enabled: has,
       }),
-      a("search", "Search", () => (searchEl?.focus(), searchEl?.select()), {
+      a("search", t("action.search"), () => (searchEl?.focus(), searchEl?.select()), {
         hint: "⌘F",
         icon: MagnifyingGlass,
         symbol: ["text.magnifyingglass", "magnifyingglass"],
         menu: "View",
         enabled: has,
       }),
-      a("fit", "Fit to view", () => canvas?.fitAll(), {
+      a("fit", t("action.fit"), () => canvas?.fitAll(), {
         icon: CornersOut,
         symbol: ["arrow.up.left.and.arrow.down.right"],
         menu: "View",
         enabled: has,
       }),
-      a("tidy", "Tidy layout", () => canvas?.tidy(), {
+      a("tidy", t("action.tidy"), () => canvas?.tidy(), {
         icon: TreeStructure,
         symbol: ["rectangle.3.group", "square.grid.2x2"],
         menu: "View",
         enabled: has,
       }),
-      a("focus", `${focus ? "Disable" : "Enable"} focus mode`, () => toggleFocus(), {
+      a("focus", t(focus ? "action.focus.disable" : "action.focus.enable"), () => toggleFocus(), {
         icon: Crosshair,
         symbol: ["scope"],
         menu: "View",
-        menuLabel: "Toggle focus mode",
+        menuLabel: t("action.focus.menu"),
         enabled: has,
       }),
-      a("grain", `${grain ? "Disable" : "Enable"} background grain`, () => toggleGrain(), {
+      a("grain", t(grain ? "action.grain.disable" : "action.grain.enable"), () => toggleGrain(), {
         icon: Sparkle,
         symbol: ["sparkles"],
         menu: "View",
-        menuLabel: "Toggle background grain",
+        menuLabel: t("action.grain.menu"),
       }),
-      a("trash", "Open trash", () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
-      a("workflows", "Manage workflows", () => ((settingsSection = "workflows"), (showWorkflows = true)), {
+      a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
+      a("workflows", t("action.workflows"), () => ((settingsSection = "workflows"), (showWorkflows = true)), {
         icon: Kanban,
         symbol: ["list.bullet.rectangle", "list.bullet"],
         menu: "Tools",
         enabled: has,
       }),
-      a("prs", `${showPRs ? "Hide" : "Show"} pull requests`, () => togglePRs(), {
+      a("prs", t(showPRs ? "action.prs.hide" : "action.prs.show"), () => togglePRs(), {
         hint: "⇧⌘P",
         icon: GitPullRequest,
         symbol: ["arrow.triangle.pull", "arrow.triangle.branch"],
         menu: "View",
-        menuLabel: "Toggle pull requests",
+        menuLabel: t("action.prs.menu"),
         enabled: has,
       }),
-      a("github", "GitHub repos…", () => ((settingsSection = "github"), (showWorkflows = true)), {
+      a("github", t("action.github"), () => ((settingsSection = "github"), (showWorkflows = true)), {
         icon: GithubLogo,
         symbol: ["link"],
         menu: "Tools",
         enabled: has,
       }),
-      a("git-settings", "Git tracking…", () => ((settingsSection = "git"), (showWorkflows = true)), {
+      a("git-settings", t("action.git-settings"), () => ((settingsSection = "git"), (showWorkflows = true)), {
         icon: GitBranch,
         symbol: ["arrow.triangle.branch"],
         menu: "Tools",
@@ -411,7 +434,7 @@
 
   // Keep a standalone window's title in step with the note.
   $effect(() => {
-    if (standaloneId && store.selected) backend.setWindowTitle(store.selected.title || "Untitled");
+    if (standaloneId && store.selected) backend.setWindowTitle(store.selected.title || t("app.untitled"));
   });
 
   function onKey(e: KeyboardEvent) {
@@ -479,7 +502,7 @@
         <NotePanel note={store.selected} onjump={(id) => store.select(id)} standalone />
       {/key}
     {:else if store.path}
-      <div class="gone">This note no longer exists.</div>
+      <div class="gone">{t("standalone.gone")}</div>
     {/if}
   </div>
 {:else if store.path}
@@ -487,28 +510,22 @@
     <div class="toolbar" data-tauri-drag-region>
       <div class="brand" data-tauri-drag-region>
         <img class="mark" src="/icon.svg" alt="" draggable="false" />
-        <span class="logo">Dagobert</span>
+        <span class="logo">{t("app.name")}</span>
         <span class="sep">/</span>
         <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
       </div>
-      <input
-        class="search"
-        placeholder="Search notes…  (⌘F · ⌘K to jump)"
-        bind:value={query}
-        bind:this={searchEl}
-        onkeydown={onSearchKey}
-      />
+      <input class="search" placeholder={t("toolbar.search.placeholder")} bind:value={query} bind:this={searchEl} onkeydown={onSearchKey} />
       {#if matches}
-        <span class="hint">{matches.size} match{matches.size === 1 ? "" : "es"}</span>
+        <span class="hint">{plural("toolbar.matches", matches.size)}</span>
       {/if}
       <div class="spacer" data-tauri-drag-region></div>
-      <span class="stats" title="ready · done · total">
-        <span class="ready">{stats.ready} ready</span> · {stats.done}/{stats.total} done
+      <span class="stats" title={t("toolbar.stats.title")}>
+        <span class="ready">{t("toolbar.stats.ready", { n: stats.ready })}</span> · {t("toolbar.stats.done", {
+          done: stats.done,
+          total: stats.total,
+        })}
         {#if store.conflictIds.size}
-          · <button
-            class="conflicts"
-            onclick={() => store.nextConflict()}
-            use:tooltip={"Notes with conflict markers — click to jump to the next one"}
+          · <button class="conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
             ><Warning size={12} weight="fill" /> {store.conflictIds.size}</button
           >
         {/if}
@@ -521,36 +538,28 @@
           class:local={store.gitStatus ? !store.gitStatus.has_remote : false}
           onclick={() => store.syncNow(true)}
           use:tooltip={gitTip}
-          aria-label="git tracking"
+          aria-label={t("toolbar.git.aria")}
         >
           {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={16} /></span>{:else}<GitBranch size={16} />{/if}
         </button>
       {/if}
       <TagMenu />
-      <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={"Deleted notes"} aria-label="Deleted notes"
+      <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
         ><Trash size={16} /></button
       >
-      <button
-        class="ghost icon"
-        class:on={showPRs}
-        onclick={togglePRs}
-        use:tooltip={"Pull requests linked from notes (⇧⌘P)"}
-        aria-label="Pull requests"><GitPullRequest size={16} /></button
+      <button class="ghost icon" class:on={showPRs} onclick={togglePRs} use:tooltip={t("toolbar.prs.tip")} aria-label={t("toolbar.prs")}
+        ><GitPullRequest size={16} /></button
       >
-      <button
-        class="ghost icon"
-        class:on={focus}
-        onclick={toggleFocus}
-        use:tooltip={"Focus: dim notes outside the selected note's chain"}
-        aria-label="Focus"><Crosshair size={16} /></button
+      <button class="ghost icon" class:on={focus} onclick={toggleFocus} use:tooltip={t("toolbar.focus.tip")} aria-label={t("toolbar.focus")}
+        ><Crosshair size={16} /></button
       >
-      <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={"Auto-layout (selection, or everything)"} aria-label="Tidy"
+      <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={t("toolbar.tidy.tip")} aria-label={t("toolbar.tidy")}
         ><TreeStructure size={16} /></button
       >
-      <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={"Fit all notes in view"} aria-label="Fit all"
+      <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
         ><CornersOut size={16} /></button
       >
-      <button class="primary icon" onclick={() => canvas?.createAtCenter()} use:tooltip={"New note (⌘N)"} aria-label="New note"
+      <button class="primary icon" onclick={() => canvas?.createAtCenter()} use:tooltip={t("toolbar.new.tip")} aria-label={t("toolbar.new")}
         ><Plus size={16} weight="bold" /></button
       >
     </div>
@@ -588,12 +597,12 @@
   <div class="welcome" data-tauri-drag-region>
     <div class="card">
       <img class="hero" src="/logo.svg" alt="" draggable="false" />
-      <h1>Dagobert</h1>
-      <p class="tagline">Notes that depend on each other.</p>
-      <button class="primary big" onclick={() => store.pickAndOpen()}>Open a folder…</button>
-      <p class="hint">Pick any folder. Notes are stored as markdown files inside it; enable git tracking to sync them between machines.</p>
+      <h1>{t("app.name")}</h1>
+      <p class="tagline">{t("welcome.tagline")}</p>
+      <button class="primary big" onclick={() => store.pickAndOpen()}>{t("welcome.open")}</button>
+      <p class="hint">{t("welcome.hint")}</p>
       {#if store.recent.length}
-        <h3>Recent</h3>
+        <h3>{t("welcome.recent")}</h3>
         <ul class="recent">
           {#each store.recent as r (r)}
             <li>
@@ -601,7 +610,7 @@
                 <span class="name">{r.split(/[\\/]/).filter(Boolean).pop()}</span>
                 <span class="full">{r}</span>
               </button>
-              <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label="forget"><X size={14} /></button>
+              <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label={t("welcome.forget")}><X size={14} /></button>
             </li>
           {/each}
         </ul>

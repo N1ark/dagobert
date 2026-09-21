@@ -1,6 +1,7 @@
 <script lang="ts">
   import Markdown from "./Markdown.svelte";
   import { conflictSides } from "./blocks";
+  import { t } from "./i18n";
 
   /** A `<<<<<<<` … `>>>>>>>` region: both sides rendered, with buttons to pick. */
   let {
@@ -16,19 +17,19 @@
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="conflict" onclick={onedit}>
   <div class="bar">
-    <span class="label">Merge conflict</span>
+    <span class="label">{t("conflict.title")}</span>
     <span class="spacer"></span>
-    <button class="sm" onclick={(e) => (stop(e), onresolve("mine"))}>Keep mine</button>
-    <button class="sm" onclick={(e) => (stop(e), onresolve("theirs"))}>Keep theirs</button>
-    <button class="ghost sm" onclick={(e) => (stop(e), onresolve("both"))}>Keep both</button>
+    <button class="sm" onclick={(e) => (stop(e), onresolve("mine"))}>{t("conflict.keepMine")}</button>
+    <button class="sm" onclick={(e) => (stop(e), onresolve("theirs"))}>{t("conflict.keepTheirs")}</button>
+    <button class="ghost sm" onclick={(e) => (stop(e), onresolve("both"))}>{t("conflict.keepBoth")}</button>
   </div>
   <div class="panes">
     <div class="pane mine">
-      <div class="side">mine</div>
+      <div class="side">{t("conflict.mine")}</div>
       <Markdown source={sides.mine} />
     </div>
     <div class="pane theirs">
-      <div class="side">theirs</div>
+      <div class="side">{t("conflict.theirs")}</div>
       <Markdown source={sides.theirs} />
     </div>
   </div>

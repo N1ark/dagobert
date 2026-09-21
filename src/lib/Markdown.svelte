@@ -6,6 +6,7 @@
   import { store } from "./store.svelte";
   import { prIcons } from "./prIcons.svelte";
   import { highlightExtension } from "./highlight";
+  import { t } from "./i18n";
 
   marked.use(highlightExtension);
 
@@ -42,7 +43,7 @@
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}
   {:else}
-    <p class="placeholder">Nothing here yet.</p>
+    <p class="placeholder">{t("editor.empty")}</p>
   {/if}
 </div>
 

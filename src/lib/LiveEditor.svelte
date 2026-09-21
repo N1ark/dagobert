@@ -9,6 +9,7 @@
   import type { IssueRef } from "./github";
   import { command, pasteLink } from "./editor";
   import { caretCoords } from "./wikilinks";
+  import { t, type HistoryLabel } from "./i18n";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict } from "./blocks";
 
   /**
@@ -35,11 +36,11 @@
 
   const activeIsCode = $derived(isCode(draft));
 
-  function edited(label?: string) {
+  function edited(label?: HistoryLabel) {
     store.touch(note.id, { label });
   }
 
-  function setBody(body: string, label?: string) {
+  function setBody(body: string, label?: HistoryLabel) {
     if (body !== note.body) {
       note.body = body;
       edited(label);
@@ -50,7 +51,7 @@
   function resolve(i: number, keep: "mine" | "theirs" | "both") {
     const next = [...blocks];
     next[i] = resolveConflict(blocks[i], keep);
-    setBody(joinBlocks(next), "resolve conflict");
+    setBody(joinBlocks(next), "resolveConflict");
   }
 
   /** Blocks with the active slot replaced by the draft (empty drafts drop out). */
@@ -424,7 +425,7 @@
   {/if}
   {#if !blocks.length && active === null}
     <div class="block placeholder" onclick={() => appendBlock()}>
-      Write in markdown… click to start. <span class="hint">⌘B bold · ⌘I italic · ⌘K link · @ links a note · Esc to leave a block</span>
+      {t("editor.placeholder")} <span class="hint">{t("editor.placeholder.hint")}</span>
     </div>
   {/if}
   {#if issue}

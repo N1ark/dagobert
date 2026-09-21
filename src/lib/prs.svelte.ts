@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { store } from "./store.svelte";
 import { repoRefs, type RepoRef } from "./wikilinks";
 import { issue, invalidate, type IssueRef } from "./github";
@@ -89,5 +90,7 @@ export function refreshPRs() {
 }
 
 export function stateLabel(r: IssueRef): string {
-  return r.state === "merged" ? "Merged" : r.state === "closed" ? "Closed" : r.draft ? "Draft" : "Open";
+  return t(
+    r.state === "merged" ? "prs.state.merged" : r.state === "closed" ? "prs.state.closed" : r.draft ? "prs.state.draft" : "prs.state.open",
+  );
 }

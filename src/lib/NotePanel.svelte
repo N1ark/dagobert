@@ -11,6 +11,7 @@
   import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
+  import { t } from "./i18n";
   import X from "phosphor-svelte/lib/X";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
@@ -115,17 +116,17 @@
 <aside class="panel" class:standalone bind:this={panelEl}>
   <header>
     {#if progress}
-      <span class="ring" title="{progress.done} of {progress.total} dependencies done"
+      <span class="ring" title={t("node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing done={progress.done} total={progress.total} size={16} /></span
       >
     {:else if !custom}
-      <label class="done" title={done ? "Mark as not done" : "Mark as done"}>
+      <label class="done" title={t(done ? "node.markNotDone" : "node.markDone")}>
         <input type="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
     <input
       class="title"
-      placeholder="Untitled"
+      placeholder={t("panel.title.placeholder")}
       bind:value={note.title}
       bind:this={titleEl}
       oninput={edited}
@@ -137,13 +138,18 @@
           store.select(null);
         }
       }}
-      title="Inline markdown works here (**bold**, `code`, [links](…))"
+      title={t("panel.title.tip")}
     />
     {#if !standalone}
-      <button class="ghost close" onclick={() => store.openInWindow(note.id)} title="Open in a new window" aria-label="open in new window"
-        ><ArrowSquareOut size={16} /></button
+      <button
+        class="ghost close"
+        onclick={() => store.openInWindow(note.id)}
+        title={t("panel.openWindow")}
+        aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={16} /></button
       >
-      <button class="ghost close" onclick={() => store.select(null)} title="Close (Esc)" aria-label="close"><X size={16} /></button>
+      <button class="ghost close" onclick={() => store.select(null)} title={t("panel.close")} aria-label={t("panel.close.aria")}
+        ><X size={16} /></button
+      >
     {/if}
   </header>
 
@@ -161,7 +167,7 @@
           </span>
         {/if}
         {#if progress}
-          <span class="track-info" title="dependencies done">{progress.done}/{progress.total}</span>
+          <span class="track-info" title={t("panel.depsDone")}>{progress.done}/{progress.total}</span>
         {/if}
         <select
           class="wf"
@@ -174,28 +180,30 @@
               store.setWorkflow(note.id, v || null);
             }
           }}
-          title="Kind"
+          title={t("panel.kind")}
         >
-          <option value="">Todo</option>
-          <option value="tracking">Tracking issue</option>
+          <option value="">{t("panel.kind.todo")}</option>
+          <option value="tracking">{t("panel.kind.tracking")}</option>
           {#each store.workflows as wf (wf.id)}
             <option value={wf.id}>{wf.name}</option>
           {/each}
         </select>
-        <button class="ghost edit-wf" onclick={() => (editingWorkflows = true)} title="Manage workflows"><GearSix size={15} /></button>
+        <button class="ghost edit-wf" onclick={() => (editingWorkflows = true)} title={t("panel.manageWorkflows")}
+          ><GearSix size={15} /></button
+        >
       </div>
 
       <div class="meta">
-        <span title={absolute(note.created)}>created {relative(note.created)}</span>
-        <span title={absolute(note.modified)}>edited {relative(note.modified)}</span>
+        <span title={absolute(note.created)}>{t("panel.created", { when: relative(note.created) })}</span>
+        <span title={absolute(note.modified)}>{t("panel.edited", { when: relative(note.modified) })}</span>
       </div>
 
       <div class="tags">
         {#each note.tags as tag (tag)}
           <span class="tag-wrap">
             <span class="tag tag-chip" style="--tag:{store.tagColor(tag)}">
-              <button class="name" onclick={() => (picking = picking === tag ? null : tag)} title="Change colour">{tag}</button>
-              <button class="x" onclick={() => removeTag(tag)} aria-label="remove tag"><X size={11} weight="bold" /></button>
+              <button class="name" onclick={() => (picking = picking === tag ? null : tag)} title={t("panel.tag.color")}>{tag}</button>
+              <button class="x" onclick={() => removeTag(tag)} aria-label={t("panel.tag.remove")}><X size={11} weight="bold" /></button>
             </span>
             {#if picking === tag}
               <TagColorPicker {tag} onclose={() => (picking = null)} />
@@ -204,7 +212,7 @@
         {/each}
         <input
           class="tag-input"
-          placeholder={note.tags.length ? "add tag" : "add tags…"}
+          placeholder={t(note.tags.length ? "panel.tag.add" : "panel.tag.addFirst")}
           bind:value={tagInput}
           onkeydown={onTagKey}
           onblur={addTag}
@@ -212,14 +220,15 @@
       </div>
 
       <section class="links">
-        {#each [{ label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: "Blocks", items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
+        {#each [{ label: t(note.tracking ? "panel.deps.tracks" : "panel.deps"), items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: t(note.tracking ? "panel.deps.track" : "panel.deps.add"), add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: t("panel.dependents"), items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: t("panel.dependents.add"), add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
           <div class="group">
             <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
             <div class="chips">
               {#each g.items as d (d.id)}
                 <span class="chip" class:done={store.isDone(d)}>
-                  <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
-                  <button class="ghost x" onclick={() => g.remove(d.id)} aria-label="remove"><X size={11} /></button>
+                  <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback={t("app.untitled")} /></button
+                  >
+                  <button class="ghost x" onclick={() => g.remove(d.id)} aria-label={t("panel.link.remove")}><X size={11} /></button>
                 </span>
               {/each}
               <button
@@ -249,21 +258,21 @@
 
       {#if mentionedIn.length}
         <div class="mentioned">
-          <span class="label">Mentioned in</span>
+          <span class="label">{t("panel.mentionedIn")}</span>
           {#each mentionedIn as m (m.id)}
-            <button class="ghost ref" onclick={() => onjump(m.id)}><InlineMd source={m.title} fallback="Untitled" /></button>
+            <button class="ghost ref" onclick={() => onjump(m.id)}><InlineMd source={m.title} fallback={t("app.untitled")} /></button>
           {/each}
         </div>
       {/if}
     </div>
     {#if standalone}
-      <nav class="toc" aria-label="Table of contents">
+      <nav class="toc" aria-label={t("panel.toc")}>
         {#each toc as h, i (i)}
           <button class="ghost entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => jumpTo(h.block)}
             ><InlineMd source={h.text} /></button
           >
         {:else}
-          <span class="empty">No headings</span>
+          <span class="empty">{t("panel.toc.empty")}</span>
         {/each}
       </nav>
     {/if}
@@ -274,12 +283,12 @@
   </div>
 
   <footer>
-    <button class="ghost file" title="Reveal in Finder" onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
+    <button class="ghost file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
     {#if confirmDelete}
-      <button class="danger" onclick={() => store.remove(note.id)}>Really delete</button>
-      <button class="ghost" onclick={() => (confirmDelete = false)}>Cancel</button>
+      <button class="danger" onclick={() => store.remove(note.id)}>{t("panel.reallyDelete")}</button>
+      <button class="ghost" onclick={() => (confirmDelete = false)}>{t("panel.cancel")}</button>
     {:else}
-      <button class="ghost danger" onclick={() => (confirmDelete = true)}>Delete</button>
+      <button class="ghost danger" onclick={() => (confirmDelete = true)}>{t("panel.delete")}</button>
     {/if}
   </footer>
 </aside>

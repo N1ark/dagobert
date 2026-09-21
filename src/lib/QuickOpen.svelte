@@ -9,6 +9,7 @@
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Plus from "phosphor-svelte/lib/Plus";
   import Terminal from "phosphor-svelte/lib/Terminal";
+  import { t } from "./i18n";
 
   export interface Action {
     id: string;
@@ -66,7 +67,7 @@
     const tag = parsed.tag;
     const notes = store.notes
       .filter((n) => !tag || n.tags.some((t) => t.toLowerCase().startsWith(tag)))
-      .map((note) => ({ note, m: fuzzyMatch(parsed.text, note.title || "Untitled") }))
+      .map((note) => ({ note, m: fuzzyMatch(parsed.text, note.title || t("app.untitled")) }))
       .filter((x) => x.m.score > 0)
       .sort((a, b) => b.m.score - a.m.score || b.note.modified.localeCompare(a.note.modified))
       .slice(0, 10)
@@ -137,7 +138,7 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Quick open" tabindex="-1">
+  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("quick.aria")} tabindex="-1">
     <div class="field">
       {#if mode === "commands"}
         <Terminal size={16} />
@@ -148,7 +149,7 @@
         bind:this={input}
         bind:value={query}
         onkeydown={onKey}
-        placeholder={mode === "commands" ? "Run a command…" : "Jump to a note…  #tag to filter"}
+        placeholder={t(mode === "commands" ? "quick.commands.placeholder" : "quick.notes.placeholder")}
         spellcheck="false"
       />
       <span class="mode">{mode === "commands" ? "⇧⌘K" : "⌘K"}</span>
@@ -167,9 +168,9 @@
           >
             <span class="title" class:done={store.isDone(n)}>
               {#if row.indices.length && !/[*_`[\]~]/.test(n.title)}
-                {#each runs(n.title || "Untitled", row.indices) as r, j (j)}<span class:hit={r.hit}>{r.s}</span>{/each}
+                {#each runs(n.title || t("app.untitled"), row.indices) as r, j (j)}<span class:hit={r.hit}>{r.s}</span>{/each}
               {:else}
-                <InlineMd source={n.title} fallback="Untitled" />
+                <InlineMd source={n.title} fallback={t("app.untitled")} />
               {/if}
             </span>
             <span class="tags">
@@ -181,9 +182,9 @@
             {#if n.workflow !== null && !n.tracking}
               <span class="status" style="--c:{stageColor(wf, n.status)}"><span class="pip"></span>{n.status}</span>
             {:else if store.isDone(n)}
-              <span class="status" style="--c:var(--green)"><span class="pip"></span>done</span>
+              <span class="status" style="--c:var(--green)"><span class="pip"></span>{t("quick.done")}</span>
             {/if}
-            <span class="kbd slot" class:show={i === active} title="⌘↩ opens in a new window"><ArrowSquareOut size={12} /></span>
+            <span class="kbd slot" class:show={i === active} title={t("quick.newWindow.tip")}><ArrowSquareOut size={12} /></span>
           </button>
         {:else if row.kind === "action"}
           <button
@@ -207,19 +208,20 @@
             onclick={() => choose(i)}
             onmouseenter={() => (active = i)}
           >
-            <Plus size={13} /> Create “{row.title}”
+            <Plus size={13} />
+            {t("quick.create", { title: row.title })}
           </button>
         {/if}
       {:else}
-        <div class="empty">{mode === "commands" ? "No matching command" : "No notes yet"}</div>
+        <div class="empty">{t(mode === "commands" ? "quick.noCommand" : "quick.noNotes")}</div>
       {/each}
     </div>
     <footer>
-      <span><kbd>↑↓</kbd> navigate</span>
-      <span><kbd>↩</kbd> {mode === "commands" ? "run" : "open"}</span>
+      <span><kbd>↑↓</kbd> {t("quick.foot.navigate")}</span>
+      <span><kbd>↩</kbd> {t(mode === "commands" ? "quick.foot.run" : "quick.foot.open")}</span>
       {#if mode === "notes"}
-        <span><kbd>⌘↩</kbd> new window</span>
-        <span><kbd>#</kbd> tag</span>
+        <span><kbd>⌘↩</kbd> {t("quick.foot.newWindow")}</span>
+        <span><kbd>#</kbd> {t("quick.foot.tag")}</span>
       {/if}
     </footer>
   </div>

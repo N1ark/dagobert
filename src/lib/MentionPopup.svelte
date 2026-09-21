@@ -2,6 +2,7 @@
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import InlineMd from "./InlineMd.svelte";
+  import { t } from "./i18n";
 
   let {
     query,
@@ -88,7 +89,7 @@
         onclick={() => choose(results.length)}
         onmouseenter={() => (active = results.length)}
       >
-        + Create “{query.trim()}”
+        {t("editor.mention.create", { title: query.trim() })}
       </button>
     {/if}
   </div>

@@ -13,6 +13,8 @@
   import Circuitry from "phosphor-svelte/lib/Circuitry";
   import { tooltip } from "./tooltip";
   import { relative } from "./time";
+  import InlineMd from "./InlineMd.svelte";
+  import { t, plural } from "./i18n";
 
   type Section = "workflows" | "tracking" | "github" | "git";
   let { onclose, section = "workflows" }: { onclose: () => void; section?: Section } = $props();
@@ -43,23 +45,22 @@
   let selectedId = $state<string | null>(store.workflows[0]?.id ?? null);
   const wf = $derived(store.workflows.find((w) => w.id === selectedId) ?? null);
   const usage = $derived(wf ? store.notes.filter((n) => n.workflow === wf.id).length : 0);
-  const TEMPLATE_HINT = "Default body for new notes. Placeholders: {{date}}, {{title}}.";
 
   function commit(w: Workflow) {
     // Stage names must be unique and non-empty.
     const seen = new Set<string>();
     for (const s of w.stages) {
-      let name = s.name.trim() || "stage";
+      let name = s.name.trim() || t("workflow.stage");
       while (seen.has(name)) name += "'";
       seen.add(name);
       s.name = name;
     }
-    if (!w.stages.length) w.stages.push({ name: "todo", done: false });
+    if (!w.stages.length) w.stages.push({ name: t("workflow.stage.todo"), done: false });
     store.updateWorkflow(w);
   }
 
   function addStage(w: Workflow) {
-    w.stages.splice(w.stages.length - 1, 0, { name: "stage", done: false });
+    w.stages.splice(w.stages.length - 1, 0, { name: t("workflow.stage"), done: false });
     commit(w);
   }
   function removeStage(w: Workflow, i: number) {
@@ -92,10 +93,20 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Workflows" tabindex="-1">
+  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("settings.aria")} tabindex="-1">
     <header>
-      <h3>{page === "github" ? "GitHub" : page === "git" ? "Git tracking" : page === "tracking" ? "Tracking issues" : "Workflows"}</h3>
-      <button class="ghost" onclick={onclose} aria-label="close"><X size={16} /></button>
+      <h3>
+        {t(
+          page === "github"
+            ? "settings.github"
+            : page === "git"
+              ? "settings.git"
+              : page === "tracking"
+                ? "settings.tracking"
+                : "settings.workflows",
+        )}
+      </h3>
+      <button class="ghost" onclick={onclose} aria-label={t("settings.close")}><X size={16} /></button>
     </header>
     <div class="cols">
       <nav>
@@ -104,49 +115,43 @@
           class:active={page === "workflows" && selectedId === null}
           onclick={() => ((page = "workflows"), (selectedId = null))}
         >
-          Todo
-          <span class="builtin" use:tooltip={"Built-in"}><Circuitry size={13} /></span>
+          {t("settings.nav.todo")}
+          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
         </button>
         <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>
-          Tracking issue
-          <span class="builtin" use:tooltip={"Built-in"}><Circuitry size={13} /></span>
+          {t("settings.nav.tracking")}
+          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
         </button>
         {#each store.workflows as w (w.id)}
           <button
             class="ghost item"
             class:active={page === "workflows" && w.id === selectedId}
-            onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || "Unnamed"}</button
+            onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || t("settings.nav.unnamed")}</button
           >
         {/each}
-        <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> New workflow</button>
+        <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> {t("settings.nav.new")}</button>
         <div class="nav-sep"></div>
         <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
-          ><GithubLogo size={14} /> GitHub</button
+          ><GithubLogo size={14} /> {t("settings.github")}</button
         >
-        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}><GitBranch size={14} /> Git tracking</button
+        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
+          ><GitBranch size={14} /> {t("settings.git")}</button
         >
       </nav>
       <section>
         {#if page === "tracking"}
-          <p class="help">
-            A <b>tracking issue</b> has no status of its own: it shows a progress ring and counts as done once every note it depends on is done.
-            Set a note's kind to "Tracking issue" in the panel.
-          </p>
-          <h4>Template</h4>
-          <p class="help">{TEMPLATE_HINT}</p>
+          <p class="help"><InlineMd source={t("settings.tracking.help")} /></p>
+          <h4>{t("settings.template")}</h4>
+          <p class="help">{t("settings.template.hint")}</p>
           <textarea
             class="template"
             rows="6"
             bind:value={store.trackingTemplate}
             onchange={() => store.saveMeta()}
-            placeholder="## Scope&#10;…"
+            placeholder={t("settings.tracking.placeholder")}
             spellcheck="false"></textarea>
         {:else if page === "git"}
-          <p class="help">
-            Commits your notes on a timer, pulls what other machines pushed and pushes back, if the repository has an
-            <code>origin</code> remote. Conflicts are merged automatically; a note whose body couldn't be merged shows a warning until you clean
-            up the markers.
-          </p>
+          <p class="help"><InlineMd source={t("settings.git.help")} /></p>
           <label class="row">
             <input
               type="checkbox"
@@ -159,10 +164,10 @@
                 box.checked = store.gitEnabled;
               }}
             />
-            Track this project with git
+            {t("settings.git.enable")}
           </label>
           <label class="row">
-            Sync every
+            {t("settings.git.every")}
             <input
               class="num"
               type="number"
@@ -172,40 +177,45 @@
               onchange={() => ((interval = Math.max(1, Math.min(120, Math.round(interval) || 5))), store.setGitInterval(interval))}
               disabled={!store.gitEnabled}
             />
-            minutes
+            {t("settings.git.minutes")}
           </label>
           {#if store.gitEnabled}
-            <h4>Repository</h4>
+            <h4>{t("settings.git.repo")}</h4>
             <dl class="info">
-              <dt>Branch</dt>
-              <dd>{store.gitStatus?.branch ?? "—"}</dd>
-              <dt>Remote</dt>
+              <dt>{t("settings.git.branch")}</dt>
+              <dd>{store.gitStatus?.branch ?? t("app.dash")}</dd>
+              <dt>{t("settings.git.remote")}</dt>
               <dd>
-                {#if !store.gitStatus}—{:else if !store.gitStatus.has_remote}none (commits stay local){:else if !store.gitStatus.has_upstream}origin
-                  (branch not pushed yet){:else}origin · {store.gitStatus.ahead} ahead, {store.gitStatus.behind} behind{/if}
+                {#if !store.gitStatus}{t("app.dash")}{:else if !store.gitStatus.has_remote}{t(
+                    "settings.git.remote.none",
+                  )}{:else if !store.gitStatus.has_upstream}{t("settings.git.remote.unpushed")}{:else}{t("settings.git.remote.position", {
+                    ahead: store.gitStatus.ahead,
+                    behind: store.gitStatus.behind,
+                  })}{/if}
               </dd>
-              <dt>Last sync</dt>
+              <dt>{t("settings.git.lastSync")}</dt>
               <dd>
-                {#if store.gitState === "syncing"}syncing…{:else if store.gitState === "error"}<span class="err">{store.gitError}</span
-                  >{:else if store.gitLastSync}{relative(store.gitLastSync)}{:else}not yet this session{/if}
+                {#if store.gitState === "syncing"}{t("settings.git.syncing")}{:else if store.gitState === "error"}<span class="err"
+                    >{store.gitError}</span
+                  >{:else if store.gitLastSync}{relative(store.gitLastSync)}{:else}{t("settings.git.notYet")}{/if}
               </dd>
             </dl>
             <div class="actions">
-              <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>Sync now</button>
+              <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>{t("settings.git.syncNow")}</button>
             </div>
           {/if}
         {:else if page === "github"}
-          <h4>Repositories</h4>
-          <p class="help">
-            Type <code>alias#</code> in a note to pick an issue or PR; <code>alias#123</code> then links to it.
-          </p>
+          <h4>{t("settings.github.repos")}</h4>
+          <p class="help"><InlineMd source={t("settings.github.help")} /></p>
           <ul class="repos">
             {#each Object.entries(store.repos) as [alias, repo] (alias)}
               <li>
                 <span class="alias">{alias}</span>
                 <span class="arrow">→</span>
                 <span class="repo">{repo}</span>
-                <button class="ghost sm" onclick={() => store.setRepo(alias, null)} aria-label="remove {alias}"><X size={13} /></button>
+                <button class="ghost sm" onclick={() => store.setRepo(alias, null)} aria-label={t("settings.github.remove", { alias })}
+                  ><X size={13} /></button
+                >
               </li>
             {/each}
           </ul>
@@ -216,26 +226,23 @@
               addRepo();
             }}
           >
-            <input placeholder="alias" bind:value={newAlias} spellcheck="false" />
-            <input class="grow" placeholder="owner/repo" bind:value={newRepo} spellcheck="false" />
-            <button type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus size={13} /> Add</button>
+            <input placeholder={t("settings.github.alias")} bind:value={newAlias} spellcheck="false" />
+            <input class="grow" placeholder={t("settings.github.repo")} bind:value={newRepo} spellcheck="false" />
+            <button type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus size={13} /> {t("settings.github.add")}</button>
           </form>
-          <h4>Access token</h4>
-          <p class="help">
-            Optional. Needed for private repos and higher rate limits. If empty, the <code>gh</code> CLI's login is used when available. Stored
-            on this machine only, not in the project folder.
-          </p>
+          <h4>{t("settings.github.token")}</h4>
+          <p class="help"><InlineMd source={t("settings.github.token.help")} /></p>
           <input
             class="token"
             type="password"
-            placeholder="ghp_…"
+            placeholder={t("settings.github.token.placeholder")}
             bind:value={ghToken}
             onchange={() => setStoredToken(ghToken)}
             spellcheck="false"
           />
         {:else if wf}
-          <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder="Workflow name" />
-          <p class="help">Stages in order. Tick the ones that count as done; click a dot to pick the pill colour.</p>
+          <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
+          <p class="help">{t("settings.wf.help")}</p>
           <ol>
             {#each wf.stages as stage, i (i)}
               <li>
@@ -244,8 +251,8 @@
                   <button
                     class="dot"
                     style="--c:{stageColor(wf, stage.name)}"
-                    title="Pill colour"
-                    aria-label="colour of {stage.name}"
+                    title={t("settings.wf.pillColor")}
+                    aria-label={t("settings.wf.colorOf", { stage: stage.name })}
                     onclick={() => (picking = picking === i ? null : i)}
                   ></button>
                   {#if picking === i}
@@ -257,55 +264,58 @@
                         commit(wf);
                       }}
                       onclose={() => (picking = null)}
-                      label="stage colour"
+                      label={t("settings.wf.stageColor")}
                     />
                   {/if}
                 </span>
                 <input class="stage" bind:value={stage.name} onchange={() => commit(wf)} />
-                <label class="done" title="Counts as done">
+                <label class="done" title={t("settings.wf.countsDone")}>
                   <input type="checkbox" bind:checked={stage.done} onchange={() => commit(wf)} />
-                  done
+                  {t("settings.wf.done")}
                 </label>
-                <button class="ghost sm" disabled={i === 0} onclick={() => move(wf, i, -1)} aria-label="move up"
+                <button class="ghost sm" disabled={i === 0} onclick={() => move(wf, i, -1)} aria-label={t("settings.wf.up")}
                   ><ArrowUp size={13} /></button
                 >
-                <button class="ghost sm" disabled={i === wf.stages.length - 1} onclick={() => move(wf, i, 1)} aria-label="move down"
-                  ><ArrowDown size={13} /></button
+                <button
+                  class="ghost sm"
+                  disabled={i === wf.stages.length - 1}
+                  onclick={() => move(wf, i, 1)}
+                  aria-label={t("settings.wf.down")}><ArrowDown size={13} /></button
                 >
-                <button class="ghost sm" disabled={wf.stages.length <= 1} onclick={() => removeStage(wf, i)} aria-label="remove stage"
-                  ><X size={13} /></button
+                <button
+                  class="ghost sm"
+                  disabled={wf.stages.length <= 1}
+                  onclick={() => removeStage(wf, i)}
+                  aria-label={t("settings.wf.removeStage")}><X size={13} /></button
                 >
               </li>
             {/each}
           </ol>
           <div class="actions">
-            <button onclick={() => addStage(wf)}><Plus size={13} /> Stage</button>
+            <button onclick={() => addStage(wf)}><Plus size={13} /> {t("settings.wf.addStage")}</button>
             <span class="spacer"></span>
-            <span class="usage">{usage} note{usage === 1 ? "" : "s"}</span>
-            <button class="ghost danger" onclick={() => remove(wf)}>Delete workflow</button>
+            <span class="usage">{plural("settings.wf.usage", usage)}</span>
+            <button class="ghost danger" onclick={() => remove(wf)}>{t("settings.wf.delete")}</button>
           </div>
-          <h4>Template</h4>
-          <p class="help">{TEMPLATE_HINT}</p>
+          <h4>{t("settings.template")}</h4>
+          <p class="help">{t("settings.template.hint")}</p>
           <textarea
             class="template"
             rows="6"
             bind:value={wf.template}
             onchange={() => commit(wf)}
-            placeholder="## Checklist&#10;- [ ] …"
+            placeholder={t("settings.wf.placeholder")}
             spellcheck="false"></textarea>
         {:else}
-          <p class="help">
-            The built-in <b>Todo</b> workflow is just <i>todo → done</i>. Create a workflow to track richer progress, e.g.
-            <i>todo → in progress → under review → merged</i>.
-          </p>
-          <h4>Template</h4>
-          <p class="help">{TEMPLATE_HINT}</p>
+          <p class="help"><InlineMd source={t("settings.todo.help")} /></p>
+          <h4>{t("settings.template")}</h4>
+          <p class="help">{t("settings.template.hint")}</p>
           <textarea
             class="template"
             rows="6"
             bind:value={store.defaultTemplate}
             onchange={() => store.saveMeta()}
-            placeholder="- [ ] …"
+            placeholder={t("settings.todo.placeholder")}
             spellcheck="false"></textarea>
         {/if}
       </section>
@@ -449,7 +459,7 @@
     font-family: var(--mono);
     font-size: 12px;
   }
-  section code {
+  section :global(code) {
     font-family: var(--mono);
     font-size: 0.9em;
     background: var(--code-bg);

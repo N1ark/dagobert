@@ -9,6 +9,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { t } from "./i18n";
 import type { GitStatus, Local, Meta, MetaPatch, Note, Project, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -53,7 +54,7 @@ const mockGitStatus: GitStatus = {
 export const backend = {
   async pickFolder(): Promise<string | null> {
     if (!inTauri) return "/browser-mock";
-    const dir = await openDialog({ directory: true, multiple: false, title: "Open a Dagobert folder" });
+    const dir = await openDialog({ directory: true, multiple: false, title: t("welcome.dialogTitle") });
     return typeof dir === "string" ? dir : null;
   },
 
@@ -259,7 +260,7 @@ export const backend = {
       await existing.setFocus();
       return;
     }
-    new WebviewWindow(label, { url, title: title || "Untitled", width: 720, height: 800, minWidth: 400, minHeight: 300 });
+    new WebviewWindow(label, { url, title: title || t("app.untitled"), width: 720, height: 800, minWidth: 400, minHeight: 300 });
   },
 
   /** Show the note's file in Finder / Explorer. */

@@ -5,6 +5,7 @@ import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, splitBlocks } from "./blocks";
+import { t, type HistoryLabel } from "./i18n";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -91,7 +92,7 @@ class Store {
   /** Last recorded snapshot per note: the "before" of the next diff. */
   #last = new Map<string, Note>();
   /** Diffs collected during the current synchronous handler, flushed as one entry. */
-  #pending: { label: string; diffs: NoteDiff[] } | null = null;
+  #pending: { label: HistoryLabel; diffs: NoteDiff[] } | null = null;
   /** True while undo/redo is applying; suppresses recording. */
   #applying = false;
   undoDepth = $state(0);
@@ -262,7 +263,7 @@ class Store {
           this.gitState = "idle";
           this.gitError = null;
           this.gitLastSync = now();
-          if (manual) this.#toast(r.pushed ? "Committed and pushed" : r.committed ? "Committed" : "Nothing to commit");
+          if (manual) this.#toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
         }
       } catch (e) {
         if (this.path !== path) return;
@@ -398,11 +399,11 @@ class Store {
   addWorkflow(): Workflow {
     const wf: Workflow = {
       id: newId(),
-      name: "New workflow",
+      name: t("workflow.new"),
       stages: [
-        { name: "todo", done: false },
-        { name: "in progress", done: false },
-        { name: "done", done: true },
+        { name: t("workflow.stage.todo"), done: false },
+        { name: t("workflow.stage.inProgress"), done: false },
+        { name: t("workflow.stage.done"), done: true },
       ],
       template: "",
     };
@@ -415,7 +416,7 @@ class Store {
   updateWorkflow(wf: Workflow) {
     for (const n of this.notes) {
       if (n.workflow === wf.id && !wf.stages.some((s) => s.name === n.status)) {
-        n.status = wf.stages[0]?.name ?? "todo";
+        n.status = wf.stages[0]?.name ?? t("workflow.stage.todo");
         this.touch(n.id, { immediate: true, silent: true });
       }
     }
@@ -580,7 +581,7 @@ class Store {
   }
 
   /** Mark a note as edited and schedule a save. */
-  touch(id: string, opts: { immediate?: boolean; silent?: boolean; label?: string } = {}) {
+  touch(id: string, opts: { immediate?: boolean; silent?: boolean; label?: HistoryLabel } = {}) {
     const n = this.byId(id);
     if (!n) return;
     if (!opts.silent) n.modified = now();
@@ -699,7 +700,7 @@ class Store {
     if (!n) return;
     this.clipboard = $state.snapshot(n);
     // Also hand a plain-text version to the system clipboard.
-    const text = `# ${n.title || "Untitled"}\n${n.tags.length ? n.tags.map((t) => "#" + t).join(" ") + "\n" : ""}\n${n.body}`;
+    const text = `# ${n.title || t("app.untitled")}\n${n.tags.length ? n.tags.map((t) => "#" + t).join(" ") + "\n" : ""}\n${n.body}`;
     navigator.clipboard?.writeText(text).catch(() => {});
   }
 
@@ -763,7 +764,7 @@ class Store {
     if (!n || !this.byId(dep)) return false;
     if (n.deps.includes(dep)) return true;
     if (this.wouldCycle(dependent, dep)) {
-      this.fail("That would create a cycle.");
+      this.fail(t("store.cycle"));
       return false;
     }
     n.deps.push(dep);
@@ -834,7 +835,7 @@ class Store {
         if (disk === undefined || incoming.body === disk) return;
         const mine = local.body;
         local.body = mine === disk ? incoming.body : `<<<<<<< mine\n${mine}\n=======\n${incoming.body}\n>>>>>>> theirs`;
-        this.touch(local.id, { label: "merge from another machine" });
+        this.touch(local.id, { label: "merge" });
         return;
       }
       // Match by id, so an external rename updates `file` rather than duplicating.
@@ -895,7 +896,7 @@ class Store {
   // ---- undo / redo ---------------------------------------------------------
 
   /** Queue a diff; everything recorded in the same tick becomes one entry. */
-  #record(label: string, diff: NoteDiff) {
+  #record(label: HistoryLabel, diff: NoteDiff) {
     if (this.#applying) return;
     if (!this.#pending) {
       this.#pending = { label, diffs: [] };
@@ -913,7 +914,7 @@ class Store {
     const p = this.#pending;
     this.#pending = null;
     if (!p) return;
-    const label = p.diffs.length > 1 ? `${p.label} (${p.diffs.length} notes)` : p.label;
+    const label = p.diffs.length > 1 ? t("history.multi", { label: t(`history.${p.label}`), n: p.diffs.length }) : t(`history.${p.label}`);
     this.#history.push({ label, diffs: p.diffs, at: Date.now() });
     this.#syncDepths();
   }
@@ -934,7 +935,7 @@ class Store {
     if (!e) return;
     await this.#apply(e.diffs, "undo");
     this.#syncDepths();
-    this.#toast(`Undid: ${e.label}`);
+    this.#toast(t("store.undid", { label: e.label }));
   }
 
   async redo() {
@@ -944,7 +945,7 @@ class Store {
     if (!e) return;
     await this.#apply(e.diffs, "redo");
     this.#syncDepths();
-    this.#toast(`Redid: ${e.label}`);
+    this.#toast(t("store.redid", { label: e.label }));
   }
 
   /** Put every note in `diffs` into its `before` (undo) or `after` (redo) state. */

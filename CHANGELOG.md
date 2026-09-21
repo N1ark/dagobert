@@ -29,6 +29,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Every user-facing string now lives in `src/lib/locales/en.ts`, groundwork for translating the app.
 - Toolbar buttons (tags, trash, PRs, focus, tidy, fit, new note) are icon-only with
   tooltips; the tag filter count sits as a badge on the icon.
 

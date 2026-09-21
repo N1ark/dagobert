@@ -8,6 +8,7 @@
   import Minimap from "./Minimap.svelte";
   import { WORLD, clampViewport, clampNode } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
+  import { t } from "./i18n";
 
   let { matches = null, focus = true, grain = true }: { matches?: Set<string> | null; focus?: boolean; grain?: boolean } = $props();
 
@@ -895,9 +896,9 @@
 
   {#if !store.notes.length}
     <div class="empty">
-      <p>Double-click anywhere to create a note.</p>
-      <p class="sub">Drag from a note's <span class="dot"></span> handle onto another note to make that one depend on it.</p>
-      <p class="sub">Arrow keys walk the graph (← dependencies, → dependents), Enter edits the title.</p>
+      <p>{t("canvas.empty.create")}</p>
+      <p class="sub">{t("canvas.empty.drag.before")} <span class="dot"></span> {t("canvas.empty.drag.after")}</p>
+      <p class="sub">{t("canvas.empty.keys")}</p>
     </div>
   {/if}
 </div>

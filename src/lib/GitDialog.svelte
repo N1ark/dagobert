@@ -6,6 +6,7 @@
   import Warning from "phosphor-svelte/lib/Warning";
   import Check from "phosphor-svelte/lib/Check";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
+  import { t } from "./i18n";
 
   /** "norepo": offer to create a repository; "conflicts": what the last pull merged. */
   let { kind, conflicts = [], onclose }: { kind: "norepo" | "conflicts"; conflicts?: Conflict[]; onclose: () => void } = $props();
@@ -26,48 +27,40 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Git tracking" tabindex="-1">
+  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("git.aria")} tabindex="-1">
     <header>
       <h3>
-        {#if kind === "norepo"}<GitBranch size={15} /> Git tracking{:else}<Warning size={15} /> Changes from another machine conflicted with yours{/if}
+        {#if kind === "norepo"}<GitBranch size={15} /> {t("git.title")}{:else}<Warning size={15} /> {t("git.conflicts.title")}{/if}
       </h3>
-      <button class="ghost" onclick={onclose} aria-label="close"><X size={16} /></button>
+      <button class="ghost" onclick={onclose} aria-label={t("git.close")}><X size={16} /></button>
     </header>
     {#if kind === "norepo"}
       <div class="body">
-        <p>This folder isn't a git repository.</p>
-        <p class="help">
-          Tracking commits your notes on a timer and syncs them with a remote if the repository has one. Dagobert can create a repository
-          here; add a remote named <code>origin</code> with git to sync between machines.
-        </p>
+        <p>{t("git.norepo")}</p>
+        <p class="help"><InlineMd source={t("git.norepo.help")} /></p>
       </div>
       <footer>
-        <button class="ghost" onclick={onclose}>Cancel</button>
-        <button class="primary" onclick={() => store.initRepo().then(onclose)}>Initialise one here</button>
+        <button class="ghost" onclick={onclose}>{t("git.norepo.cancel")}</button>
+        <button class="primary" onclick={() => store.initRepo().then(onclose)}>{t("git.norepo.init")}</button>
       </footer>
     {:else}
       <div class="body">
-        <p class="help">
-          Each note keeps the frontmatter of the side edited last; tags and links added on either side are kept, removed ones stay removed.
-          Bodies were merged line by line; where both sides changed the same lines, the note keeps git's <code
-            >&lt;&lt;&lt;&lt;&lt;&lt;&lt;</code
-          > markers for you to pick from.
-        </p>
+        <p class="help"><InlineMd source={t("git.conflicts.help")} /></p>
         <ul>
           {#each conflicts as c (c.id)}
             <li>
-              <button class="ghost title" onclick={() => jump(c.id)}><InlineMd source={c.title} fallback="Untitled" /></button>
+              <button class="ghost title" onclick={() => jump(c.id)}><InlineMd source={c.title} fallback={t("app.untitled")} /></button>
               {#if c.body_conflict}
-                <span class="hint attention"><Warning size={12} /> body needs attention</span>
+                <span class="hint attention"><Warning size={12} /> {t("git.conflicts.attention")}</span>
               {:else}
-                <span class="hint"><Check size={12} /> merged</span>
+                <span class="hint"><Check size={12} /> {t("git.conflicts.merged")}</span>
               {/if}
             </li>
           {/each}
         </ul>
       </div>
       <footer>
-        <button class="primary" onclick={onclose}>OK</button>
+        <button class="primary" onclick={onclose}>{t("git.conflicts.ok")}</button>
       </footer>
     {/if}
   </div>
@@ -118,7 +111,7 @@
     font-size: 12px;
     color: var(--color-dim);
   }
-  code {
+  .dialog :global(code) {
     font-family: var(--mono);
     font-size: 0.9em;
     background: var(--code-bg);

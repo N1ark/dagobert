@@ -6,6 +6,7 @@
   import X from "phosphor-svelte/lib/X";
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import Trash from "phosphor-svelte/lib/Trash";
+  import { t, plural } from "./i18n";
 
   let { onclose, onrestored }: { onclose: () => void; onrestored: (id: string) => void } = $props();
 
@@ -34,35 +35,37 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Trash" tabindex="-1">
+  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("trash.title")} tabindex="-1">
     <header>
-      <h3>Trash <span class="count">{store.trash.length}</span></h3>
-      <button class="ghost" onclick={onclose} aria-label="close"><X size={16} /></button>
+      <h3>{t("trash.title")} <span class="count">{store.trash.length}</span></h3>
+      <button class="ghost" onclick={onclose} aria-label={t("trash.close")}><X size={16} /></button>
     </header>
     <div class="list">
       {#if loading}
-        <p class="empty">Loading…</p>
+        <p class="empty">{t("trash.loading")}</p>
       {:else if !store.trash.length}
-        <p class="empty">Nothing here. Deleted notes are kept in the project's <code>trash/</code> folder.</p>
+        <p class="empty"><InlineMd source={t("trash.empty")} /></p>
       {:else}
         <ul>
           {#each store.trash as n (n.file)}
             <li>
               <div class="info">
-                <div class="title" class:untitled={!n.title}><InlineMd source={n.title} fallback="Untitled" /></div>
+                <div class="title" class:untitled={!n.title}><InlineMd source={n.title} fallback={t("app.untitled")} /></div>
                 <div class="sub">
                   {#if n.tags.length}
                     {#each n.tags as tag (tag)}
                       <span class="tag-chip tag" style="--tag:{store.tagColor(tag)}">{tag}</span>
                     {/each}
                   {/if}
-                  <span title={n.deleted ? absolute(n.deleted) : ""}>deleted {n.deleted ? relative(n.deleted) : "—"}</span>
+                  <span title={n.deleted ? absolute(n.deleted) : ""}
+                    >{t("trash.deleted", { when: n.deleted ? relative(n.deleted) : t("app.dash") })}</span
+                  >
                   <span class="file">{n.file}</span>
                 </div>
               </div>
-              <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> Restore</button>
-              <button class="ghost sm danger" onclick={() => store.purge(n.file)} title="Delete permanently"
-                ><Trash size={13} /> Delete forever</button
+              <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> {t("trash.restore")}</button>
+              <button class="ghost sm danger" onclick={() => store.purge(n.file)} title={t("trash.purge.tip")}
+                ><Trash size={13} /> {t("trash.purge")}</button
               >
             </li>
           {/each}
@@ -72,11 +75,11 @@
     {#if store.trash.length}
       <footer>
         {#if confirmEmpty}
-          <span class="warn">This permanently deletes {store.trash.length} note{store.trash.length === 1 ? "" : "s"}.</span>
-          <button class="danger sm" onclick={() => store.purge(null).then(() => (confirmEmpty = false))}>Empty trash</button>
-          <button class="ghost sm" onclick={() => (confirmEmpty = false)}>Cancel</button>
+          <span class="warn">{plural("trash.confirm", store.trash.length)}</span>
+          <button class="danger sm" onclick={() => store.purge(null).then(() => (confirmEmpty = false))}>{t("trash.emptyNow")}</button>
+          <button class="ghost sm" onclick={() => (confirmEmpty = false)}>{t("trash.cancel")}</button>
         {:else}
-          <button class="ghost sm danger" onclick={() => (confirmEmpty = true)}>Empty trash…</button>
+          <button class="ghost sm danger" onclick={() => (confirmEmpty = true)}>{t("trash.emptyAsk")}</button>
         {/if}
       </footer>
     {/if}
@@ -139,7 +142,7 @@
     color: var(--color-dim);
     font-size: 13px;
   }
-  .empty code {
+  .empty :global(code) {
     font-family: var(--mono);
     font-size: 12px;
   }

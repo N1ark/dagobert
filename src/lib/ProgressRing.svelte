@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from "./i18n";
   /** Small radial progress for tracking issues. */
   let { done, total, size = 15 }: { done: number; total: number; size?: number } = $props();
 
@@ -15,7 +16,7 @@
   width={size}
   height={size}
   viewBox="0 0 {size} {size}"
-  aria-label="{done} of {total} done"
+  aria-label={t("ring.aria", { done, total })}
 >
   <circle class="track" cx={size / 2} cy={size / 2} {r} />
   <circle

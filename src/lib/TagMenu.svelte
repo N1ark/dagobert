@@ -3,6 +3,7 @@
   import TagColorPicker from "./TagColorPicker.svelte";
   import Tag from "phosphor-svelte/lib/Tag";
   import { tooltip } from "./tooltip";
+  import { t } from "./i18n";
 
   let open = $state(false);
   let picking = $state<string | null>(null);
@@ -23,8 +24,8 @@
     class:ghost={!store.tagFilter.length}
     class:filtering={store.tagFilter.length > 0}
     onclick={() => (open = !open)}
-    use:tooltip={"Filter by tag"}
-    aria-label="Filter by tag"
+    use:tooltip={t("tags.filter")}
+    aria-label={t("tags.filter")}
   >
     <Tag size={16} />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
   </button>
@@ -32,7 +33,7 @@
   {#if open}
     <div class="popover">
       {#if !store.allTags.length}
-        <div class="empty">No tags yet — add some from a note.</div>
+        <div class="empty">{t("tags.empty")}</div>
       {:else}
         <ul>
           {#each store.allTags as { tag, count } (tag)}
@@ -42,8 +43,8 @@
                 <button
                   class="dot"
                   style="--c:{store.tagColor(tag)}"
-                  title="Change colour"
-                  aria-label="colour of {tag}"
+                  title={t("tags.color")}
+                  aria-label={t("tags.colorOf", { tag })}
                   onclick={() => (picking = picking === tag ? null : tag)}
                 ></button>
                 {#if picking === tag}
@@ -58,7 +59,7 @@
           {/each}
         </ul>
         {#if store.tagFilter.length}
-          <button class="ghost clear" onclick={() => (store.tagFilter = [])}>Clear filter</button>
+          <button class="ghost clear" onclick={() => (store.tagFilter = [])}>{t("tags.clear")}</button>
         {/if}
       {/if}
     </div>

@@ -2,6 +2,7 @@
   import { store } from "./store.svelte";
   import CaretDown from "phosphor-svelte/lib/CaretDown";
   import MapTrifold from "phosphor-svelte/lib/MapTrifold";
+  import { t } from "./i18n";
 
   /**
    * Overview of the whole graph with the current viewport drawn on top.
@@ -99,7 +100,7 @@
 <!-- Swallow pointer events so the canvas underneath doesn't pan or create notes. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="minimap" class:collapsed onpointerdown={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}>
-  <button class="ghost toggle" onclick={toggle} title={collapsed ? "Show minimap" : "Hide minimap"} aria-label="toggle minimap">
+  <button class="ghost toggle" onclick={toggle} title={t(collapsed ? "minimap.show" : "minimap.hide")} aria-label={t("minimap.toggle")}>
     {#if collapsed}<MapTrifold size={14} />{:else}<CaretDown size={12} />{/if}
   </button>
   {#if !collapsed}

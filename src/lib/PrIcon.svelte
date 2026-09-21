@@ -3,6 +3,7 @@
   import type { IssueRef } from "./github";
   import { prCache, stateLabel } from "./prs.svelte";
   import { tooltip } from "./tooltip";
+  import { t } from "./i18n";
   import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
   import GitMerge from "phosphor-svelte/lib/GitMerge";
   import XCircle from "phosphor-svelte/lib/XCircle";
@@ -12,7 +13,7 @@
   let { item, key, size = 13, detail = false }: { item?: IssueRef | null; key?: string; size?: number; detail?: boolean } = $props();
 
   const ref = $derived(item !== undefined ? item : key ? prCache.details[key] : undefined);
-  const label = $derived(ref ? (detail ? `${stateLabel(ref)} · ${ref.title}` : stateLabel(ref)) : "");
+  const label = $derived(ref ? (detail ? t("prs.state.detail", { state: stateLabel(ref), title: ref.title }) : stateLabel(ref)) : "");
 </script>
 
 {#if ref}

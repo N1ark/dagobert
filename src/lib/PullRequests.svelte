@@ -5,6 +5,7 @@
   import PrIcon from "./PrIcon.svelte";
   import { relative, absolute } from "./time";
   import { tooltip } from "./tooltip";
+  import { t, plural } from "./i18n";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import InlineMd from "./InlineMd.svelte";
   import { inlineHtml } from "./inline";
@@ -66,30 +67,26 @@
 <aside class="prs">
   <header>
     <h3>
-      Pull requests
+      {t("prs.title")}
       {#if rows.length || hiddenCount}<span class="count">{rows.length}</span>{/if}
     </h3>
-    {#if pending}<span class="spin" use:tooltip={"Loading…"}><ArrowsClockwise size={13} /></span>{/if}
-    <button
-      class="ghost icon"
-      class:on={hideClosed}
-      onclick={toggleHide}
-      use:tooltip={hideClosed ? "Show closed and merged" : "Hide closed and merged"}><EyeSlash size={15} /></button
+    {#if pending}<span class="spin" use:tooltip={t("prs.loading")}><ArrowsClockwise size={13} /></span>{/if}
+    <button class="ghost icon" class:on={hideClosed} onclick={toggleHide} use:tooltip={t(hideClosed ? "prs.showClosed" : "prs.hideClosed")}
+      ><EyeSlash size={15} /></button
     >
-    <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={"Refresh"}><ArrowsClockwise size={15} /></button>
-    <button class="ghost icon" onclick={onclose} aria-label="close"><X size={15} /></button>
+    <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={t("prs.refresh")}><ArrowsClockwise size={15} /></button>
+    <button class="ghost icon" onclick={onclose} aria-label={t("prs.close")}><X size={15} /></button>
   </header>
   <div class="list">
     {#if noRepos}
-      <p class="empty">No repos configured. Add an alias under Tools → GitHub repos…, then write <code>alias#123</code> in a note.</p>
+      <p class="empty"><InlineMd source={t("prs.noRepos")} /></p>
     {:else if firstError}
       <p class="empty err">{firstError}</p>
     {:else if !refs.length}
-      <p class="empty">No <code>alias#123</code> references in your notes yet.</p>
+      <p class="empty"><InlineMd source={t("prs.noRefs")} /></p>
     {:else if !rows.length && !pending}
       <p class="empty">
-        {#if hiddenCount}All {hiddenCount} linked PR{hiddenCount === 1 ? " is" : "s are"} closed or merged.{:else}No pull requests among the
-          linked references.{/if}
+        {#if hiddenCount}{plural("prs.allClosed", hiddenCount)}{:else}{t("prs.none")}{/if}
       </p>
     {/if}
     {#each groups as { repo, items } (repo)}
@@ -114,7 +111,7 @@
             <div class="notes">
               {#each ref.notes as n (n.id)}
                 <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
-                  <InlineMd source={n.title} fallback="Untitled" />
+                  <InlineMd source={n.title} fallback={t("app.untitled")} />
                 </button>
               {/each}
             </div>
@@ -123,7 +120,7 @@
       {/each}
     {/each}
     {#if hiddenCount && rows.length}
-      <p class="foot">{hiddenCount} closed or merged hidden</p>
+      <p class="foot">{t("prs.hidden", { n: hiddenCount })}</p>
     {/if}
   </div>
 </aside>
@@ -192,7 +189,7 @@
   .empty.err {
     color: var(--red);
   }
-  .empty code {
+  .empty :global(code) {
     font-family: var(--mono);
     font-size: 11px;
   }

@@ -2,6 +2,7 @@ import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@taur
 import { sfSymbolImage } from "./sfsymbol";
 import { inTauri } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
+import { t, type Key } from "./i18n";
 
 /** "⇧⌘Z" → "CmdOrCtrl+Shift+Z" (Tauri accelerator syntax). */
 export function accelerator(hint?: string): string | undefined {
@@ -17,7 +18,15 @@ export function accelerator(hint?: string): string | undefined {
   return parts.join("+");
 }
 
-const ORDER = ["File", "Edit", "Note", "View", "Tools"];
+/** `Action.menu` values, in menu-bar order, and their displayed titles. */
+const SECTIONS = {
+  File: "menu.file",
+  Edit: "menu.edit",
+  Note: "menu.note",
+  View: "menu.view",
+  Tools: "menu.tools",
+} as const satisfies Record<string, Key>;
+const ORDER = Object.keys(SECTIONS) as (keyof typeof SECTIONS)[];
 
 /** Cheap fingerprint of what the menu would show, to skip needless rebuilds. */
 export function menuSignature(actions: Action[]): string {
@@ -57,7 +66,7 @@ export async function setAppMenu(actions: Action[]) {
     );
 
   const app = await Submenu.new({
-    text: "Dagobert",
+    text: t("app.name"),
     items: [
       await PredefinedMenuItem.new({ item: { About: null } }),
       await PredefinedMenuItem.new({ item: "Separator" }),
@@ -88,11 +97,11 @@ export async function setAppMenu(actions: Action[]) {
       entries.push(await PredefinedMenuItem.new({ item: "Separator" }), await PredefinedMenuItem.new({ item: "CloseWindow" }));
     }
     if (!entries.length) continue;
-    submenus.push(await Submenu.new({ text: name, items: entries }));
+    submenus.push(await Submenu.new({ text: t(SECTIONS[name]), items: entries }));
   }
   submenus.push(
     await Submenu.new({
-      text: "Window",
+      text: t("menu.window"),
       items: [
         await PredefinedMenuItem.new({ item: "Minimize" }),
         await PredefinedMenuItem.new({ item: "Maximize" }),

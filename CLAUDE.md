@@ -240,6 +240,13 @@ Builds are unsigned.
   `continueList`, `indent`, `command`) used by the panel's body `onkeydown`.
   Test them with a node script (`node --experimental-strip-types` works) rather
   than in the browser.
+- `src/lib/i18n.ts` + `src/lib/locales/en.ts` — every user-facing string. `t(key, vars)`
+  fills `{name}` placeholders; `plural(key, n)` picks `key.one` / `key.other` via
+  `Intl.PluralRules`. Keys are typed (`Key`), so a typo fails `npm run check`; the
+  undo-history labels passed to `touch` are `HistoryLabel` = `history.*` keys. Strings
+  with inline markdown (help paragraphs, marked "markdown" in the catalogue) render
+  through `InlineMd`. `tests/i18n.test.mjs` fails on any catalogue key nothing uses.
+  Rust error messages (git/store) reach toasts untranslated. No locale switching yet.
 - `src/lib/history.ts` — pure undo stack (`History`, `NoteDiff`, `sameNote`). The
   store integrates it: every `touch`/`create`/`remove`/`restoreNote` calls
   `#record`, which batches all diffs recorded in the same microtask into one entry

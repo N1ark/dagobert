@@ -4,6 +4,7 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import Lightning from "phosphor-svelte/lib/Lightning";
   import { tooltip } from "./tooltip";
+  import { t } from "./i18n";
 
   /** Swatch popover. `value` is the current colour; `onpick(null)` means "automatic". */
   let {
@@ -11,7 +12,7 @@
     onpick,
     onclose,
     allowAuto = false,
-    label = "colour",
+    label = t("color.label"),
   }: {
     value: string | null;
     onpick: (color: string | null) => void;
@@ -73,18 +74,24 @@
       class="swatch"
       class:active={color === value}
       style="--c:{color}"
-      use:tooltip={"Right-click to remove"}
+      use:tooltip={t("color.remove")}
       aria-label={color}
       onclick={() => pick(color)}
       oncontextmenu={(e) => remove(e, color)}
     ></button>
   {/each}
   {#if allowAuto}
-    <button class="swatch auto" class:active={value === null} use:tooltip={"Automatic"} aria-label="automatic" onclick={() => pick(null)}>
+    <button
+      class="swatch auto"
+      class:active={value === null}
+      use:tooltip={t("color.auto")}
+      aria-label={t("color.auto.aria")}
+      onclick={() => pick(null)}
+    >
       <Lightning size={12} weight="fill" />
     </button>
   {/if}
-  <span class="add-wrap" use:tooltip={"Custom colour…"}>
+  <span class="add-wrap" use:tooltip={t("color.custom")}>
     <span class="swatch add" aria-hidden="true">
       <Plus size={12} weight="bold" />
     </span>
@@ -94,7 +101,7 @@
       value={value ?? TAG_PALETTE[0]}
       oninput={preview}
       onchange={commit}
-      aria-label="add a custom colour"
+      aria-label={t("color.custom.aria")}
     />
   </span>
 </div>

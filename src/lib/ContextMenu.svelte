@@ -7,6 +7,7 @@
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Trash from "phosphor-svelte/lib/Trash";
   import FolderOpen from "phosphor-svelte/lib/FolderOpen";
+  import { t } from "./i18n";
 
   export type MenuTarget =
     | { kind: "node"; id: string }
@@ -97,26 +98,26 @@
   oncontextmenu={(e) => e.preventDefault()}
 >
   {#if note && workflow}
-    <button class="item" onclick={() => run(() => store.select(note.id))}>Open</button>
-    <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> Open in new window</button>
-    <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> Reveal in Finder</button>
-    <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> Copy <kbd>⌘C</kbd></button>
+    <button class="item" onclick={() => run(() => store.select(note.id))}>{t("ctx.open")}</button>
+    <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> {t("ctx.openWindow")}</button>
+    <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> {t("ctx.reveal")}</button>
+    <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> {t("ctx.copy")} <kbd>⌘C</kbd></button>
     <button
       class="item"
       onclick={() =>
         run(() => {
           const d = store.duplicate(note.id);
           if (d) store.select(d.id);
-        })}>Duplicate <kbd>⌘D</kbd></button
+        })}>{t("ctx.duplicate")} <kbd>⌘D</kbd></button
     >
     {#if note.tracking}
-      <div class="section">Tracking issue — {store.progress(note).done}/{store.progress(note).total} done</div>
+      <div class="section">{t("ctx.tracking", { done: store.progress(note).done, total: store.progress(note).total })}</div>
     {:else if note.workflow === null}
       <button class="item" onclick={() => run(() => store.advance(note.id))}
-        >{store.isDone(note) ? "Mark as not done" : "Mark as done"}</button
+        >{t(store.isDone(note) ? "node.markNotDone" : "node.markDone")}</button
       >
     {:else}
-      <div class="section">Status</div>
+      <div class="section">{t("ctx.status")}</div>
       {#each workflow.stages as stage (stage.name)}
         <button class="item check" class:on={note.status === stage.name} onclick={() => run(() => store.setStatus(note.id, stage.name))}>
           <span class="mark"
@@ -127,7 +128,7 @@
       {/each}
     {/if}
 
-    <div class="section">Tags</div>
+    <div class="section">{t("ctx.tags")}</div>
     <div class="tags">
       {#each store.allTags as { tag } (tag)}
         <button class="item check" class:on={note.tags.includes(tag)} onclick={() => store.toggleTag(note.id, tag)}>
@@ -145,23 +146,23 @@
         addNewTag();
       }}
     >
-      <input placeholder="new tag…" bind:value={newTag} onblur={addNewTag} />
+      <input placeholder={t("ctx.newTag")} bind:value={newTag} onblur={addNewTag} />
     </form>
 
     {#if note.width != null}
-      <button class="item" onclick={() => run(() => store.setWidth(note.id, null))}>Reset width</button>
+      <button class="item" onclick={() => run(() => store.setWidth(note.id, null))}>{t("ctx.resetWidth")}</button>
     {/if}
     <div class="sep"></div>
     {#if confirmDelete}
-      <button class="item danger" onclick={() => run(() => store.remove(note.id))}>Really delete (goes to trash)</button>
+      <button class="item danger" onclick={() => run(() => store.remove(note.id))}>{t("ctx.reallyDelete")}</button>
     {:else}
-      <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> Delete…</button>
+      <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> {t("ctx.delete")}</button>
     {/if}
   {:else if target.kind === "group"}
-    <div class="section">{group.length} notes selected</div>
-    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, true)))}>Mark all as done</button>
-    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, false)))}>Mark all as not done</button>
-    <div class="section">Tags</div>
+    <div class="section">{t("ctx.group.selected", { n: group.length })}</div>
+    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, true)))}>{t("ctx.group.allDone")}</button>
+    <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, false)))}>{t("ctx.group.allNotDone")}</button>
+    <div class="section">{t("ctx.tags")}</div>
     <div class="tags">
       {#each store.allTags as { tag } (tag)}
         {@const has = groupHas(tag)}
@@ -180,24 +181,29 @@
         groupAddTag();
       }}
     >
-      <input placeholder="add tag to all…" bind:value={newTag} onblur={groupAddTag} />
+      <input placeholder={t("ctx.group.addTag")} bind:value={newTag} onblur={groupAddTag} />
     </form>
     <div class="sep"></div>
     {#if confirmDelete}
       <button class="item danger" onclick={() => run(() => group.forEach((n) => store.remove(n.id)))}
-        >Really delete {group.length} (goes to trash)</button
+        >{t("ctx.group.reallyDelete", { n: group.length })}</button
       >
     {:else}
-      <button class="item danger" onclick={() => (confirmDelete = true)}><Trash size={14} /> Delete {group.length} notes…</button>
+      <button class="item danger" onclick={() => (confirmDelete = true)}
+        ><Trash size={14} /> {t("ctx.group.delete", { n: group.length })}</button
+      >
     {/if}
   {:else if target.kind === "edge"}
-    {@const t = target}
-    <div class="section">{store.byId(t.from)?.title || "Untitled"} → {store.byId(t.to)?.title || "Untitled"}</div>
-    <button class="item danger" onclick={() => run(() => store.removeDependency(t.to, t.from))}>Remove link</button>
+    {@const edge = target}
+    <div class="section">
+      {t("ctx.edge", { from: store.byId(edge.from)?.title || t("app.untitled"), to: store.byId(edge.to)?.title || t("app.untitled") })}
+    </div>
+    <button class="item danger" onclick={() => run(() => store.removeDependency(edge.to, edge.from))}>{t("ctx.removeLink")}</button>
   {:else if target.kind === "background"}
-    {@const t = target}
-    <button class="item" onclick={() => run(() => oncreate(t.wx, t.wy))}>New note here</button>
-    <button class="item" disabled={!store.clipboard} onclick={() => run(() => onpaste(t.wx, t.wy))}>Paste <kbd>⌘V</kbd></button>
+    {@const bg = target}
+    <button class="item" onclick={() => run(() => oncreate(bg.wx, bg.wy))}>{t("ctx.newHere")}</button>
+    <button class="item" disabled={!store.clipboard} onclick={() => run(() => onpaste(bg.wx, bg.wy))}>{t("ctx.paste")} <kbd>⌘V</kbd></button
+    >
   {/if}
 </div>
 

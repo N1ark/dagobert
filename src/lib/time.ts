@@ -1,17 +1,19 @@
+import { t } from "./i18n.ts";
+
 export function relative(iso: string): string {
-  const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
-  const s = Math.round((Date.now() - t) / 1000);
-  if (s < 45) return "just now";
+  const ms = new Date(iso).getTime();
+  if (Number.isNaN(ms)) return t("app.dash");
+  const s = Math.round((Date.now() - ms) / 1000);
+  if (s < 45) return t("time.justNow");
   const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return t("time.minutes", { n: m });
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("time.hours", { n: h });
   const d = Math.round(h / 24);
-  if (d < 30) return `${d}d ago`;
+  if (d < 30) return t("time.days", { n: d });
   const mo = Math.round(d / 30);
-  if (mo < 12) return `${mo}mo ago`;
-  return `${Math.round(mo / 12)}y ago`;
+  if (mo < 12) return t("time.months", { n: mo });
+  return t("time.years", { n: Math.round(mo / 12) });
 }
 
 export function absolute(iso: string): string {

@@ -7,6 +7,7 @@
   import Warning from "phosphor-svelte/lib/Warning";
   import ProgressRing from "./ProgressRing.svelte";
   import { MARKER_RE } from "./blocks";
+  import { t } from "./i18n";
 
   let {
     note,
@@ -64,7 +65,7 @@
 >
   <div class="head">
     {#if progress}
-      <span class="ring-wrap" title="{progress.done} of {progress.total} dependencies done"
+      <span class="ring-wrap" title={t("node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing done={progress.done} total={progress.total} /></span
       >
     {:else if !custom}
@@ -73,17 +74,17 @@
         class:on={done}
         onpointerdown={(e) => e.stopPropagation()}
         onclick={advance}
-        title={done ? "Mark as not done" : "Mark as done"}
-        aria-label="toggle done"
+        title={t(done ? "node.markNotDone" : "node.markDone")}
+        aria-label={t("node.toggleDone")}
       >
         {#if done}
           <Check size={11} weight="bold" />
         {/if}
       </button>
     {/if}
-    <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback="Untitled" /></div>
+    <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback={t("app.untitled")} /></div>
     {#if conflict}
-      <span class="conflict" title="The body still has merge conflict markers"><Warning size={14} weight="fill" /></span>
+      <span class="conflict" title={t("node.conflict")}><Warning size={14} weight="fill" /></span>
     {/if}
   </div>
   {#if custom || progress || note.tags.length}
@@ -99,7 +100,7 @@
           style="--c:{stageColor(workflow, note.status)}"
           onpointerdown={(e) => e.stopPropagation()}
           onclick={advance}
-          title="{workflow.name} — click to advance, shift-click to go back"
+          title={t("node.status.tip", { workflow: workflow.name })}
         >
           <span class="pip"></span>{note.status}
         </button>
@@ -112,8 +113,8 @@
   {#if preview}
     <div class="preview"><InlineMd source={preview} /></div>
   {/if}
-  <div class="port" data-port title="Drag to another note to make it depend on this one"></div>
-  <div class="grip" data-resize title="Drag to resize"></div>
+  <div class="port" data-port title={t("node.port")}></div>
+  <div class="grip" data-resize title={t("node.resize")}></div>
 </div>
 
 <style>

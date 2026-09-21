@@ -2,6 +2,7 @@
   import { searchIssues, recentIssues, type IssueRef } from "./github";
   import PrIcon from "./PrIcon.svelte";
   import CircleNotch from "phosphor-svelte/lib/CircleNotch";
+  import { t } from "./i18n";
 
   let {
     alias,
@@ -96,7 +97,7 @@
   {#if error}
     <div class="msg err">{error}</div>
   {:else if !results.length && !loading}
-    <div class="msg">No matches</div>
+    <div class="msg">{t("editor.issue.noMatches")}</div>
   {/if}
   {#each results as r, i (r.number)}
     <button

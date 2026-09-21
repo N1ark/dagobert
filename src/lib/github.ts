@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { backend } from "./backend";
 
 /** An issue or pull request as shown in the picker. */
@@ -42,15 +43,14 @@ export async function token(): Promise<string | null> {
 
 async function api<T>(path: string): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
-  const t = await token();
-  if (t) headers.Authorization = `Bearer ${t}`;
+  const tok = await token();
+  if (tok) headers.Authorization = `Bearer ${tok}`;
   const res = await fetch(`https://api.github.com${path}`, { headers });
   if (!res.ok) {
-    if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0")
-      throw new Error("GitHub rate limit hit — add a token in settings.");
-    if (res.status === 401) throw new Error("GitHub token rejected.");
-    if (res.status === 404) throw new Error("Repo not found (private? add a token).");
-    throw new Error(`GitHub ${res.status}`);
+    if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") throw new Error(t("github.rateLimit"));
+    if (res.status === 401) throw new Error(t("github.tokenRejected"));
+    if (res.status === 404) throw new Error(t("github.notFound"));
+    throw new Error(t("github.status", { status: res.status }));
   }
   return res.json() as Promise<T>;
 }

@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { store } from "./store.svelte";
 import type { Note } from "./types";
 
@@ -74,7 +75,7 @@ export function renderWikilinks(md: string): string {
     const label = escapeHtml(title.trim());
     return n
       ? `<a class="wikilink" href="#note-${n.id}">${label}</a>`
-      : `<span class="wikilink missing" title="No note with this title">${label}</span>`;
+      : `<span class="wikilink missing" title="${escapeHtml(t("editor.wikilink.missing"))}">${label}</span>`;
   });
   return renderRepoRefs(out);
 }
