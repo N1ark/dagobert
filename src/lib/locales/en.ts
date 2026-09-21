@@ -68,7 +68,7 @@ export default {
   "toolbar.git.notSynced": "not synced yet",
   "toolbar.git.local": "Git tracking (local only, no remote) — {when}",
   "toolbar.git.position": " · {ahead}↑ {behind}↓",
-  "toolbar.git.remote": "Git tracking on {branch}{position} — {when} · click to commit now ({key})",
+  "toolbar.git.remote": "Git tracking on {branch}{position} — {when} · commit ({key})",
   "toolbar.trash": "Deleted notes",
   "toolbar.prs.tip": "Pull requests linked from notes ({key})",
   "toolbar.prs": "Pull requests",

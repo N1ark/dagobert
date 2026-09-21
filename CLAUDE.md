@@ -285,7 +285,10 @@ Builds are unsigned.
   fetch effect, started once in `App.svelte` so the cache fills in the background
   whether or not the pane is open; batched and, in the first seconds after launch,
   deferred to an idle callback) and `refreshPRs()`. `PrIcon.svelte` is the shared state
-  icon (PR open/draft/closed/merged, issue open/closed): pass `item` or a cache `key`.
+  icon (PR open/draft/closed/merged, issue open/closed): pass `item` or a cache `key`. A
+  `key` not in `details` shows a grey question mark (unless `prCache.stale` says it's a
+  plain issue); `refreshPRs()` moves `details` into `stale` so sidebar rows keep their
+  place and old title/author while the state reloads.
   Used by the sidebar, `IssuePopup` and inline: `renderRepoRefs` puts `data-ref` on
   each `.ghref` anchor and the `prIcons` action (`prIcons.svelte.ts`, on `Markdown` and
   `InlineMd`) `mount()`s a `PrIcon` into every one after render. Rows are grouped per repo with a

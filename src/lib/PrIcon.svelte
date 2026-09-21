@@ -1,5 +1,6 @@
 <script lang="ts">
-  // State icon for a PR or issue; pass `item`, or a `prCache` `key` to read it live.
+  // State icon for a PR or issue; pass `item`, or a `prCache` `key` to read it live
+  // (a grey question mark while the key is still unknown, so nothing shifts on refresh).
   import type { IssueRef } from "./github";
   import { prCache, stateLabel } from "./prs.svelte";
   import { tooltip } from "./tooltip";
@@ -9,10 +10,13 @@
   import XCircle from "phosphor-svelte/lib/XCircle";
   import Circle from "phosphor-svelte/lib/Circle";
   import CheckCircle from "phosphor-svelte/lib/CheckCircle";
+  import Question from "phosphor-svelte/lib/Question";
 
   let { item, key, size = 13, detail = false }: { item?: IssueRef | null; key?: string; size?: number; detail?: boolean } = $props();
 
   const ref = $derived(item !== undefined ? item : key ? prCache.details[key] : undefined);
+  /** Not fetched yet (or being refreshed) and not known to be a plain issue. */
+  const unknown = $derived(item === undefined && !!key && !(key in prCache.details) && prCache.stale[key] !== null);
   const label = $derived(ref ? (detail ? t("prs.state.detail", { state: stateLabel(ref), title: ref.title }) : stateLabel(ref)) : "");
 </script>
 
@@ -24,6 +28,8 @@
         {size}
       />{/if}
   </span>
+{:else if unknown}
+  <span class="pr-icon unknown" use:tooltip={t("prs.loading")}><Question {size} /></span>
 {/if}
 
 <style>
@@ -32,6 +38,7 @@
     display: inline-flex;
     color: var(--green);
   }
+  .pr-icon.unknown,
   .pr-icon.draft {
     color: var(--color-dim);
   }

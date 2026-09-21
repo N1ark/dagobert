@@ -13,6 +13,8 @@ export interface Linked extends RepoRef {
 export const prCache = $state({
   details: {} as Record<string, IssueRef | null>,
   errors: {} as Record<string, string>,
+  /** What `details` held before the last refresh, so rows keep their place while it reloads. */
+  stale: {} as Record<string, IssueRef | null>,
   /** Whether a fetch is in flight. */
   pending: false,
 });
@@ -85,6 +87,7 @@ export function syncPRs() {
 
 export function refreshPRs() {
   invalidate();
+  prCache.stale = { ...prCache.stale, ...prCache.details };
   prCache.details = {};
   prCache.errors = {};
 }

@@ -25,6 +25,7 @@
 
   const refs = $derived(linkedRefs());
   const details = $derived(prCache.details);
+  const stale = $derived(prCache.stale);
   const errors = $derived(prCache.errors);
   const pending = $derived(prCache.pending);
 
@@ -35,7 +36,7 @@
   const rows = $derived.by((): Row[] => {
     const out: Row[] = [];
     for (const ref of refs) {
-      const pr = details[ref.key];
+      const pr = details[ref.key] ?? (ref.key in details ? null : stale[ref.key]);
       if (!pr) continue;
       if (hideClosed && pr.state !== "open") continue;
       out.push({ ref, pr });
@@ -93,7 +94,7 @@
       <div class="divider"><span>{repo}</span></div>
       {#each items as { ref, pr } (ref.key)}
         <div class="row">
-          <span class="state"><PrIcon item={pr} /></span>
+          <span class="state"><PrIcon key={ref.key} /></span>
           <div class="body">
             <button
               class="ghost title"
