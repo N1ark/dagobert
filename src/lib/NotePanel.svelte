@@ -10,6 +10,7 @@
   import InlineMd from "./InlineMd.svelte";
   import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
+  import { headings } from "./toc";
   import X from "phosphor-svelte/lib/X";
   import Plus from "phosphor-svelte/lib/Plus";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
@@ -27,6 +28,8 @@
   let titleBefore = note.title;
 
   const mentionedIn = $derived(mentions(note));
+  const toc = $derived(standalone ? headings(note.body) : []);
+  let panelEl = $state<HTMLElement | null>(null);
 
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
@@ -96,6 +99,10 @@
     }
   }
 
+  function jumpTo(block: number) {
+    panelEl?.querySelector(`.live [data-block="${block}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
   function createLinkedNote(title: string) {
     store.create(note.x + (note.width ?? 220) + 60, note.y, { title });
   }
@@ -105,7 +112,7 @@
   <WorkflowEditor onclose={() => (editingWorkflows = false)} />
 {/if}
 
-<aside class="panel">
+<aside class="panel" class:standalone bind:this={panelEl}>
   <header>
     {#if progress}
       <span class="ring" title="{progress.done} of {progress.total} dependencies done"
@@ -140,113 +147,128 @@
     {/if}
   </header>
 
-  <div class="workflow-row">
-    {#if custom}
-      <span class="status-wrap" style="--c:{stageColor(workflow, note.status)}">
-        <span class="pip"></span>
-        <select class="status" value={note.status} onchange={(e) => store.setStatus(note.id, e.currentTarget.value)}>
-          {#each workflow.stages as stage (stage.name)}
-            <option value={stage.name}>{stage.name}</option>
+  <div class="top">
+    <div class="info">
+      <div class="workflow-row">
+        {#if custom}
+          <span class="status-wrap" style="--c:{stageColor(workflow, note.status)}">
+            <span class="pip"></span>
+            <select class="status" value={note.status} onchange={(e) => store.setStatus(note.id, e.currentTarget.value)}>
+              {#each workflow.stages as stage (stage.name)}
+                <option value={stage.name}>{stage.name}</option>
+              {/each}
+            </select>
+          </span>
+        {/if}
+        {#if progress}
+          <span class="track-info" title="dependencies done">{progress.done}/{progress.total}</span>
+        {/if}
+        <select
+          class="wf"
+          value={note.tracking ? "tracking" : (note.workflow ?? "")}
+          onchange={(e) => {
+            const v = e.currentTarget.value;
+            if (v === "tracking") store.setTracking(note.id, true);
+            else {
+              store.setTracking(note.id, false);
+              store.setWorkflow(note.id, v || null);
+            }
+          }}
+          title="Kind"
+        >
+          <option value="">Todo</option>
+          <option value="tracking">Tracking issue</option>
+          {#each store.workflows as wf (wf.id)}
+            <option value={wf.id}>{wf.name}</option>
           {/each}
         </select>
-      </span>
-    {/if}
-    {#if progress}
-      <span class="track-info" title="dependencies done">{progress.done}/{progress.total}</span>
-    {/if}
-    <select
-      class="wf"
-      value={note.tracking ? "tracking" : (note.workflow ?? "")}
-      onchange={(e) => {
-        const v = e.currentTarget.value;
-        if (v === "tracking") store.setTracking(note.id, true);
-        else {
-          store.setTracking(note.id, false);
-          store.setWorkflow(note.id, v || null);
-        }
-      }}
-      title="Kind"
-    >
-      <option value="">Todo</option>
-      <option value="tracking">Tracking issue</option>
-      {#each store.workflows as wf (wf.id)}
-        <option value={wf.id}>{wf.name}</option>
-      {/each}
-    </select>
-    <button class="ghost edit-wf" onclick={() => (editingWorkflows = true)} title="Manage workflows"><GearSix size={15} /></button>
-  </div>
-
-  <div class="meta">
-    <span title={absolute(note.created)}>created {relative(note.created)}</span>
-    <span title={absolute(note.modified)}>edited {relative(note.modified)}</span>
-    <span title={absolute(note.opened)}>opened {relative(note.opened)}</span>
-  </div>
-
-  <div class="tags">
-    {#each note.tags as tag (tag)}
-      <span class="tag-wrap">
-        <span class="tag tag-chip" style="--tag:{store.tagColor(tag)}">
-          <button class="name" onclick={() => (picking = picking === tag ? null : tag)} title="Change colour">{tag}</button>
-          <button class="x" onclick={() => removeTag(tag)} aria-label="remove tag"><X size={11} weight="bold" /></button>
-        </span>
-        {#if picking === tag}
-          <TagColorPicker {tag} onclose={() => (picking = null)} />
-        {/if}
-      </span>
-    {/each}
-    <input
-      class="tag-input"
-      placeholder={note.tags.length ? "add tag" : "add tags…"}
-      bind:value={tagInput}
-      onkeydown={onTagKey}
-      onblur={addTag}
-    />
-  </div>
-
-  <section class="links">
-    {#each [{ label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: "Blocks", items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
-      <div class="group">
-        <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
-        <div class="chips">
-          {#each g.items as d (d.id)}
-            <span class="chip" class:done={store.isDone(d)}>
-              <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
-              <button class="ghost x" onclick={() => g.remove(d.id)} aria-label="remove"><X size={11} /></button>
-            </span>
-          {/each}
-          <button
-            class="ghost add"
-            class:open={adding === g.key}
-            onclick={() => (adding = adding === g.key ? null : g.key)}
-            title={g.placeholder}><Plus size={11} /></button
-          >
-        </div>
-        {#if adding === g.key}
-          <div class="picker">
-            <LinkPicker
-              exclude={g.exclude}
-              filter={g.filter}
-              placeholder={g.placeholder}
-              autofocus
-              onpick={(id) => {
-                g.add(id);
-                adding = null;
-              }}
-            />
-          </div>
-        {/if}
+        <button class="ghost edit-wf" onclick={() => (editingWorkflows = true)} title="Manage workflows"><GearSix size={15} /></button>
       </div>
-    {/each}
-  </section>
 
-  {#if mentionedIn.length}
-    <div class="mentioned">
-      <span class="label">Mentioned in</span>
-      {#each mentionedIn as m (m.id)}
-        <button class="ghost ref" onclick={() => onjump(m.id)}><InlineMd source={m.title} fallback="Untitled" /></button>
-      {/each}
+      <div class="meta">
+        <span title={absolute(note.created)}>created {relative(note.created)}</span>
+        <span title={absolute(note.modified)}>edited {relative(note.modified)}</span>
+        <span title={absolute(note.opened)}>opened {relative(note.opened)}</span>
+      </div>
+
+      <div class="tags">
+        {#each note.tags as tag (tag)}
+          <span class="tag-wrap">
+            <span class="tag tag-chip" style="--tag:{store.tagColor(tag)}">
+              <button class="name" onclick={() => (picking = picking === tag ? null : tag)} title="Change colour">{tag}</button>
+              <button class="x" onclick={() => removeTag(tag)} aria-label="remove tag"><X size={11} weight="bold" /></button>
+            </span>
+            {#if picking === tag}
+              <TagColorPicker {tag} onclose={() => (picking = null)} />
+            {/if}
+          </span>
+        {/each}
+        <input
+          class="tag-input"
+          placeholder={note.tags.length ? "add tag" : "add tags…"}
+          bind:value={tagInput}
+          onkeydown={onTagKey}
+          onblur={addTag}
+        />
+      </div>
+
+      <section class="links">
+        {#each [{ label: note.tracking ? "Tracks" : "Depends on", items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: note.tracking ? "track a note…" : "add a dependency…", add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: "Blocks", items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: "add a dependent…", add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
+          <div class="group">
+            <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
+            <div class="chips">
+              {#each g.items as d (d.id)}
+                <span class="chip" class:done={store.isDone(d)}>
+                  <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback="Untitled" /></button>
+                  <button class="ghost x" onclick={() => g.remove(d.id)} aria-label="remove"><X size={11} /></button>
+                </span>
+              {/each}
+              <button
+                class="ghost add"
+                class:open={adding === g.key}
+                onclick={() => (adding = adding === g.key ? null : g.key)}
+                title={g.placeholder}><Plus size={11} /></button
+              >
+            </div>
+            {#if adding === g.key}
+              <div class="picker">
+                <LinkPicker
+                  exclude={g.exclude}
+                  filter={g.filter}
+                  placeholder={g.placeholder}
+                  autofocus
+                  onpick={(id) => {
+                    g.add(id);
+                    adding = null;
+                  }}
+                />
+              </div>
+            {/if}
+          </div>
+        {/each}
+      </section>
+
+      {#if mentionedIn.length}
+        <div class="mentioned">
+          <span class="label">Mentioned in</span>
+          {#each mentionedIn as m (m.id)}
+            <button class="ghost ref" onclick={() => onjump(m.id)}><InlineMd source={m.title} fallback="Untitled" /></button>
+          {/each}
+        </div>
+      {/if}
     </div>
-  {/if}
+    {#if standalone}
+      <nav class="toc" aria-label="Table of contents">
+        {#each toc as h, i (i)}
+          <button class="ghost entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => jumpTo(h.block)}
+            ><InlineMd source={h.text} /></button
+          >
+        {:else}
+          <span class="empty">No headings</span>
+        {/each}
+      </nav>
+    {/if}
+  </div>
 
   <div class="body">
     <LiveEditor {note} oncreatelink={createLinkedNote} />
@@ -488,6 +510,56 @@
   .picker {
     width: 100%;
     margin-top: 2px;
+  }
+  .top {
+    display: flex;
+    flex-direction: column;
+  }
+  .standalone .top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--border);
+  }
+  .standalone .info {
+    min-width: 0;
+    border-right: 1px solid var(--border);
+  }
+  .standalone .links:last-child,
+  .standalone .mentioned:last-child {
+    border-bottom: none;
+  }
+  .toc {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+    padding: 4px 16px 8px;
+    max-height: 40vh;
+    overflow-y: auto;
+    min-width: 0;
+  }
+  .entry {
+    max-width: 100%;
+    padding: 1px 6px;
+    margin-left: calc((var(--lvl) - 1) * 12px);
+    font-size: 12px;
+    color: var(--color);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    border: none;
+  }
+  .entry.h1 {
+    font-weight: 600;
+  }
+  .entry:hover {
+    color: var(--accent2);
+  }
+  .toc .empty {
+    font-size: 12px;
+    font-style: italic;
+    color: #555;
+    padding: 2px 6px;
   }
   .body {
     flex: 1;

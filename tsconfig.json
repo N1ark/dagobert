@@ -9,6 +9,8 @@
     "allowJs": true,
     "checkJs": true,
     "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]

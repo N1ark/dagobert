@@ -353,7 +353,7 @@
 <div class="live" bind:this={container} onclick={onContainerClick}>
   {#each blocks as block, i (i)}
     {#if active === i}
-      <div class="block editing" class:code={activeIsCode}>
+      <div class="block editing" class:code={activeIsCode} data-block={i}>
         <textarea
           bind:this={textarea}
           value={draft}
@@ -369,7 +369,7 @@
           rows="1"></textarea>
       </div>
     {:else}
-      <div class="block" onclick={(e) => onBlockClick(e, i)}>
+      <div class="block" data-block={i} onclick={(e) => onBlockClick(e, i)}>
         <Markdown source={block} />
       </div>
     {/if}

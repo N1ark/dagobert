@@ -11,6 +11,8 @@ All notable changes to Dagobert are documented here. The format follows
 - Syntax highlighting in fenced code blocks (` ```lang `), for the common languages
   (JS/TS, Python, Rust, Go, C/C++, Java, Kotlin, Swift, Ruby, shell, SQL, JSON, YAML,
   TOML, HTML/Svelte, CSS, Markdown, diff and a few more).
+- Standalone note windows split the area under the title in two: the note's status,
+  dates, tags and links on the left, and a clickable table of contents on the right.
 
 ### Changed
 
