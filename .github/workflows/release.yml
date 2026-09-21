@@ -36,9 +36,20 @@ jobs:
           echo "version=$v" >> "$GITHUB_OUTPUT"
           if gh release view "v$v" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release v$v already exists"; echo "publish=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "publishing v$v"; echo "publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          echo "publishing v$v"; echo "publish=true" >> "$GITHUB_OUTPUT"
+          # Everything under "## [v]" up to the next "## [" heading.
+          awk -v v="$v" '
+            $0 ~ "^## \\[" v "\\]" { on=1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Release v$v" > notes.md
+          # Created here, without a target commit: GITHUB_TOKEN may not create a
+          # release targeting a commit behind a workflow change (needs workflows: write).
+          gh release create "v$v" --repo "$GITHUB_REPOSITORY" \
+            --title "Dagobert v$v" --notes-file notes.md
 
   build:
     name: Build & publish (${{ matrix.name }})
@@ -70,25 +81,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Release notes from CHANGELOG
-        id: notes
-        run: |
-          v="${{ needs.version.outputs.version }}"
-          # Everything under "## [v]" up to the next "## [" heading.
-          awk -v v="$v" '
-            $0 ~ "^## \\[" v "\\]" { on=1; next }
-            on && /^## \[/ { exit }
-            on { print }
-          ' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "Release v$v" > notes.md
-
+      # Uploads the bundle to the release created by the version job.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v${{ needs.version.outputs.version }}
           releaseName: Dagobert v${{ needs.version.outputs.version }}
-          releaseBodyFile: notes.md
-          releaseDraft: false
-          prerelease: false
           args: --target ${{ matrix.target }} --bundles dmg
