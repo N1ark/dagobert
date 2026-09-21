@@ -9,7 +9,7 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import type { Local, Meta, MetaPatch, Note, Project } from "./types";
+import type { GitStatus, Local, Meta, MetaPatch, Note, Project, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -36,7 +36,18 @@ const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local 
     tracking_template: "",
     repos: {},
     palette: [],
+    git: { enabled: false, interval_min: 5 },
   },
+};
+
+const mockGitStatus: GitStatus = {
+  branch: "main",
+  dirty: false,
+  ahead: 0,
+  behind: 0,
+  has_remote: false,
+  has_upstream: false,
+  last_commit_at: null,
 };
 
 export const backend = {
@@ -153,6 +164,57 @@ export const backend = {
     return () => {
       cancelled = true;
       un?.();
+    };
+  },
+
+  // ---- git tracking ----------------------------------------------------------
+
+  async gitStatus(path: string): Promise<GitStatus> {
+    if (!inTauri) return mockGitStatus;
+    return invoke<GitStatus>("git_status", { path });
+  },
+
+  /** Rejects with "no-repo" when the folder isn't inside a git repository. */
+  async gitEnable(path: string): Promise<void> {
+    if (!inTauri) return;
+    return invoke("git_enable", { path });
+  },
+
+  async gitInit(path: string): Promise<void> {
+    if (!inTauri) return;
+    return invoke("git_init", { path });
+  },
+
+  /** Start/stop the Rust-side tick timer. */
+  async gitConfigure(enabled: boolean, intervalMin: number): Promise<void> {
+    if (!inTauri) return;
+    return invoke("git_configure", { enabled, intervalMin });
+  },
+
+  /** One full cycle: commit → pull → resolve → push. `stamp` goes in commit messages. */
+  async gitSync(path: string, stamp: string): Promise<SyncReport> {
+    if (!inTauri) {
+      return { committed: false, pulled: "no-remote", pushed: false, conflicts: [], error: null, status: mockGitStatus };
+    }
+    return invoke<SyncReport>("git_sync", { path, stamp });
+  },
+
+  /** The final sync before the window closes / the app exits; Rust finishes the quit. */
+  async gitQuit(path: string, stamp: string, reason: string): Promise<void> {
+    if (!inTauri) return;
+    return invoke("git_quit", { path, stamp, reason });
+  },
+
+  /** `git-tick` (timer) and `git-quit` (close/exit held back for a sync) events. */
+  onGitEvent(cb: (kind: "tick" | "quit", reason: string) => void): () => void {
+    if (!inTauri) return () => {};
+    const uns: (() => void)[] = [];
+    let cancelled = false;
+    listen("git-tick", () => cb("tick", "")).then((u) => (cancelled ? u() : uns.push(u)));
+    listen<string>("git-quit", (e) => cb("quit", e.payload)).then((u) => (cancelled ? u() : uns.push(u)));
+    return () => {
+      cancelled = true;
+      for (const u of uns) u();
     };
   },
 

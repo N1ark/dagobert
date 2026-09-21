@@ -8,7 +8,10 @@
   import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import PullRequests from "./lib/PullRequests.svelte";
+  import GitDialog from "./lib/GitDialog.svelte";
   import { syncPRs } from "./lib/prs.svelte";
+  import { tooltip } from "./lib/tooltip";
+  import { relative } from "./lib/time";
   import { backend } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import Plus from "phosphor-svelte/lib/Plus";
@@ -31,6 +34,10 @@
   import Trash from "phosphor-svelte/lib/Trash";
   import CornersOut from "phosphor-svelte/lib/CornersOut";
   import X from "phosphor-svelte/lib/X";
+  import GitBranch from "phosphor-svelte/lib/GitBranch";
+  import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
+  import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
+  import Warning from "phosphor-svelte/lib/Warning";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
   const params = new URLSearchParams(location.search);
@@ -135,7 +142,18 @@
     }
   }
   let showWorkflows = $state(false);
-  let settingsSection = $state<"workflows" | "github">("workflows");
+  let settingsSection = $state<"workflows" | "github" | "git">("workflows");
+
+  /** Tooltip for the git status item in the toolbar. */
+  function gitTip() {
+    if (store.gitState === "syncing") return "Syncing…";
+    if (store.gitState === "error") return `Sync failed: ${store.gitError ?? "unknown error"}`;
+    const st = store.gitStatus;
+    const when = store.gitLastSync ? `last sync ${relative(store.gitLastSync)}` : "not synced yet";
+    if (st && !st.has_remote) return `Git tracking (local only, no remote) — ${when}`;
+    const pos = st && (st.ahead || st.behind) ? ` · ${st.ahead}↑ ${st.behind}↓` : "";
+    return `Git tracking on ${st?.branch ?? ""}${pos} — ${when} · click to commit now (⌘S)`;
+  }
 
   // Notes that pass the search box AND the tag filter; null when neither is active.
   const matches = $derived.by(() => {
@@ -193,6 +211,25 @@
     return [
       a("new-note", "New note", () => canvas?.createAtCenter(), { hint: "⌘N", icon: Plus, symbol: ["plus"], menu: "File", enabled: has }),
       a("open-folder", "Open folder…", () => store.pickAndOpen(), { hint: "⌘O", icon: FolderOpen, symbol: ["folder"], menu: "File" }),
+      a("git-sync", "Commit now", () => store.syncNow(true), {
+        hint: "⌘S",
+        icon: CloudArrowUp,
+        symbol: ["arrow.triangle.2.circlepath", "arrow.clockwise"],
+        menu: "File",
+        enabled: has && store.gitEnabled,
+      }),
+      a(
+        "git-toggle",
+        `${store.gitEnabled ? "Disable" : "Enable"} git tracking`,
+        () => (store.gitEnabled ? store.disableGit() : store.enableGit()),
+        {
+          icon: GitBranch,
+          symbol: ["arrow.triangle.branch"],
+          menu: "File",
+          menuLabel: "Toggle git tracking",
+          enabled: has,
+        },
+      ),
       a("undo", "Undo", () => editUndo("undo"), {
         hint: "⌘Z",
         icon: ArrowCounterClockwise,
@@ -314,6 +351,12 @@
         menu: "Tools",
         enabled: has,
       }),
+      a("git-settings", "Git tracking…", () => ((settingsSection = "git"), (showWorkflows = true)), {
+        icon: GitBranch,
+        symbol: ["arrow.triangle.branch"],
+        menu: "Tools",
+        enabled: has,
+      }),
     ];
   });
 
@@ -387,7 +430,9 @@
               ? "search"
               : k === "o"
                 ? "open-folder"
-                : null;
+                : k === "s"
+                  ? "git-sync"
+                  : null;
     if (!id) return;
     const action = paletteActions.find((a) => a.id === id);
     if (!action || action.enabled === false) return;
@@ -398,6 +443,9 @@
   onMount(() => {
     const unsub = backend.subscribe((m) => store.applySync(m));
     const unwatch = backend.onProjectChanged((c) => store.applyExternal(c));
+    const ungit = standaloneId
+      ? () => {}
+      : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.syncNow(false) : store.quitSync(reason)));
     if (standaloneId && standalonePath) {
       store.open(standalonePath).then(() => store.select(standaloneId));
     } else {
@@ -413,6 +461,7 @@
     return () => {
       unsub();
       unwatch();
+      ungit();
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", flush);
       window.removeEventListener("pagehide", flush);
@@ -453,7 +502,28 @@
       <div class="spacer" data-tauri-drag-region></div>
       <span class="stats" title="ready · done · total">
         <span class="ready">{stats.ready} ready</span> · {stats.done}/{stats.total} done
+        {#if store.conflictIds.size}
+          · <button
+            class="conflicts"
+            onclick={() => store.nextConflict()}
+            use:tooltip={"Notes with conflict markers — click to jump to the next one"}
+            ><Warning size={12} weight="fill" /> {store.conflictIds.size}</button
+          >
+        {/if}
       </span>
+      {#if store.gitEnabled}
+        <button
+          class="ghost git"
+          class:syncing={store.gitState === "syncing"}
+          class:error={store.gitState === "error"}
+          class:local={store.gitStatus ? !store.gitStatus.has_remote : false}
+          onclick={() => store.syncNow(true)}
+          use:tooltip={gitTip}
+          aria-label="git tracking"
+        >
+          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={15} /></span>{:else}<GitBranch size={15} />{/if}
+        </button>
+      {/if}
       <TagMenu />
       <button class="ghost" onclick={() => (showTrash = true)} title="Deleted notes"><Trash size={15} /> Trash</button>
       <button class="ghost" class:on={showPRs} onclick={togglePRs} title="Pull requests linked from notes (⇧⌘P)"
@@ -532,6 +602,12 @@
 
 {#if showWorkflows}
   <WorkflowEditor section={settingsSection} onclose={() => (showWorkflows = false)} />
+{/if}
+
+{#if store.needsRepo}
+  <GitDialog kind="norepo" onclose={() => (store.needsRepo = false)} />
+{:else if store.conflictReport}
+  <GitDialog kind="conflicts" conflicts={store.conflictReport} onclose={() => (store.conflictReport = null)} />
 {/if}
 
 {#if showTrash}
@@ -618,6 +694,32 @@
   }
   .stats .ready {
     color: var(--accent2);
+  }
+  .conflicts {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--yellow);
+  }
+  .git.local {
+    color: var(--color-dim);
+  }
+  .git.error {
+    color: var(--red);
+  }
+  .git.syncing {
+    color: var(--accent2);
+  }
+  .spin {
+    display: inline-flex;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
   .main {
     flex: 1;

@@ -51,6 +51,42 @@ export interface Local {
   viewport: Viewport;
 }
 
+/** Git tracking settings; shared via `dagobert.json` so every machine behaves the same. */
+export interface GitSettings {
+  enabled: boolean;
+  /** Minutes between automatic sync cycles. */
+  interval_min: number;
+}
+
+export interface GitStatus {
+  branch: string | null;
+  dirty: boolean;
+  ahead: number;
+  behind: number;
+  has_remote: boolean;
+  has_upstream: boolean;
+  /** Unix seconds of the HEAD commit. */
+  last_commit_at: number | null;
+}
+
+/** A note the last pull had to merge. */
+export interface Conflict {
+  id: string;
+  title: string;
+  file: string;
+  /** The body still holds `<<<<<<<` markers. */
+  body_conflict: boolean;
+}
+
+export interface SyncReport {
+  committed: boolean;
+  pulled: "no-remote" | "up-to-date" | "fast-forward" | "merging" | null;
+  pushed: boolean;
+  conflicts: Conflict[];
+  error: string | null;
+  status: GitStatus | null;
+}
+
 export interface Meta {
   /** Tag name -> CSS colour. */
   tag_colors: Record<string, string>;
@@ -64,6 +100,7 @@ export interface Meta {
   repos: Record<string, string>;
   /** User-added swatches shown in colour pickers after the built-in palette. */
   palette: string[];
+  git: GitSettings;
 }
 
 /** Partial meta update; absent fields keep their stored value. */

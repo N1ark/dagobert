@@ -4,6 +4,7 @@
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import Check from "phosphor-svelte/lib/Check";
+  import Warning from "phosphor-svelte/lib/Warning";
   import ProgressRing from "./ProgressRing.svelte";
 
   let {
@@ -32,6 +33,7 @@
   const workflow = $derived(store.workflowOf(note));
   const custom = $derived(note.workflow !== null && !note.tracking);
   const progress = $derived(note.tracking ? store.progress(note) : null);
+  const conflict = $derived(store.hasConflict(note));
   // First non-empty line of the body, with block-level markers stripped so it
   // renders as inline markdown (bold, code, links…).
   const preview = $derived(
@@ -79,6 +81,9 @@
       </button>
     {/if}
     <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback="Untitled" /></div>
+    {#if conflict}
+      <span class="conflict" title="The body still has merge conflict markers"><Warning size={14} weight="fill" /></span>
+    {/if}
   </div>
   {#if custom || progress || note.tags.length}
     <div class="tags">
@@ -195,6 +200,12 @@
   .done .title {
     text-decoration: line-through;
     color: var(--color-dim);
+  }
+  .conflict {
+    flex: none;
+    display: inline-flex;
+    margin-left: auto;
+    color: var(--yellow);
   }
   .ring-wrap {
     display: inline-flex;

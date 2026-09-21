@@ -1,5 +1,6 @@
 import { backend, type ProjectChange, type SyncMessage } from "./backend";
-import type { MetaPatch, Note, Viewport, Workflow } from "./types";
+import type { Conflict, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
+import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
@@ -22,6 +23,11 @@ function now() {
 
 function newId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+}
+
+/** A body still carrying git conflict markers from a merge. */
+export function hasMarkers(body: string): boolean {
+  return /^<{7} /m.test(body);
 }
 
 class Store {
@@ -58,6 +64,22 @@ class Store {
     return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([tag, count]) => ({ tag, count }));
   });
   projectName = $derived(this.path?.split(/[\\/]/).filter(Boolean).pop() ?? "");
+
+  // ---- git tracking --------------------------------------------------------
+
+  gitEnabled = $state(false);
+  gitInterval = $state(5);
+  gitStatus = $state<GitStatus | null>(null);
+  gitState = $state<"idle" | "syncing" | "error">("idle");
+  gitError = $state<string | null>(null);
+  /** ISO time of the last successful cycle this session. */
+  gitLastSync = $state<string | null>(null);
+  /** The last pull's merged notes, shown in the conflict popup until dismissed. */
+  conflictReport = $state<Conflict[] | null>(null);
+  /** Enabling tracking found no repository; the popup offers to create one. */
+  needsRepo = $state(false);
+  /** Ids of notes whose body still holds conflict markers. */
+  conflictIds = $derived(new Set(this.notes.filter((n) => hasMarkers(n.body)).map((n) => n.id)));
 
   #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -129,6 +151,123 @@ class Store {
 
   toggleTagFilter(tag: string) {
     this.tagFilter = this.tagFilter.includes(tag) ? this.tagFilter.filter((t) => t !== tag) : [...this.tagFilter, tag];
+  }
+
+  hasConflict(note: Note): boolean {
+    return this.conflictIds.has(note.id);
+  }
+
+  async enableGit() {
+    if (!this.path) return;
+    try {
+      await backend.gitEnable(this.path);
+    } catch (e) {
+      if (e === "no-repo") this.needsRepo = true;
+      else this.fail(e);
+      return;
+    }
+    this.needsRepo = false;
+    this.gitEnabled = true;
+    this.saveMeta();
+    this.#configureGit();
+    void this.syncNow(true);
+  }
+
+  /** Create a repository in the project folder, then enable tracking. */
+  async initRepo() {
+    if (!this.path) return;
+    try {
+      await backend.gitInit(this.path);
+      await this.enableGit();
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  disableGit() {
+    this.gitEnabled = false;
+    this.gitState = "idle";
+    this.gitError = null;
+    this.saveMeta();
+    this.#configureGit();
+  }
+
+  setGitInterval(min: number) {
+    const m = Math.max(1, Math.min(120, Math.round(min) || 5));
+    if (m === this.gitInterval) return;
+    this.gitInterval = m;
+    this.saveMeta();
+    this.#configureGit();
+  }
+
+  #configureGit() {
+    backend.gitConfigure(this.gitEnabled && !!this.path, this.gitInterval).catch((e) => this.fail(e));
+  }
+
+  /** Every pending save written to disk (so a commit sees the latest bodies). */
+  async flushAndWait() {
+    this.flushAll();
+    await Promise.all([...this.#inflight.values()]);
+  }
+
+  #syncing: Promise<void> | null = null;
+
+  /** One sync cycle. Errors toast only when `manual`; the timer stays quiet. */
+  syncNow(manual = false): Promise<void> {
+    if (!this.path || !this.gitEnabled) return Promise.resolve();
+    if (this.#syncing) return this.#syncing;
+    const path = this.path;
+    this.gitState = "syncing";
+    this.#syncing = (async () => {
+      try {
+        await this.flushAndWait();
+        const r = await backend.gitSync(path, stamp());
+        if (r.status) this.gitStatus = r.status;
+        if (r.conflicts.length) this.conflictReport = r.conflicts;
+        if (r.error) {
+          this.gitState = "error";
+          this.gitError = r.error;
+          if (manual) this.fail(r.error);
+        } else {
+          this.gitState = "idle";
+          this.gitError = null;
+          this.gitLastSync = now();
+          if (manual) this.#toast(r.pushed ? "Committed and pushed" : r.committed ? "Committed" : "Nothing to commit");
+        }
+      } catch (e) {
+        this.gitState = "error";
+        this.gitError = String(e);
+        if (manual) this.fail(e);
+      } finally {
+        this.#syncing = null;
+      }
+    })();
+    return this.#syncing;
+  }
+
+  /** The close/exit was held back by Rust: sync, then let it through. */
+  async quitSync(reason: string) {
+    const path = this.path;
+    if (!path || !this.gitEnabled) return;
+    await this.flushAndWait();
+    await backend.gitQuit(path, stamp(), reason).catch((e) => console.error("git quit", e));
+  }
+
+  async refreshGitStatus() {
+    if (!this.path || !this.gitEnabled) return;
+    try {
+      this.gitStatus = await backend.gitStatus(this.path);
+    } catch (e) {
+      this.gitError = String(e);
+    }
+  }
+
+  /** Select the conflicted note after the current one (wrapping). */
+  nextConflict() {
+    const ids = [...this.conflictIds];
+    if (!ids.length) return;
+    const i = this.selectedId ? ids.indexOf(this.selectedId) : -1;
+    this.jump(ids[(i + 1) % ids.length]);
   }
 
   // ---- workflows -----------------------------------------------------------
@@ -300,6 +439,7 @@ class Store {
       this.trackingTemplate = p.meta.tracking_template ?? "";
       this.repos = p.meta.repos ?? {};
       this.palette = p.meta.palette ?? [];
+      this.#applyGitSettings(p.meta.git);
       this.tagFilter = [];
       this.#history.clear();
       this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
@@ -317,9 +457,20 @@ class Store {
       localStorage.setItem(LAST_KEY, p.path);
       this.error = null;
       backend.watchProject(p.path).catch((e) => this.fail(e));
+      this.gitStatus = null;
+      this.gitState = "idle";
+      this.gitError = null;
+      this.conflictReport = null;
+      this.#configureGit();
+      if (this.gitEnabled) void this.syncNow(false);
     } catch (e) {
       this.fail(e);
     }
+  }
+
+  #applyGitSettings(g: { enabled: boolean; interval_min: number } | undefined) {
+    this.gitEnabled = !!g?.enabled;
+    this.gitInterval = g?.interval_min && g.interval_min > 0 ? g.interval_min : 5;
   }
 
   /** Reopen whatever was open last time (called once at startup). */
@@ -331,6 +482,7 @@ class Store {
   close() {
     this.flushAll();
     void backend.unwatchProject();
+    void backend.gitConfigure(false, this.gitInterval);
     localStorage.removeItem(LAST_KEY);
     this.path = null;
     this.notes = [];
@@ -625,6 +777,7 @@ class Store {
       if (msg.meta.tracking_template !== undefined) this.trackingTemplate = msg.meta.tracking_template;
       if (msg.meta.repos) this.repos = msg.meta.repos;
       if (msg.meta.palette) this.palette = msg.meta.palette;
+      if (msg.meta.git) this.#applyGitSettings(msg.meta.git);
     }
   }
 
@@ -662,6 +815,9 @@ class Store {
         this.trackingTemplate = meta.tracking_template ?? "";
         this.repos = meta.repos ?? {};
         this.palette = meta.palette ?? [];
+        const was = `${this.gitEnabled}|${this.gitInterval}`;
+        this.#applyGitSettings(meta.git);
+        if (`${this.gitEnabled}|${this.gitInterval}` !== was) this.#configureGit();
       } catch (e) {
         this.fail(e);
       }
@@ -838,6 +994,7 @@ class Store {
       tracking_template: this.trackingTemplate,
       repos: $state.snapshot(this.repos),
       palette: $state.snapshot(this.palette),
+      git: { enabled: this.gitEnabled, interval_min: this.gitInterval },
     };
   }
 

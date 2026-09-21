@@ -9,13 +9,20 @@
   import { stageColor } from "./workflows";
   import { storedToken, setStoredToken } from "./github";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
+  import GitBranch from "phosphor-svelte/lib/GitBranch";
   import Circuitry from "phosphor-svelte/lib/Circuitry";
   import { tooltip } from "./tooltip";
+  import { relative } from "./time";
 
-  let { onclose, section = "workflows" }: { onclose: () => void; section?: "workflows" | "tracking" | "github" } = $props();
+  type Section = "workflows" | "tracking" | "github" | "git";
+  let { onclose, section = "workflows" }: { onclose: () => void; section?: Section } = $props();
 
   // svelte-ignore state_referenced_locally
-  let page = $state<"workflows" | "tracking" | "github">(section);
+  let page = $state<Section>(section);
+  let interval = $state(store.gitInterval);
+  $effect(() => {
+    if (page === "git") store.refreshGitStatus();
+  });
   let ghToken = $state(storedToken());
   let newAlias = $state("");
   let newRepo = $state("");
@@ -86,7 +93,7 @@
 <div class="backdrop" onclick={onclose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label="Workflows" tabindex="-1">
     <header>
-      <h3>{page === "github" ? "GitHub" : page === "tracking" ? "Tracking issues" : "Workflows"}</h3>
+      <h3>{page === "github" ? "GitHub" : page === "git" ? "Git tracking" : page === "tracking" ? "Tracking issues" : "Workflows"}</h3>
       <button class="ghost" onclick={onclose} aria-label="close"><X size={16} /></button>
     </header>
     <div class="cols">
@@ -115,6 +122,8 @@
         <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
           ><GithubLogo size={14} /> GitHub</button
         >
+        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}><GitBranch size={14} /> Git tracking</button
+        >
       </nav>
       <section>
         {#if page === "tracking"}
@@ -131,6 +140,53 @@
             onchange={() => store.saveMeta()}
             placeholder="## Scope&#10;…"
             spellcheck="false"></textarea>
+        {:else if page === "git"}
+          <p class="help">
+            Commits your notes on a timer, pulls what other machines pushed and pushes back, if the repository has an
+            <code>origin</code> remote. Conflicts are merged automatically; a note whose body couldn't be merged shows a warning until you clean
+            up the markers.
+          </p>
+          <label class="row">
+            <input
+              type="checkbox"
+              checked={store.gitEnabled}
+              onchange={() => (store.gitEnabled ? store.disableGit() : store.enableGit())}
+            />
+            Track this project with git
+          </label>
+          <label class="row">
+            Sync every
+            <input
+              class="num"
+              type="number"
+              min="1"
+              max="120"
+              bind:value={interval}
+              onchange={() => ((interval = Math.max(1, Math.min(120, Math.round(interval) || 5))), store.setGitInterval(interval))}
+              disabled={!store.gitEnabled}
+            />
+            minutes
+          </label>
+          {#if store.gitEnabled}
+            <h4>Repository</h4>
+            <dl class="info">
+              <dt>Branch</dt>
+              <dd>{store.gitStatus?.branch ?? "—"}</dd>
+              <dt>Remote</dt>
+              <dd>
+                {#if !store.gitStatus}—{:else if !store.gitStatus.has_remote}none (commits stay local){:else if !store.gitStatus.has_upstream}origin
+                  (branch not pushed yet){:else}origin · {store.gitStatus.ahead} ahead, {store.gitStatus.behind} behind{/if}
+              </dd>
+              <dt>Last sync</dt>
+              <dd>
+                {#if store.gitState === "syncing"}syncing…{:else if store.gitState === "error"}<span class="err">{store.gitError}</span
+                  >{:else if store.gitLastSync}{relative(store.gitLastSync)}{:else}not yet this session{/if}
+              </dd>
+            </dl>
+            <div class="actions">
+              <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>Sync now</button>
+            </div>
+          {/if}
         {:else if page === "github"}
           <h4>Repositories</h4>
           <p class="help">
@@ -347,6 +403,39 @@
   }
   .add-repo .grow {
     flex: 1;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 6px 0;
+    font-size: 13px;
+    color: var(--color);
+  }
+  .row input[type="checkbox"] {
+    accent-color: var(--accent);
+    margin: 0;
+  }
+  .num {
+    width: 60px;
+    font-size: 13px;
+  }
+  .info {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 12px;
+    margin: 6px 0 0;
+    font-size: 13px;
+  }
+  .info dt {
+    color: var(--color-dim);
+  }
+  .info dd {
+    margin: 0;
+    color: var(--color);
+  }
+  .err {
+    color: var(--red);
   }
   .token {
     width: 100%;

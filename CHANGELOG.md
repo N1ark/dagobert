@@ -6,6 +6,16 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Git tracking (File → Enable git tracking, or Tools → Git tracking…): the project is
+  committed on a timer (default every 5 minutes), on `⌘S`, right after opening and
+  when the app quits; with an `origin` remote it also pulls and pushes. Conflicting
+  edits from another machine are merged by rule (later edit wins the frontmatter,
+  tags and links from both sides, bodies merged line by line) and listed in a popup;
+  a note whose body kept git's conflict markers shows a warning badge, and the
+  toolbar counts them. The toolbar's branch icon shows the sync state.
+
 ### Changed
 
 - The canvas viewport now lives in `dagobert.local.json` (per machine) instead of
