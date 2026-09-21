@@ -102,7 +102,7 @@ export default {
   "node.markDone": "Mark as done",
   "node.markNotDone": "Mark as not done",
   "node.toggleDone": "toggle done",
-  "node.conflict": "The body still has merge conflict markers",
+  "node.conflict": "The body has merge conflicts",
   "node.status.tip": "{workflow} — click to advance, shift-click to go back",
   "node.port": "Drag to another note to make it depend on this one",
   "node.resize": "Drag to resize",
@@ -119,13 +119,13 @@ export default {
   "ctx.newTag": "new tag…",
   "ctx.resetWidth": "Reset width",
   "ctx.delete": "Delete…",
-  "ctx.reallyDelete": "Really delete (goes to trash)",
+  "ctx.reallyDelete": "Confirm",
   "ctx.group.selected": "{n} notes selected",
   "ctx.group.allDone": "Mark all as done",
   "ctx.group.allNotDone": "Mark all as not done",
   "ctx.group.addTag": "add tag to all…",
   "ctx.group.delete": "Delete {n} notes…",
-  "ctx.group.reallyDelete": "Really delete {n} (goes to trash)",
+  "ctx.group.reallyDelete": "Confirm {n}",
   "ctx.edge": "{from} → {to}",
   "ctx.removeLink": "Remove link",
   "ctx.newHere": "New note here",
@@ -133,7 +133,6 @@ export default {
 
   // Note panel
   "panel.title.placeholder": "Untitled",
-  "panel.title.tip": "Inline markdown works here (**bold**, `code`, [links](…))",
   "panel.openWindow": "Open in a new window",
   "panel.openWindow.aria": "open in new window",
   "panel.close": "Close ({key})",
@@ -161,12 +160,12 @@ export default {
   "panel.toc.empty": "No headings",
   "panel.reveal": "Reveal in Finder",
   "panel.delete": "Delete",
-  "panel.reallyDelete": "Really delete",
+  "panel.reallyDelete": "Confirm",
   "panel.cancel": "Cancel",
 
   // Body editor
   "editor.placeholder": "Write in markdown… click to start.",
-  "editor.placeholder.hint": "{bold} bold · {italic} italic · {link} link · @ links a note · {esc} to leave a block",
+  "editor.placeholder.hint": "{bold} bold · {italic} italic · {link} link · @ links a note",
   "editor.empty": "Nothing here yet.",
   "editor.mention.create": "+ Create “{title}”",
   "editor.issue.noMatches": "No matches",
@@ -247,7 +246,6 @@ export default {
   "trash.deleted": "deleted {when}",
   "trash.restore": "Restore",
   "trash.purge": "Delete forever",
-  "trash.purge.tip": "Delete permanently",
   "trash.confirm.one": "This permanently deletes {n} note.",
   "trash.confirm.other": "This permanently deletes {n} notes.",
   "trash.emptyNow": "Empty trash",
@@ -261,12 +259,12 @@ export default {
   "git.close": "close",
   "git.norepo": "This folder isn't a git repository.",
   "git.norepo.help":
-    "Tracking commits your notes on a timer and syncs them with a remote if the repository has one. Dagobert can create a repository here; add a remote named `origin` with git to sync between machines.", // markdown
+    "Tracking commits your notes regularly and syncs them with a remote if the repository has one. Dagobert can create a repository here; add a remote named `origin` with git to sync between machines.", // markdown
   "git.norepo.cancel": "Cancel",
   "git.norepo.init": "Initialise one here",
   "git.conflicts.help":
-    "Each note keeps the frontmatter of the side edited last; tags and links added on either side are kept, removed ones stay removed. Bodies were merged line by line; where both sides changed the same lines, the note keeps git's `<<<<<<<` markers for you to pick from.", // markdown
-  "git.conflicts.attention": "body needs attention",
+    "Metadata conflicts are automatically handled. Bodies were merged line by line; where both sides changed the same lines, the conflict is kept for you to resolve.", // markdown
+  "git.conflicts.attention": "body had a conflict",
   "git.conflicts.merged": "merged",
   "git.conflicts.ok": "OK",
   "git.toast.pushed": "Committed and pushed",
@@ -288,10 +286,10 @@ export default {
   "settings.template": "Template",
   "settings.template.hint": "Default body for new notes. Placeholders: {{date}}, {{title}}.",
   "settings.tracking.help":
-    'A **tracking issue** has no status of its own: it shows a progress ring and counts as done once every note it depends on is done. Set a note\'s kind to "Tracking issue" in the panel.', // markdown
+    "A **tracking issue** has no status of its own: it shows a progress ring and counts as done once every note it depends on is done.", // markdown
   "settings.tracking.placeholder": "## Scope\n…",
   "settings.git.help":
-    "Commits your notes on a timer, pulls what other machines pushed and pushes back, if the repository has an `origin` remote. Conflicts are merged automatically; a note whose body couldn't be merged shows a warning until you clean up the markers.", // markdown
+    "Commits your notes regularly, pulls what other machines pushed and pushes back. A note whose body couldn't be cleanly merged shows a warning until you clean up the conflict.", // markdown
   "settings.git.enable": "Track this project with git",
   "settings.git.every": "Sync every",
   "settings.git.minutes": "minutes",
@@ -313,10 +311,10 @@ export default {
   "settings.github.add": "Add",
   "settings.github.token": "Access token",
   "settings.github.token.help":
-    "Optional. Needed for private repos and higher rate limits. If empty, the `gh` CLI's login is used when available. Stored on this machine only, not in the project folder.", // markdown
+    "Optional. Needed for private repos and higher rate limits. If empty, the `gh` CLI's login is used when available. Never stored in the project folder.", // markdown
   "settings.github.token.placeholder": "ghp_…",
   "settings.wf.name": "Workflow name",
-  "settings.wf.help": "Stages in order. Tick the ones that count as done; click a dot to pick the pill colour.",
+  "settings.wf.help": "Stages in order; tick the ones that count as done.",
   "settings.wf.pillColor": "Pill colour",
   "settings.wf.colorOf": "colour of {stage}",
   "settings.wf.stageColor": "stage colour",
@@ -331,7 +329,7 @@ export default {
   "settings.wf.delete": "Delete workflow",
   "settings.wf.placeholder": "## Checklist\n- [ ] …",
   "settings.todo.help":
-    "The built-in **Todo** workflow is just *todo → done*. Create a workflow to track richer progress, e.g. *todo → in progress → under review → merged*.", // markdown
+    "The built-in **todo** workflow is a simple checkbox. Create a workflow to track richer progress, e.g. *todo → in progress → review → merged*.", // markdown
   "settings.todo.placeholder": "- [ ] …",
 
   // Defaults written into new workflows / stages

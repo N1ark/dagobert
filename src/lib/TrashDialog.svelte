@@ -64,9 +64,7 @@
                 </div>
               </div>
               <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> {t("trash.restore")}</button>
-              <button class="ghost sm danger" onclick={() => store.purge(n.file)} title={t("trash.purge.tip")}
-                ><Trash size={13} /> {t("trash.purge")}</button
-              >
+              <button class="ghost sm danger" onclick={() => store.purge(n.file)}><Trash size={13} /> {t("trash.purge")}</button>
             </li>
           {/each}
         </ul>

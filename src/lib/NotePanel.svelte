@@ -139,7 +139,6 @@
           store.select(null);
         }
       }}
-      title={t("panel.title.tip")}
     />
     {#if !standalone}
       <button
