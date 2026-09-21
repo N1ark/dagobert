@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-21
+
 ### Added
 
 - Git tracking (File → Enable git tracking): the project is committed every few minutes,
