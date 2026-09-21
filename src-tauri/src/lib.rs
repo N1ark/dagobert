@@ -1,3 +1,4 @@
+mod git;
 mod store;
 mod symbols;
 mod watch;
