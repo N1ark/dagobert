@@ -50,7 +50,7 @@ Builds are unsigned.
   no git binary): `open` (discover, walking up but never past `~` so a dotfiles repo is
   never adopted; the project may sit inside a larger repo — only
   `notes/`, `trash/`, `dagobert.json` and `.gitignore` under the project are ever staged,
-  via `TreeUpdateBuilder` on HEAD's tree so other staged files are untouched), `init`,
+  via `TreeUpdateBuilder` on HEAD's tree so other staged files are untouched), `init` (on `main`, or `init.defaultBranch`),
   `ensure_ignore` (adds `dagobert.local.json`, `.DS_Store`), `status` (restricted to our
   pathspecs; `ahead/behind` vs the remote branch), `enable` (`Err("no-repo")`, refuses a
   project the repository ignores, then `ensure_ignore`), `commit_if_dirty` (signature from

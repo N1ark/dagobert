@@ -82,8 +82,16 @@ fn require(root: &Path) -> Result<Repository> {
     open(root)?.ok_or_else(|| "This folder isn't inside a git repository.".to_string())
 }
 
+/// Creates a repository on `main` (or the user's `init.defaultBranch`).
 pub fn init(root: &Path) -> Result<()> {
-    Repository::init(root).map_err(err)?;
+    let branch = git2::Config::open_default()
+        .and_then(|c| c.get_string("init.defaultBranch"))
+        .ok()
+        .filter(|b| !b.is_empty())
+        .unwrap_or_else(|| "main".to_string());
+    let mut opts = git2::RepositoryInitOptions::new();
+    opts.initial_head(&branch);
+    Repository::init_opts(root, &opts).map_err(err)?;
     ensure_ignore(root)
 }
 
@@ -640,6 +648,22 @@ pub(crate) mod tests {
         assert!(head.get_path(Path::new("notes/a.md")).is_err());
         assert_eq!(pull(&dir, None).unwrap(), PullOutcome::NoRemote);
         assert!(status(&dir).unwrap().last_commit_at.is_some());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn init_starts_on_main() {
+        let dir = tmp("git-init-main");
+        init(&dir).unwrap();
+        let repo = Repository::open(&dir).unwrap();
+        let head = repo.find_reference("HEAD").unwrap();
+        let cfg = git2::Config::open_default()
+            .and_then(|c| c.get_string("init.defaultBranch"))
+            .unwrap_or_else(|_| "main".into());
+        assert_eq!(
+            head.symbolic_target(),
+            Some(format!("refs/heads/{cfg}").as_str())
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 

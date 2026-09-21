@@ -24,7 +24,8 @@ All notable changes to Dagobert are documented here. The format follows
   text as a conflict instead of silently overwriting it; a `.gitignore` edited on both
   machines is merged by unioning its lines; a `dagobert.json` that a merge left invalid
   is rebuilt from both sides, and settings are never written over a damaged one. A
-  repository at your home folder is never picked up by a project inside it.
+  repository at your home folder is never picked up by a project inside it. A repository
+  created from the no-repo prompt starts on `main` (or your `init.defaultBranch`).
 
 ### Changed
 
