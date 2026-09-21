@@ -34,12 +34,53 @@ Builds are unsigned.
 
 - `src-tauri/src/store.rs` — all disk I/O. Project = folder; `notes/<slug>.md` per
   note (YAML frontmatter + markdown body); `dagobert.json` holds `Meta`
-  (viewport, `tag_colors`, `workflows`). A legacy `done: true` in frontmatter is
+  (`tag_colors`, `workflows`, `repos`, `palette`, templates, `git`); per-machine state
+  (`Local`: the viewport) lives in `dagobert.local.json` so it never syncs — a legacy
+  `viewport` in `dagobert.json` is migrated on read and dropped on the next write
+  (`save_local` command). A legacy `done: true` in frontmatter is
   migrated to `status: done` on read and never written back. Deletes are soft:
   `delete_note` moves the file to `trash/` (stamping `deleted`), never overwriting
   (`free_name` adds `-<id>[-n]` suffixes); `list_trash`/`restore_note`/`purge_trash`
   round it out. Commands: `open_project`, `save_note`, `delete_note`, `list_trash`,
-  `restore_note`, `purge_trash`, `save_meta`. Has round-trip tests. `lib.rs` just exposes these commands.
+  `restore_note`, `purge_trash`, `save_meta`, `save_local`. Has round-trip tests. `lib.rs` just exposes these commands.
+
+- `src-tauri/src/git.rs` — git primitives over `git2` (vendored libgit2/libssh2/OpenSSL,
+  no git binary): `open` (discover; the project may sit inside a larger repo — only
+  `notes/`, `trash/`, `dagobert.json` and `.gitignore` under the project are ever staged,
+  via `TreeUpdateBuilder` on HEAD's tree so other staged files are untouched), `init`,
+  `ensure_ignore` (adds `dagobert.local.json`, `.DS_Store`), `status` (restricted to our
+  pathspecs; `ahead/behind` vs `origin/<branch>`), `commit_if_dirty` (signature from git
+  config, else `Dagobert <dagobert@localhost>`), `pull` (fetch with the remote's refspecs;
+  up-to-date / fast-forward / adopt the remote branch on an unborn HEAD / `repo.merge`
+  **without rename detection**, always returning `Merging` so `merge::resolve` finishes it),
+  `push` (sets the upstream). Checkouts are safe with `allow_conflicts`: a file that would
+  be clobbered stays as a local modification and rides along in the next commit.
+  Credentials (`callbacks`): ssh-agent, then `~/.ssh/id_*`, then the credential helper;
+  never prompts. `timeout` aborts transfers via `transfer_progress`. Tests use temp repos
+  sharing a bare remote (`tests::pair`).
+- `src-tauri/src/merge.rs` — `resolve(root, message)` completes a merge: notes are
+  matched **by id** across the conflicted paths (ours / theirs / ancestor blobs parsed with
+  `parse_note`), then the frontmatter rule below is applied, the body is three-way merged
+  with `merge_file_from_index` (labels `mine` / `theirs`; markers kept as body content
+  when it conflicts), and the result is written and staged at the winner's file name.
+  After that, `dedupe` folds files sharing an id (a title change on both sides is two adds
+  to git), `drop_trash_copies` removes `trash/` copies of live notes, `break_cycles`
+  applies rule 3, `dagobert.json` gets rule 6 (`serde_json::Value`), anything else is
+  staged as libgit2 left it. Returns the `Conflict { id, title, file, body_conflict }`
+  list for the popup (also notes merged automatically).
+- `src-tauri/src/sync.rs` — the cycle (`cycle`: resolve a leftover merge → commit if
+  dirty → pull → resolve → push when ahead or unpublished; errors land in
+  `SyncReport.error` after whatever succeeded), the process-wide lock (`locked` runs
+  on a blocking thread), the tick thread (`configure`; emits `git-tick`, generation
+  counter retires old threads) and `intercept_quit`. Commit messages are
+  `dagobert auto-save <stamp>` / `dagobert merge <stamp>`; the frontend passes the
+  local-time stamp (`stamp()` in `time.ts`). `lib.rs` commands: `git_status`,
+  `git_enable` (`Err("no-repo")`), `git_init`, `git_configure`, `git_sync`, `git_quit`.
+  Closing the main window or quitting with tracking on is held back once
+  (`prevent_close`/`prevent_exit`), `git-quit` is emitted with the reason, the frontend
+  flushes saves and calls `git_quit` (10 s timeout, failures logged), and Rust then
+  destroys the window or exits. The watcher is untouched: pulled/merged files echo as
+  `project-changed` and reach the store through `applyExternal`.
 
 - `src-tauri/src/watch.rs` — file watcher (`notify` + `notify-debouncer-mini`, 300 ms).
   `watch_project`/`unwatch_project` commands; emits `project-changed` events
@@ -57,7 +98,14 @@ Builds are unsigned.
   notes, viewport, tag colours/filter, selection, recent folders, graph helpers
   (`wouldCycle`, `dependents`, `isReady`), debounced saves (`touch`/`save`, 500 ms;
   `immediate` for structural changes; `silent` to skip bumping `modified`;
-  `saveMeta` for viewport/tag colours). Last-opened path is in localStorage and
+  `saveMeta` for tag colours/workflows/settings, `saveViewport` for the local file).
+  Git slice: `gitEnabled`/`gitInterval` (from `Meta.git`), `gitStatus`, `gitState`
+  (`idle | syncing | error`), `gitLastSync`, `conflictIds` (notes whose body has a
+  `<<<<<<< ` line; `hasConflict`), `conflictReport` (drives the popup), `needsRepo`
+  (drives the no-repo popup). `enableGit` → `git_enable` (no-repo → popup → `initRepo`);
+  `syncNow(manual)` flushes and awaits in-flight writes (`flushAndWait`) then calls
+  `git_sync`; errors toast only when manual. `quitSync` answers `git-quit`. `open()`
+  reconfigures the timer and syncs right away when tracking is on. Last-opened path is in localStorage and
   restored on startup (`restore`). Writes are serialised per note (`#inflight`) and
   `remove` awaits them before trashing; `#deleted` stops late writes resurrecting a
   note. Trash state: `trash`, `loadTrash`, `restoreNote`, `purge`.
@@ -125,8 +173,12 @@ Builds are unsigned.
 - `src/lib/NotePanel.svelte` — right-hand editor. Re-keyed per note id in `App.svelte`
   so local state resets on selection change. The body is edited by `LiveEditor`.
 - `src/lib/LiveEditor.svelte` — Obsidian-style live preview, per block. `blocks.ts`
-  splits the body on blank lines (fenced code kept whole; blank-line runs collapse on
-  re-join). Every block renders via `Markdown.svelte` except the `active` one, which
+  splits the body on blank lines (fenced code and `<<<<<<< `…`>>>>>>> ` conflict regions
+  kept whole; blank-line runs collapse on re-join). A conflict block renders through
+  `ConflictBlock.svelte` (two stacked `Markdown` panes + keep mine / theirs / both, via
+  `resolveConflict` and `store.touch(id, { label: "resolve conflict" })`); clicking it
+  edits the raw text. `stripMarkers`/`MARKER_RE` keep marker lines out of search and
+  card previews. Every block renders via `Markdown.svelte` except the `active` one, which
   is a textarea holding `draft`. Rules worth knowing: the draft is live-synced into
   `note.body` unless it's empty (an empty block can't be represented, so it's dropped
   only when leaving it — see `moveBy`'s `dropped` offset); typing a blank line splits
@@ -224,7 +276,9 @@ Builds are unsigned.
   `<input type="color">` (live preview on `input`, added to the palette and picked on
   `change`); custom swatches are removed by right-click.
 - `src/lib/WorkflowEditor.svelte` doubles as the settings dialog: `section` prop
-  picks "workflows" or "github".
+  picks "workflows", "github" or "git" (tracking toggle, interval 1–120 min, branch /
+  remote / last sync, "Sync now"). `GitDialog.svelte` is the modal for both the
+  no-repo prompt (`kind="norepo"`) and the post-merge conflict list (`kind="conflicts"`).
 - `src/lib/ColorPicker.svelte` — shared swatch popover (tag colours and workflow
   stage colours; `allowAuto` adds an "Automatic" swatch: dashed ring + lightning bolt).
 - `src/lib/tooltip.ts` — `use:tooltip={"text"}` action: an instant tooltip (one shared
@@ -281,7 +335,21 @@ Builds are unsigned.
   descendants) at a softer opacity (`.soft-dim`). `visible = matches ?? chain`.
 - Tag colours are project-wide (`tag_colors` in `dagobert.json`), not per note.
   The default colour is not stored (`setTagColor` deletes the entry).
-- Timestamps are ISO strings generated in the frontend; Rust treats them as opaque.
+- Timestamps are ISO strings generated in the frontend; Rust treats them as opaque
+  (the merge rule compares `modified` strings lexicographically, which works for ISO).
+- Git tracking is per project (`Meta.git`), off by default. One cycle =
+  flush saves → commit if dirty → pull → resolve → push; triggered by the timer, `⌘S`
+  ("Commit now", also inside text fields), right after opening, and on close/quit. No
+  `origin` ⇒ commit only (toolbar icon greyed "local"). Merge rule for a note edited on
+  both sides: (1) the side with the later `modified` wins the whole frontmatter;
+  (2) `tags` and `deps` are unioned (ours first), `created` = earlier, `modified` =
+  later; (3) unioned edges that would close a cycle are dropped, newest edge first kept;
+  (4) deleted on one side, edited on the other ⇒ the edit wins and the trash copy goes;
+  (5) same filename added on both sides with different ids ⇒ theirs gets the `-<id>`
+  suffix; (6) `dagobert.json`: maps unioned (ours wins per key), palette unioned,
+  workflows merged by id, scalars ours. Body: one-sided change wins, else a three-way
+  merge whose conflicts keep git's markers as content (warning badge on the card,
+  count in the toolbar, `ConflictBlock` in the editor). Only the main window syncs.
 - Filenames derive from the title (`slugify` in `store.rs`); collisions get `-<id>`.
   The backend owns `note.file` — the frontend never sets it.
 - Wheel: plain scroll pans, `ctrl`/`meta`+wheel (pinch) zooms. Wheel listener is

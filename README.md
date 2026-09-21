@@ -16,6 +16,12 @@ There are several types of tasks:
 - Tracking tasks, whose progress is derived from the progress of their dependencies (they can't be marked as done manually).
 - Any other format you need! The app lets you define a task format with whatever steps you need. For instance, a "PR" task with "todo", "review", "review-comments".
 
+## Syncing between machines
+
+Turn on **File → Enable git tracking** (the folder must be a git repository; the app offers to
+create one). Notes are then committed every few minutes, on `⌘S`, and when the app quits; with
+an `origin` remote they are pulled and pushed too, and conflicting edits are merged automatically.
+
 ## Releases
 
 Bump with `npm run version -- X.Y.Z` and push to `main`; CI publishes a GitHub release

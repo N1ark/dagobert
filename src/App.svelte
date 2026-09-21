@@ -576,7 +576,7 @@
       <h1>Dagobert</h1>
       <p class="tagline">Notes that depend on each other.</p>
       <button class="primary big" onclick={() => store.pickAndOpen()}>Open a folder…</button>
-      <p class="hint">Pick any folder. Notes are stored as markdown files inside it.</p>
+      <p class="hint">Pick any folder. Notes are stored as markdown files inside it; enable git tracking to sync them between machines.</p>
       {#if store.recent.length}
         <h3>Recent</h3>
         <ul class="recent">
