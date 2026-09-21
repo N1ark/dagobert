@@ -32,6 +32,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Every user-facing string now lives in `src/lib/locales/en.ts`, groundwork for translating the app.
 - Keyboard shortcuts are defined once in `src/lib/keys.ts` and substituted into the UI, groundwork for rebinding them.
 - Refreshing pull requests no longer empties the sidebar or drops inline PR icons: rows keep their place and show a grey question mark until the new status arrives.
+- The sync interval in Git tracking settings is only shown once tracking is enabled.
 - Toolbar buttons (tags, trash, PRs, focus, tidy, fit, new note) are icon-only with
   tooltips; the tag filter count sits as a badge on the icon.
 

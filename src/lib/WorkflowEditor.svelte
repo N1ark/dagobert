@@ -166,20 +166,19 @@
             />
             {t("settings.git.enable")}
           </label>
-          <label class="row">
-            {t("settings.git.every")}
-            <input
-              class="num"
-              type="number"
-              min="1"
-              max="120"
-              bind:value={interval}
-              onchange={() => ((interval = Math.max(1, Math.min(120, Math.round(interval) || 5))), store.setGitInterval(interval))}
-              disabled={!store.gitEnabled}
-            />
-            {t("settings.git.minutes")}
-          </label>
           {#if store.gitEnabled}
+            <label class="row">
+              {t("settings.git.every")}
+              <input
+                class="num"
+                type="number"
+                min="1"
+                max="120"
+                bind:value={interval}
+                onchange={() => ((interval = Math.max(1, Math.min(120, Math.round(interval) || 5))), store.setGitInterval(interval))}
+              />
+              {t("settings.git.minutes")}
+            </label>
             <h4>{t("settings.git.repo")}</h4>
             <dl class="info">
               <dt>{t("settings.git.branch")}</dt>
