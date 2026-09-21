@@ -2,11 +2,13 @@ mod git;
 mod merge;
 mod store;
 mod symbols;
+mod sync;
 mod watch;
 
 use std::path::{Path, PathBuf};
 use store::{Local, Meta, MetaPatch, Note, Project};
-use tauri::{AppHandle, Manager, State};
+use sync::SyncReport;
+use tauri::{AppHandle, Manager, State, WindowEvent};
 use watch::AppState;
 
 #[tauri::command]
@@ -93,6 +95,83 @@ fn unwatch_project(state: State<AppState>) {
     watch::stop(&state);
 }
 
+// ---- git tracking ------------------------------------------------------------
+
+#[tauri::command]
+async fn git_status(state: State<'_, AppState>, path: String) -> Result<git::GitStatus, String> {
+    sync::locked(state.git.lock.clone(), move || {
+        git::status(Path::new(&path))
+    })
+    .await?
+}
+
+/// Checks the folder is inside a repository (`Err("no-repo")` otherwise) and
+/// writes the `.gitignore` entries tracking needs.
+#[tauri::command]
+fn git_enable(path: String) -> Result<(), String> {
+    let root = Path::new(&path);
+    if git::open(root)?.is_none() {
+        return Err("no-repo".into());
+    }
+    git::ensure_ignore(root)
+}
+
+#[tauri::command]
+fn git_init(path: String) -> Result<(), String> {
+    git::init(Path::new(&path))
+}
+
+/// Starts or stops the tick timer for the open project.
+#[tauri::command]
+fn git_configure(app: AppHandle, state: State<AppState>, enabled: bool, interval_min: u32) {
+    sync::configure(app, &state.git, enabled, interval_min);
+}
+
+/// The full cycle: commit if dirty → pull → resolve → push. `stamp` is the
+/// local time the frontend puts in commit messages.
+#[tauri::command]
+async fn git_sync(
+    state: State<'_, AppState>,
+    path: String,
+    stamp: String,
+) -> Result<SyncReport, String> {
+    sync::locked(state.git.lock.clone(), move || {
+        sync::cycle(Path::new(&path), &stamp, sync::TIMEOUT)
+    })
+    .await
+}
+
+/// The final sync before the window closes or the app exits (`reason`), with a
+/// short timeout; failures are logged, not shown.
+#[tauri::command]
+async fn git_quit(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+    stamp: String,
+    reason: String,
+) -> Result<(), String> {
+    let r = sync::locked(state.git.lock.clone(), move || {
+        sync::cycle(Path::new(&path), &stamp, sync::QUIT_TIMEOUT)
+    })
+    .await?;
+    if let Some(e) = r.error {
+        eprintln!("git sync on quit failed: {e}");
+    }
+    finish_quit(&app, &reason);
+    Ok(())
+}
+
+fn finish_quit(app: &AppHandle, reason: &str) {
+    if reason == "close" {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.destroy();
+        }
+    } else {
+        app.exit(0);
+    }
+}
+
 /// First SF Symbol from `names` that exists, as PNG bytes (macOS only).
 #[tauri::command]
 fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
@@ -142,8 +221,31 @@ pub fn run() {
             github_cli_token,
             sf_symbol,
             watch_project,
-            unwatch_project
+            unwatch_project,
+            git_status,
+            git_enable,
+            git_init,
+            git_configure,
+            git_sync,
+            git_quit
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    let app = window.app_handle();
+                    if sync::intercept_quit(app, &app.state::<AppState>().git, "close") {
+                        api.prevent_close();
+                    }
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
+                if sync::intercept_quit(app, &app.state::<AppState>().git, "exit") {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

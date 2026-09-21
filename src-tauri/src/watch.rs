@@ -73,6 +73,7 @@ pub struct WatchState {
 pub struct AppState {
     pub recent: Arc<Recent>,
     pub watch: Mutex<WatchState>,
+    pub git: crate::sync::GitState,
 }
 
 impl Default for AppState {
@@ -80,6 +81,7 @@ impl Default for AppState {
         Self {
             recent: Arc::new(Recent::default()),
             watch: Mutex::new(WatchState::default()),
+            git: crate::sync::GitState::default(),
         }
     }
 }

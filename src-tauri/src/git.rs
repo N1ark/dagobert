@@ -4,9 +4,6 @@
 //! Only Dagobert's own paths (`notes/`, `trash/`, `dagobert.json`, `.gitignore`)
 //! are ever staged; the project may sit inside a larger repository.
 
-// Wired up by the git_* commands in a later milestone.
-#![allow(dead_code)]
-
 use git2::{
     build::{CheckoutBuilder, TreeUpdateBuilder},
     AnnotatedCommit, Cred, CredentialType, Delta, DiffOptions, FetchOptions, IndexAddOption,
@@ -31,6 +28,8 @@ pub struct GitStatus {
     pub ahead: usize,
     pub behind: usize,
     pub has_remote: bool,
+    /// The branch exists on the remote (`origin/<branch>` is known locally).
+    pub has_upstream: bool,
     /// Unix seconds of the HEAD commit.
     pub last_commit_at: Option<i64>,
 }
@@ -167,7 +166,8 @@ pub fn status(root: &Path) -> Result<GitStatus> {
         .and_then(|o| repo.find_commit(o).ok())
         .map(|c| c.time().seconds());
     let has_remote = repo.find_remote(REMOTE).is_ok();
-    let (ahead, behind) = match (head, branch.as_deref().and_then(|b| remote_ref(&repo, b))) {
+    let upstream = branch.as_deref().and_then(|b| remote_ref(&repo, b));
+    let (ahead, behind) = match (head, upstream) {
         (Some(l), Some(r)) => repo.graph_ahead_behind(l, r).map_err(err)?,
         _ => (0, 0),
     };
@@ -177,6 +177,7 @@ pub fn status(root: &Path) -> Result<GitStatus> {
         ahead,
         behind,
         has_remote,
+        has_upstream: upstream.is_some(),
         last_commit_at,
     })
 }

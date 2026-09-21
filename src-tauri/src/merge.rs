@@ -3,9 +3,6 @@
 //! later `modified` wins the frontmatter, tags and deps are unioned, and the
 //! body is three-way merged, keeping git's conflict markers when it can't be.
 
-// Wired up by the git_* commands in a later milestone.
-#![allow(dead_code)]
-
 use crate::git::{self, Result};
 use crate::store::{self, Note};
 use git2::{IndexEntry, MergeFileOptions, Repository};

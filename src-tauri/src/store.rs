@@ -141,6 +141,28 @@ pub struct Local {
     pub viewport: Viewport,
 }
 
+/// Git tracking settings (shared, so every machine behaves the same).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GitSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default = "five")]
+    pub interval_min: u32,
+}
+
+fn five() -> u32 {
+    5
+}
+
+impl Default for GitSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_min: 5,
+        }
+    }
+}
+
 /// Project-wide settings stored in `dagobert.json`.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Meta {
@@ -165,6 +187,8 @@ pub struct Meta {
     /// User-added swatches shown in colour pickers after the built-in palette.
     #[serde(default)]
     pub palette: Vec<String>,
+    #[serde(default)]
+    pub git: GitSettings,
 }
 
 #[derive(Debug, Serialize)]
@@ -455,6 +479,7 @@ pub struct MetaPatch {
     pub default_template: Option<String>,
     pub tracking_template: Option<String>,
     pub palette: Option<Vec<String>>,
+    pub git: Option<GitSettings>,
 }
 
 pub fn read_meta(root: &Path) -> Meta {
@@ -483,6 +508,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(p) = patch.palette {
         meta.palette = p;
+    }
+    if let Some(g) = patch.git {
+        meta.git = g;
     }
     write_meta(root, &meta)
 }
@@ -617,6 +645,7 @@ mod tests {
         assert_eq!(legacy.workflows[0].template, "");
         assert_eq!(legacy.default_template, "");
         assert!(legacy.palette.is_empty());
+        assert!(!legacy.git.enabled && legacy.git.interval_min == 5);
 
         // Soft delete: goes to trash/, stamped, and comes back on restore.
         let trashed = delete_note(&dir, &renamed.file, "2026-09-16T11:00:00.000Z")
