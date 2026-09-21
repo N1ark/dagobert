@@ -1,0 +1,12 @@
+import assert from "node:assert/strict";
+import { marked } from "marked";
+import { highlight, highlightExtension } from "../src/lib/highlight.ts";
+marked.use(highlightExtension);
+assert.match(highlight("const x = 1;", "ts"), /hljs-keyword/);
+assert.equal(highlight("<b>&", "nope"), "&lt;b&gt;&amp;");
+assert.equal(highlight("<b>&", undefined), "&lt;b&gt;&amp;");
+assert.match(highlight("echo hi", "sh"), /hljs-built_in/);
+const html = marked.parse("```rust\nfn main() {}\n```", { gfm: true, async: false });
+assert.match(html, /<pre><code class="hljs language-rust"><span class="hljs-keyword">fn<\/span>/);
+assert.match(marked.parse("```\nplain\n```", { gfm: true, async: false }), /<code class="hljs">plain/);
+console.log("highlight ok");

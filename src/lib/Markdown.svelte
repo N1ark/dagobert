@@ -5,6 +5,9 @@
   import { renderWikilinks, wikilinkTarget } from "./wikilinks";
   import { store } from "./store.svelte";
   import { prIcons } from "./prIcons.svelte";
+  import { highlightExtension } from "./highlight";
+
+  marked.use(highlightExtension);
 
   let { source }: { source: string } = $props();
 

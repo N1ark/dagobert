@@ -186,6 +186,73 @@ a {
   padding: 0;
   background: none;
 }
+
+/* Syntax highlighting (highlight.js classes; colours from the tag palette). */
+.hljs-comment,
+.hljs-quote {
+  color: #7e8395;
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-doctag,
+.hljs-formula {
+  color: #c678dd;
+}
+.hljs-string,
+.hljs-addition,
+.hljs-regexp,
+.hljs-meta .hljs-string {
+  color: #98c379;
+}
+.hljs-number,
+.hljs-literal,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-template-variable,
+.hljs-variable.constant_ {
+  color: #d19a66;
+}
+.hljs-title,
+.hljs-title.function_,
+.hljs-section,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class {
+  color: #61afef;
+}
+.hljs-title.class_,
+.hljs-type,
+.hljs-built_in {
+  color: #e5c07b;
+}
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-property,
+.hljs-params,
+.hljs-tag,
+.hljs-punctuation {
+  color: var(--color);
+}
+.hljs-tag .hljs-name,
+.hljs-tag .hljs-attr {
+  color: #e06c75;
+}
+.hljs-deletion {
+  color: #e06c75;
+}
+.hljs-meta,
+.hljs-subst {
+  color: #56b6c2;
+}
+.hljs-emphasis {
+  font-style: italic;
+}
+.hljs-strong {
+  font-weight: bold;
+}
 .markdown blockquote {
   opacity: 0.8;
   font-style: italic;

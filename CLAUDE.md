@@ -202,6 +202,11 @@ Builds are unsigned.
   PNG, and `sfsymbol.ts` centres/tints it on a canvas for the current appearance
   (menu rebuilt when appearance flips). Phosphor icons are only used in-app.
 - `src/lib/QuickOpen.svelte` takes `mode: "notes" | "commands"` (⌘K vs ⇧⌘K).
+- `src/lib/highlight.ts` — `highlight.js/lib/core` with a hand-picked language list
+  (import per language; add there, plus aliases like `svelte` → `xml`) and
+  `highlightExtension`, the marked renderer `Markdown.svelte` installs. Unknown or
+  missing languages fall back to escaped plain text. Token colours are `.hljs-*`
+  rules in `app.css` using the tag palette. Test: `tests/highlight.test.mjs`.
 - `src/lib/InlineMd.svelte` — renders a title as inline markdown (`marked.parseInline`
   - DOMPurify). Used wherever a title is displayed (card, dep lists, picker, trash);
     the panel's title field stays a raw `<input>`.

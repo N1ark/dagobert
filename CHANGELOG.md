@@ -6,6 +6,12 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Syntax highlighting in fenced code blocks (` ```lang `), for the common languages
+  (JS/TS, Python, Rust, Go, C/C++, Java, Kotlin, Swift, Ruby, shell, SQL, JSON, YAML,
+  TOML, HTML/Svelte, CSS, Markdown, diff and a few more).
+
 ### Changed
 
 - Shift-clicking a node's status pill on the graph moves it back a stage instead of forward.
