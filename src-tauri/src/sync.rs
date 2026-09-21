@@ -15,6 +15,10 @@ use tauri::{AppHandle, Emitter, Manager};
 /// Network operations give up after this long (10 s when quitting).
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 pub const QUIT_TIMEOUT: Duration = Duration::from_secs(10);
+/// The quit goes through regardless once this has elapsed (connecting and
+/// authenticating aren't covered by `QUIT_TIMEOUT`, nor is a frontend that
+/// never answers).
+pub const QUIT_DEADLINE: Duration = Duration::from_secs(20);
 
 #[derive(Default)]
 pub struct GitState {
@@ -24,6 +28,8 @@ pub struct GitState {
     pub enabled: AtomicBool,
     /// A quit-time sync has been requested; the next close/exit goes through.
     pub quitting: AtomicBool,
+    /// The held-back close/exit has been carried out.
+    pub finished: AtomicBool,
     /// Bumped whenever the timer is (re)started; stale timer threads exit.
     pub generation: AtomicU64,
 }
@@ -110,7 +116,28 @@ pub fn intercept_quit(app: &AppHandle, state: &GitState, reason: &str) -> bool {
         state.quitting.store(false, Ordering::SeqCst);
         return false;
     }
+    let (app, reason) = (app.clone(), reason.to_string());
+    std::thread::spawn(move || {
+        std::thread::sleep(QUIT_DEADLINE);
+        eprintln!("git sync on quit timed out");
+        finish_quit(&app, &reason);
+    });
     true
+}
+
+/// Carries out the close/exit held back by `intercept_quit`, once.
+pub fn finish_quit(app: &AppHandle, reason: &str) {
+    let state = app.state::<crate::watch::AppState>();
+    if state.git.finished.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    if reason == "close" {
+        if let Some(w) = app.get_webview_window("main") {
+            let _ = w.destroy();
+        }
+    } else {
+        app.exit(0);
+    }
 }
 
 #[cfg(test)]

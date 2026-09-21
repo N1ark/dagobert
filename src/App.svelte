@@ -448,6 +448,7 @@
       ? () => {}
       : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.syncNow(false) : store.quitSync(reason)));
     if (standaloneId && standalonePath) {
+      store.syncs = false;
       store.open(standalonePath).then(() => store.select(standaloneId));
     } else {
       store.restore();

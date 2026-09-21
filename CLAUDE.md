@@ -78,8 +78,9 @@ Builds are unsigned.
   `git_enable` (`Err("no-repo")`), `git_init`, `git_configure`, `git_sync`, `git_quit`.
   Closing the main window or quitting with tracking on is held back once
   (`prevent_close`/`prevent_exit`), `git-quit` is emitted with the reason, the frontend
-  flushes saves and calls `git_quit` (10 s timeout, failures logged), and Rust then
-  destroys the window or exits. The watcher is untouched: pulled/merged files echo as
+  flushes saves and calls `git_quit` (10 s transfer timeout, failures logged), and Rust
+  then destroys the window or exits (`finish_quit`, also fired by a 20 s `QUIT_DEADLINE`
+  thread so a hung connect or a silent frontend can't block quitting). The watcher is untouched: pulled/merged files echo as
   `project-changed` and reach the store through `applyExternal`.
 
 - `src-tauri/src/watch.rs` — file watcher (`notify` + `notify-debouncer-mini`, 300 ms).
@@ -105,7 +106,8 @@ Builds are unsigned.
   (drives the no-repo popup). `enableGit` → `git_enable` (no-repo → popup → `initRepo`);
   `syncNow(manual)` flushes and awaits in-flight writes (`flushAndWait`) then calls
   `git_sync`; errors toast only when manual. `quitSync` answers `git-quit`. `open()`
-  reconfigures the timer and syncs right away when tracking is on. Last-opened path is in localStorage and
+  reconfigures the timer and syncs right away when tracking is on; `syncs` (false in
+  standalone note windows, set by `App.svelte`) gates the timer and every cycle. Last-opened path is in localStorage and
   restored on startup (`restore`). Writes are serialised per note (`#inflight`) and
   `remove` awaits them before trashing; `#deleted` stops late writes resurrecting a
   note. Trash state: `trash`, `loadTrash`, `restoreNote`, `purge`.

@@ -249,9 +249,12 @@ fn callbacks<'a>(deadline: Option<Instant>) -> RemoteCallbacks<'a> {
     let mut cb = RemoteCallbacks::new();
     let attempt = Cell::new(0usize);
     cb.credentials(move |url, username, allowed| {
+        let user = username.unwrap_or("git");
+        if allowed == CredentialType::USERNAME {
+            return Cred::username(user);
+        }
         let n = attempt.get();
         attempt.set(n + 1);
-        let user = username.unwrap_or("git");
         if allowed.contains(CredentialType::SSH_KEY) {
             let keys = ssh_keys();
             if n == 0 {

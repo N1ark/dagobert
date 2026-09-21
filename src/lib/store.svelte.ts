@@ -67,6 +67,8 @@ class Store {
 
   // ---- git tracking --------------------------------------------------------
 
+  /** This window runs the sync cycle; standalone note windows only save files. */
+  syncs = true;
   gitEnabled = $state(false);
   gitInterval = $state(5);
   gitStatus = $state<GitStatus | null>(null);
@@ -201,6 +203,7 @@ class Store {
   }
 
   #configureGit() {
+    if (!this.syncs) return;
     backend.gitConfigure(this.gitEnabled && !!this.path, this.gitInterval).catch((e) => this.fail(e));
   }
 
@@ -214,7 +217,7 @@ class Store {
 
   /** One sync cycle. Errors toast only when `manual`; the timer stays quiet. */
   syncNow(manual = false): Promise<void> {
-    if (!this.path || !this.gitEnabled) return Promise.resolve();
+    if (!this.path || !this.gitEnabled || !this.syncs) return Promise.resolve();
     if (this.#syncing) return this.#syncing;
     const path = this.path;
     this.gitState = "syncing";
@@ -482,7 +485,7 @@ class Store {
   close() {
     this.flushAll();
     void backend.unwatchProject();
-    void backend.gitConfigure(false, this.gitInterval);
+    if (this.syncs) void backend.gitConfigure(false, this.gitInterval);
     localStorage.removeItem(LAST_KEY);
     this.path = null;
     this.notes = [];

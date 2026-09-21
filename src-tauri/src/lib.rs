@@ -158,18 +158,8 @@ async fn git_quit(
     if let Some(e) = r.error {
         eprintln!("git sync on quit failed: {e}");
     }
-    finish_quit(&app, &reason);
+    sync::finish_quit(&app, &reason);
     Ok(())
-}
-
-fn finish_quit(app: &AppHandle, reason: &str) {
-    if reason == "close" {
-        if let Some(w) = app.get_webview_window("main") {
-            let _ = w.destroy();
-        }
-    } else {
-        app.exit(0);
-    }
 }
 
 /// First SF Symbol from `names` that exists, as PNG bytes (macOS only).
