@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import Markdown from "./Markdown.svelte";
@@ -83,6 +83,29 @@
     }
     autosize();
   }
+
+  // Another window changed the body under an active block: reload the draft, keeping the caret.
+  $effect(() => {
+    const body = note.body;
+    if (active === null) return;
+    untrack(() => {
+      if (joinBlocks(withDraft()) === body) return;
+      const list = splitBlocks(body);
+      if (active! >= list.length) {
+        active = list.length;
+        draft = "";
+        return;
+      }
+      const el = textarea;
+      const focused = el && document.activeElement === el;
+      const caret = el?.selectionStart ?? 0;
+      draft = list[active!];
+      tick().then(() => {
+        autosize();
+        if (focused) el.setSelectionRange(Math.min(caret, draft.length), Math.min(caret, draft.length));
+      });
+    });
+  });
 
   function deactivate() {
     if (active === null) return;

@@ -403,7 +403,10 @@ class Store {
     const n = this.byId(id);
     if (!n) return;
     if (!opts.silent) n.modified = now();
-    this.#record(opts.label ?? "edit", { id, before: this.#last.get(id) ?? null, after: $state.snapshot(n) });
+    const after = $state.snapshot(n);
+    this.#record(opts.label ?? "edit", { id, before: this.#last.get(id) ?? null, after });
+    // Other windows see the edit now, not after the debounced save.
+    backend.broadcast({ type: "note", note: after });
     this.save(id, opts.immediate);
   }
 
@@ -600,11 +603,13 @@ class Store {
     if (msg.type === "note") {
       if (this.#deleted.has(msg.note.id)) return;
       const local = this.byId(msg.note.id);
-      // Don't clobber a note we're mid-edit on; our own save will win.
-      if (local && this.#saveTimers.has(local.id)) return;
+      // Edits are broadcast as they happen, so the latest message is the truth.
       if (local) Object.assign(local, msg.note);
       else this.notes.push(msg.note);
       this.#last.set(msg.note.id, structuredClone(msg.note));
+    } else if (msg.type === "note-file") {
+      const local = this.byId(msg.id);
+      if (local) local.file = msg.file;
     } else if (msg.type === "note-removed") {
       if (!this.byId(msg.id)) return;
       this.#saveTimers.delete(msg.id);
@@ -812,8 +817,10 @@ class Store {
       if (this.#deleted.has(id)) return;
       try {
         const saved = await backend.saveNote(this.path!, $state.snapshot(n));
-        if (saved.file !== n.file) n.file = saved.file;
-        backend.broadcast({ type: "note", note: $state.snapshot(n) });
+        if (saved.file !== n.file) {
+          n.file = saved.file;
+          backend.broadcast({ type: "note-file", id, file: saved.file });
+        }
       } catch (e) {
         this.fail(e);
       }

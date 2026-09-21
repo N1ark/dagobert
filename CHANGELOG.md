@@ -16,6 +16,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- A note edited in its own window and in the main window's panel now stays in sync
+  as you type, instead of only after each save; an edit arriving while you're in a
+  block reloads that block without losing your caret.
+
 - Shift-clicking a node's status pill on the graph moves it back a stage instead of forward.
 
 ## [0.5.1] - 2026-09-21
