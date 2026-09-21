@@ -38,6 +38,7 @@
   import CornersOut from "phosphor-svelte/lib/CornersOut";
   import X from "phosphor-svelte/lib/X";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
+  import GearSix from "phosphor-svelte/lib/GearSix";
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
   import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
   import Warning from "phosphor-svelte/lib/Warning";
@@ -356,6 +357,13 @@
         menuLabel: t("action.grain.menu"),
       }),
       a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
+      a("settings", t("action.settings"), () => ((settingsSection = "github"), (showWorkflows = true)), {
+        hint: keys.settings,
+        icon: GearSix,
+        symbol: ["gearshape", "gear"],
+        menu: "App",
+        enabled: has,
+      }),
       a("workflows", t("action.workflows"), () => ((settingsSection = "workflows"), (showWorkflows = true)), {
         icon: Kanban,
         symbol: ["list.bullet.rectangle", "list.bullet"],
@@ -439,7 +447,7 @@
   });
 
   /** Shortcuts handled at the window level (the rest live in Canvas / the editor). */
-  const WINDOW_KEYS = ["new-note", "commands", "quick-open", "prs", "search", "open-folder", "git-sync"] as const;
+  const WINDOW_KEYS = ["new-note", "commands", "quick-open", "prs", "search", "open-folder", "git-sync", "settings"] as const;
   function onKey(e: KeyboardEvent) {
     if (standaloneId) return;
     const id = WINDOW_KEYS.find((k) => pressed(keys[k], e));

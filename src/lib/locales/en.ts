@@ -45,6 +45,7 @@ export default {
   "action.grain.disable": "Disable background grain",
   "action.grain.menu": "Toggle background grain",
   "action.trash": "Open trash",
+  "action.settings": "Settings…",
   "action.workflows": "Manage workflows",
   "action.prs.show": "Show pull requests",
   "action.prs.hide": "Hide pull requests",
@@ -272,9 +273,10 @@ export default {
   "git.toast.nothing": "Nothing to commit",
 
   // Settings dialog
-  "settings.aria": "Workflows",
-  "settings.workflows": "Workflows",
-  "settings.tracking": "Tracking issues",
+  "settings.aria": "Settings",
+  "settings.title": "Settings",
+  "settings.group.general": "General",
+  "settings.group.workflows": "Workflows",
   "settings.github": "GitHub",
   "settings.git": "Git tracking",
   "settings.close": "close",

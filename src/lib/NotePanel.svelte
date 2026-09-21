@@ -111,7 +111,11 @@
 </script>
 
 {#if editingWorkflows}
-  <WorkflowEditor onclose={() => (editingWorkflows = false)} />
+  <WorkflowEditor
+    section={note.tracking ? "tracking" : "workflows"}
+    workflow={note.tracking ? null : note.workflow}
+    onclose={() => (editingWorkflows = false)}
+  />
 {/if}
 
 <aside class="panel" class:standalone bind:this={panelEl}>

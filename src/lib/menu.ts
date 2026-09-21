@@ -20,6 +20,7 @@ export function accelerator(hint?: string): string | undefined {
 
 /** `Action.menu` values, in menu-bar order, and their displayed titles. */
 const SECTIONS = {
+  App: "app.name",
   File: "menu.file",
   Edit: "menu.edit",
   Note: "menu.note",
@@ -65,10 +66,13 @@ export async function setAppMenu(actions: Action[]) {
       }),
     );
 
+  // The app menu is native apart from its own actions (Settings…), placed after About.
   const app = await Submenu.new({
-    text: t("app.name"),
+    text: t(SECTIONS.App),
     items: [
       await PredefinedMenuItem.new({ item: { About: null } }),
+      await PredefinedMenuItem.new({ item: "Separator" }),
+      ...(await items(groups.get("App") ?? [])),
       await PredefinedMenuItem.new({ item: "Separator" }),
       await PredefinedMenuItem.new({ item: "Services" }),
       await PredefinedMenuItem.new({ item: "Separator" }),
@@ -82,6 +86,7 @@ export async function setAppMenu(actions: Action[]) {
 
   const submenus = [app];
   for (const name of ORDER) {
+    if (name === "App") continue;
     const list = groups.get(name) ?? [];
     const entries = await items(list);
     if (name === "Edit") {

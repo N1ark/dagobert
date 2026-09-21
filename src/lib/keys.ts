@@ -7,6 +7,7 @@ export const keys = {
   "new-note": "⌘N",
   "open-folder": "⌘O",
   "git-sync": "⌘S",
+  settings: "⌘,",
   undo: "⌘Z",
   redo: "⇧⌘Z",
   duplicate: "⌘D",

@@ -29,6 +29,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- The settings dialog is always titled "Settings", keeps a fixed height across tabs, and
+  groups its sidebar into General (GitHub, Git tracking) and Workflows; the cog in a
+  note's panel opens it on that note's workflow. Settings… lives in the app menu with
+  `⌘,` (also in the command palette).
 - Every user-facing string now lives in `src/lib/locales/en.ts`, groundwork for translating the app.
 - Keyboard shortcuts are defined once in `src/lib/keys.ts` and substituted into the UI, groundwork for rebinding them.
 - Refreshing pull requests no longer empties the sidebar or drops inline PR icons: rows keep their place and show a grey question mark until the new status arrives.

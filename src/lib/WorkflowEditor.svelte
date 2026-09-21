@@ -17,10 +17,12 @@
   import { t, plural } from "./i18n";
 
   type Section = "workflows" | "tracking" | "github" | "git";
-  let { onclose, section = "workflows" }: { onclose: () => void; section?: Section } = $props();
+  let { onclose, section = "workflows", workflow }: { onclose: () => void; section?: Section; workflow?: string | null } = $props();
 
   // svelte-ignore state_referenced_locally
   let page = $state<Section>(section);
+  // svelte-ignore state_referenced_locally
+  let selectedId = $state<string | null>(workflow === undefined ? (store.workflows[0]?.id ?? null) : workflow);
   let interval = $state(store.gitInterval);
   $effect(() => {
     if (page === "git") store.refreshGitStatus();
@@ -42,7 +44,6 @@
   }
 
   let picking = $state<number | null>(null);
-  let selectedId = $state<string | null>(store.workflows[0]?.id ?? null);
   const wf = $derived(store.workflows.find((w) => w.id === selectedId) ?? null);
   const usage = $derived(wf ? store.notes.filter((n) => n.workflow === wf.id).length : 0);
 
@@ -95,21 +96,20 @@
 <div class="backdrop" onclick={onclose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("settings.aria")} tabindex="-1">
     <header>
-      <h3>
-        {t(
-          page === "github"
-            ? "settings.github"
-            : page === "git"
-              ? "settings.git"
-              : page === "tracking"
-                ? "settings.tracking"
-                : "settings.workflows",
-        )}
-      </h3>
+      <h3>{t("settings.title")}</h3>
       <button class="ghost" onclick={onclose} aria-label={t("settings.close")}><X size={16} /></button>
     </header>
     <div class="cols">
       <nav>
+        <span class="group">{t("settings.group.general")}</span>
+        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
+          ><GithubLogo size={14} /> {t("settings.github")}</button
+        >
+        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
+          ><GitBranch size={14} /> {t("settings.git")}</button
+        >
+        <div class="nav-sep"></div>
+        <span class="group">{t("settings.group.workflows")}</span>
         <button
           class="ghost item"
           class:active={page === "workflows" && selectedId === null}
@@ -130,13 +130,6 @@
           >
         {/each}
         <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> {t("settings.nav.new")}</button>
-        <div class="nav-sep"></div>
-        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
-          ><GithubLogo size={14} /> {t("settings.github")}</button
-        >
-        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
-          ><GitBranch size={14} /> {t("settings.git")}</button
-        >
       </nav>
       <section>
         {#if page === "tracking"}
@@ -355,7 +348,8 @@
   .cols {
     display: grid;
     grid-template-columns: 170px 1fr;
-    min-height: 280px;
+    height: 460px;
+    max-height: calc(100vh - 100px);
   }
   nav {
     display: flex;
@@ -363,6 +357,15 @@
     gap: 2px;
     padding: 8px;
     border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .group {
+    padding: 4px 8px 2px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-dim);
   }
   .item {
     text-align: left;
@@ -466,12 +469,12 @@
     border-radius: 3px;
   }
   .add {
-    margin-top: auto;
     color: var(--accent2);
     text-align: left;
   }
   section {
     padding: 12px 16px;
+    overflow-y: auto;
   }
   .name {
     width: 100%;
