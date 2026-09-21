@@ -1,6 +1,6 @@
 [package]
 name = "dagobert"
-version = "0.7.0"
+version = "0.7.1"
 description = "A DAG-shaped note-taking app"
 authors = ["N1ark"]
 edition = "2021"

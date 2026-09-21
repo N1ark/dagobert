@@ -6,7 +6,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.7.0] - 2026-09-21
+## [0.7.1] - 2026-09-21
 
 ### Added
 
