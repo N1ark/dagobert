@@ -19,6 +19,7 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
+ureq = { version = "3.4.2", features = ["json"] }
 
 # iOS has no ssh-agent and no key files, so HTTPS + a token is the only path —
 # dropping the `ssh` feature also drops libssh2 from the cross-compile.

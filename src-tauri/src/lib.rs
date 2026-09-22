@@ -1,4 +1,5 @@
 mod git;
+mod github;
 mod merge;
 mod state;
 mod store;
@@ -253,6 +254,30 @@ fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
         .find_map(|n| symbols::sf_symbol_png(n, point_size))
 }
 
+/// Starts the GitHub App device flow; the frontend shows the code and opens the URL.
+#[tauri::command]
+async fn github_signin_start() -> Result<github::DeviceStart, String> {
+    tauri::async_runtime::spawn_blocking(github::start)
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// One poll of the device flow. `pending` / `slow-down` mean keep waiting.
+#[tauri::command]
+async fn github_signin_poll(device_code: String) -> Result<github::Poll, String> {
+    tauri::async_runtime::spawn_blocking(move || github::poll(&device_code))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Exchanges a refresh token for a fresh one (apps with expiring user tokens).
+#[tauri::command]
+async fn github_refresh(refresh_token: String) -> Result<github::Token, String> {
+    tauri::async_runtime::spawn_blocking(move || github::refresh(&refresh_token))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
 /// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
 /// Always `None` on mobile: there is no `gh`, and iOS forbids spawning it.
 #[tauri::command]
@@ -303,6 +328,9 @@ pub fn run() {
             save_meta,
             save_local,
             github_cli_token,
+            github_signin_start,
+            github_signin_poll,
+            github_refresh,
             sf_symbol,
             watch_project,
             unwatch_project,

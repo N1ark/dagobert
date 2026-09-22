@@ -314,32 +314,31 @@ export default {
   "clone.url": "Repository URL",
   "clone.url.placeholder": "https://github.com/you/notes.git",
   "clone.help": "An `https://` remote of a project created on your computer; the phone never creates one.", // markdown
-  "clone.token": "Access token",
-  "clone.name": "Name",
-  "clone.email": "Email",
+  "clone.signin": "Sign in with GitHub first.",
   "clone.cancel": "Cancel",
   "clone.go": "Clone",
   "clone.cloning": "Cloning…",
   "toolbar.more": "More",
   "panel.sheet.expand": "Expand",
   "panel.sheet.collapse": "Collapse",
-  "settings.git.credentials": "Credentials",
-  "settings.git.token.help":
-    "Used for `https://` remotes when there is no ssh key or credential helper — a fine-grained token with read/write access to the repository.", // markdown
-  "settings.git.token.placeholder": "github_pat_…",
-  "settings.git.identity.help": "Name and email put on commits made here.",
-  "settings.git.name": "Name",
-  "settings.git.email": "Email",
   "settings.github.repos": "Repositories",
   "settings.github.help": "Type `alias#` in a note to pick an issue or PR; `alias#123` then links to it.", // markdown
   "settings.github.remove": "remove {alias}",
   "settings.github.alias": "alias",
   "settings.github.repo": "owner/repo",
   "settings.github.add": "Add",
-  "settings.github.token": "Access token",
-  "settings.github.token.help":
-    "Optional. Needed for private repos and higher rate limits. If empty, the `gh` CLI's login is used when available. Never stored in the project folder.", // markdown
-  "settings.github.token.placeholder": "ghp_…",
+  "github.signin.expired": "The sign-in code expired before it was approved.",
+  "github.signin.unconfigured": "This build has no GitHub App configured.",
+  "settings.github.account": "Account",
+  "settings.github.signin": "Sign in with GitHub",
+  "settings.github.signin.help":
+    "Opens github.com in your browser to approve a code. Nothing is typed in here, and the same sign-in authenticates git.", // markdown
+  "settings.github.signedInAs": "Signed in as {login}",
+  "settings.github.signout": "Sign out",
+  "settings.github.code": "Type this code in your browser:",
+  "settings.github.waiting": "Waiting for approval…",
+  "settings.github.reopen": "Open github.com again",
+  "settings.github.cancel": "Cancel",
   "settings.wf.name": "Workflow name",
   "settings.wf.help": "Stages in order; tick the ones that count as done.",
   "settings.wf.pillColor": "Pill colour",

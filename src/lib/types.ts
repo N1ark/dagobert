@@ -117,3 +117,20 @@ export interface ProjectRef {
   name: string;
   path: string;
 }
+
+/** GitHub App device flow: what the user approves in the browser. */
+export interface DeviceStart {
+  device_code: string;
+  user_code: string;
+  verification_uri: string;
+  expires_in: number;
+  interval: number;
+}
+
+export interface Token {
+  access_token: string;
+  refresh_token: string | null;
+  expires_in: number | null;
+}
+
+export type DevicePoll = { state: "pending" } | { state: "slow-down"; interval: number } | { state: "token"; token: Token };

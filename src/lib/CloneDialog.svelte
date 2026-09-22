@@ -1,6 +1,6 @@
 <script lang="ts">
   import { backend } from "./backend";
-  import { secrets } from "./secrets";
+  import { auth } from "./auth.svelte";
   import { store } from "./store.svelte";
   import X from "phosphor-svelte/lib/X";
   import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
@@ -10,9 +10,6 @@
   let { onclose }: { onclose: () => void } = $props();
 
   let url = $state("");
-  let token = $state(secrets.gitToken());
-  let name = $state(secrets.gitName());
-  let email = $state(secrets.gitEmail());
   let busy = $state(false);
   let error = $state<string | null>(null);
 
@@ -20,11 +17,9 @@
     if (!url.trim() || busy) return;
     busy = true;
     error = null;
-    secrets.setGitToken(token);
-    secrets.setGitName(name);
-    secrets.setGitEmail(email);
     try {
-      const p = await backend.cloneProject(url.trim());
+      const s = auth.session;
+      const p = await backend.cloneProject(url.trim(), await auth.token(), s?.name ?? "", s?.email ?? "");
       onclose();
       await store.open(p.path);
     } catch (e) {
@@ -64,18 +59,15 @@
         <input bind:value={url} placeholder={t("clone.url.placeholder")} spellcheck="false" autocapitalize="off" autofocus />
       </label>
       <p class="help"><InlineMd source={t("clone.help")} /></p>
-      <label>
-        {t("clone.token")}
-        <input class="mono" type="password" bind:value={token} placeholder={t("settings.git.token.placeholder")} spellcheck="false" />
-      </label>
-      <div class="identity">
-        <label>{t("clone.name")}<input bind:value={name} spellcheck="false" /></label>
-        <label>{t("clone.email")}<input type="email" bind:value={email} spellcheck="false" autocapitalize="off" /></label>
-      </div>
+      {#if !auth.signedIn}
+        <p class="err">{t("clone.signin")}</p>
+      {/if}
       {#if error}<p class="err">{error}</p>{/if}
       <footer>
         <button type="button" class="ghost" onclick={onclose}>{t("clone.cancel")}</button>
-        <button type="submit" class="primary" disabled={!url.trim() || busy}>{t(busy ? "clone.cloning" : "clone.go")}</button>
+        <button type="submit" class="primary" disabled={!url.trim() || busy || !auth.signedIn}
+          >{t(busy ? "clone.cloning" : "clone.go")}</button
+        >
       </footer>
     </form>
   </div>
@@ -130,18 +122,6 @@
   input {
     width: 100%;
     font-size: 14px;
-  }
-  .mono {
-    font-family: var(--mono);
-    font-size: 12px;
-  }
-  .identity {
-    display: flex;
-    gap: 8px;
-  }
-  .identity label {
-    flex: 1;
-    min-width: 0;
   }
   .help {
     margin: -4px 0 0;

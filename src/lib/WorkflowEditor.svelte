@@ -7,13 +7,13 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import ColorPicker from "./ColorPicker.svelte";
   import { stageColor } from "./workflows";
-  import { storedToken, setStoredToken } from "./github";
-  import { secrets } from "./secrets";
+  import { auth } from "./auth.svelte";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
   import Circuitry from "phosphor-svelte/lib/Circuitry";
   import { tooltip } from "./tooltip";
   import { relative } from "./time";
+  import { backend } from "./backend";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
 
@@ -28,10 +28,6 @@
   $effect(() => {
     if (page === "git") store.refreshGitStatus();
   });
-  let ghToken = $state(storedToken());
-  let gitToken = $state(secrets.gitToken());
-  let gitName = $state(secrets.gitName());
-  let gitEmail = $state(secrets.gitEmail());
   let newAlias = $state("");
   let newRepo = $state("");
 
@@ -200,32 +196,6 @@
               <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>{t("settings.git.syncNow")}</button>
             </div>
           {/if}
-          <h4>{t("settings.git.credentials")}</h4>
-          <p class="help"><InlineMd source={t("settings.git.token.help")} /></p>
-          <input
-            class="token"
-            type="password"
-            placeholder={t("settings.git.token.placeholder")}
-            bind:value={gitToken}
-            onchange={() => secrets.setGitToken(gitToken)}
-            spellcheck="false"
-          />
-          <p class="help">{t("settings.git.identity.help")}</p>
-          <div class="identity">
-            <input
-              placeholder={t("settings.git.name")}
-              bind:value={gitName}
-              onchange={() => secrets.setGitName(gitName)}
-              spellcheck="false"
-            />
-            <input
-              placeholder={t("settings.git.email")}
-              type="email"
-              bind:value={gitEmail}
-              onchange={() => secrets.setGitEmail(gitEmail)}
-              spellcheck="false"
-            />
-          </div>
         {:else if page === "github"}
           <h4>{t("settings.github.repos")}</h4>
           <p class="help"><InlineMd source={t("settings.github.help")} /></p>
@@ -252,16 +222,29 @@
             <input class="grow" placeholder={t("settings.github.repo")} bind:value={newRepo} spellcheck="false" />
             <button type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus size={13} /> {t("settings.github.add")}</button>
           </form>
-          <h4>{t("settings.github.token")}</h4>
-          <p class="help"><InlineMd source={t("settings.github.token.help")} /></p>
-          <input
-            class="token"
-            type="password"
-            placeholder={t("settings.github.token.placeholder")}
-            bind:value={ghToken}
-            onchange={() => setStoredToken(ghToken)}
-            spellcheck="false"
-          />
+          <h4>{t("settings.github.account")}</h4>
+          <p class="help"><InlineMd source={t("settings.github.signin.help")} /></p>
+          {#if auth.code}
+            <p class="code-label">{t("settings.github.code")}</p>
+            <p class="code">{auth.code}</p>
+            <div class="actions">
+              <span class="hint">{t("settings.github.waiting")}</span>
+              <button onclick={() => auth.url && backend.openExternal(auth.url)}>{t("settings.github.reopen")}</button>
+              <button class="ghost" onclick={() => auth.cancel()}>{t("settings.github.cancel")}</button>
+            </div>
+          {:else if auth.signedIn}
+            <div class="actions">
+              <span class="hint">{t("settings.github.signedInAs", { login: auth.session?.login ?? "" })}</span>
+              <button class="ghost" onclick={() => auth.signOut()}>{t("settings.github.signout")}</button>
+            </div>
+          {:else}
+            <div class="actions">
+              <button class="primary" disabled={auth.busy} onclick={() => auth.signIn()}
+                ><GithubLogo size={14} /> {t("settings.github.signin")}</button
+              >
+            </div>
+          {/if}
+          {#if auth.error}<p class="err">{auth.error}</p>{/if}
         {:else if wf}
           <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
           <p class="help">{t("settings.wf.help")}</p>
@@ -486,18 +469,18 @@
   .err {
     color: var(--red);
   }
-  .identity {
-    display: flex;
-    gap: 8px;
-  }
-  .identity input {
-    flex: 1;
-    min-width: 0;
-  }
-  .token {
-    width: 100%;
-    font-family: var(--mono);
+  .code-label {
+    margin: 8px 0 2px;
     font-size: 12px;
+    color: var(--color-dim);
+  }
+  .code {
+    margin: 0 0 8px;
+    font-family: var(--mono);
+    font-size: 22px;
+    letter-spacing: 0.18em;
+    color: var(--color2);
+    user-select: all;
   }
   section :global(code) {
     font-family: var(--mono);

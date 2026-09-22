@@ -1,4 +1,5 @@
 import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backend";
+import { auth } from "./auth.svelte";
 import type { Conflict, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
 import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
@@ -269,7 +270,7 @@ class Store {
     this.#syncing = (async () => {
       try {
         await this.flushAndWait();
-        const r = await backend.gitSync(path, stamp());
+        const r = await backend.gitSync(path, await auth.token(), stamp());
         if (this.path !== path) return;
         if (r.status) this.gitStatus = r.status;
         if (r.conflicts.length) this.conflictReport = r.conflicts;
@@ -322,7 +323,8 @@ class Store {
     try {
       if (path) await this.flushAndWait();
     } finally {
-      await backend.gitQuit(path, stamp(), reason).catch((e) => console.error("git quit", e));
+      const token = path ? await auth.token() : null;
+      await backend.gitQuit(path, token, stamp(), reason).catch((e) => console.error("git quit", e));
     }
   }
 

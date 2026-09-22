@@ -1,33 +1,36 @@
 /**
- * The two tokens the app holds: the GitHub API token and the git push/pull
- * token, plus the commit identity a cloned project gets. `localStorage` today;
- * the interface exists so a keychain plugin can replace the backing later.
+ * The GitHub sign-in, as stored between launches. One token serves both the API
+ * and git over HTTPS. `localStorage` today; the interface exists so a keychain
+ * plugin can replace the backing without touching anything else.
  */
-const PREFIX = "dagobert.";
+const KEY = "dagobert.session";
 
-function read(key: string): string {
-  try {
-    return localStorage.getItem(PREFIX + key) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function write(key: string, value: string) {
-  try {
-    if (value.trim()) localStorage.setItem(PREFIX + key, value.trim());
-    else localStorage.removeItem(PREFIX + key);
-  } catch {}
+/** A signed-in GitHub session. `refresh` and `expires` are null when the app issues non-expiring tokens. */
+export interface Session {
+  access: string;
+  refresh: string | null;
+  /** Epoch ms the access token stops working. */
+  expires: number | null;
+  login: string;
+  name: string;
+  email: string;
 }
 
 export const secrets = {
-  githubToken: () => read("githubToken"),
-  setGithubToken: (v: string) => write("githubToken", v),
-  /** Sent to Rust for each fetch/push; never written to disk by the backend. */
-  gitToken: () => read("gitToken"),
-  setGitToken: (v: string) => write("gitToken", v),
-  gitName: () => read("gitName"),
-  setGitName: (v: string) => write("gitName", v),
-  gitEmail: () => read("gitEmail"),
-  setGitEmail: (v: string) => write("gitEmail", v),
+  session(): Session | null {
+    try {
+      const raw = localStorage.getItem(KEY);
+      const s = raw ? (JSON.parse(raw) as Session) : null;
+      return s?.access ? s : null;
+    } catch {
+      return null;
+    }
+  },
+
+  setSession(s: Session | null) {
+    try {
+      if (s) localStorage.setItem(KEY, JSON.stringify(s));
+      else localStorage.removeItem(KEY);
+    } catch {}
+  },
 };

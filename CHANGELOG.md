@@ -8,7 +8,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
-- Git settings take an access token and a commit identity, for remotes over HTTPS.
+- Sign in with GitHub from settings: you approve a code in your browser, and the same
+  sign-in authenticates git over HTTPS. No more pasting access tokens.
 - A phone layout: the note panel becomes a bottom sheet, the toolbar collapses to an
   overflow menu, and projects are cloned from a URL instead of picked from a folder.
 - Touch input on the canvas: pinch to zoom, two-finger pan, long-press for the context

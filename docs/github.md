@@ -3,8 +3,20 @@
 Read this when touching `github.ts`, `prs.svelte.ts`, `PullRequests.svelte`,
 `PrIcon.svelte`, `prIcons.svelte.ts` or `IssuePopup.svelte`.
 
-- `github.ts` — REST client (`searchIssues`, 60 s cache; token from localStorage
-  `dagobert.githubToken` or `gh auth token` via the `github_cli_token` command).
+- `github.ts` — REST client (`searchIssues`, 60 s cache; token from the signed-in
+  session, else `gh auth token` via the `github_cli_token` command).
+- `auth.svelte.ts` + `github.rs` — sign-in through the GitHub App **device flow**: the app
+  shows a short code, the browser takes the approval, the token comes back. Nothing is
+  typed in and no token is made by hand. The endpoints send no CORS headers, so the calls
+  run in Rust (`ureq`); the token is handed to the frontend and never written to disk
+  there. One session authenticates both the REST API and git over HTTPS, and supplies the
+  commit identity (`/user`, falling back to the `users.noreply` address for private
+  emails). `secrets.ts` is the only place it is stored — `localStorage` today, so a
+  keychain plugin would replace that file alone. Refresh tokens are handled whether or
+  not the app issues expiring ones; `auth.token()` refreshes a minute before expiry and
+  collapses concurrent callers onto one request.
+- The app's user token only reaches repositories the GitHub App is **installed** on, so a
+  notes repo needs that one-time install before it will sync.
   `github.issue(repo, n)` serves each from the cached recent list, else one request per
   number; `invalidate()` backs the refresh button.
 - Repo aliases live in `Meta.repos` (`store.repos`, `setRepo`); `renderRepoRefs` in

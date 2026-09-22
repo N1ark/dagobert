@@ -9,9 +9,9 @@ import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
-import { secrets } from "./secrets";
-import type { GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, SyncReport } from "./types";
+import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, SyncReport, Token } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -106,14 +106,9 @@ export const backend = {
   },
 
   /** Clones `url` into the app's data directory, with a commit identity. */
-  async cloneProject(url: string): Promise<ProjectRef> {
+  async cloneProject(url: string, token: string | null, name: string, email: string): Promise<ProjectRef> {
     if (!inTauri) return { name: "browser-mock", path: "/browser-mock" };
-    return invoke<ProjectRef>("clone_project", {
-      url,
-      token: secrets.gitToken() || null,
-      name: secrets.gitName(),
-      email: secrets.gitEmail(),
-    });
+    return invoke<ProjectRef>("clone_project", { url, token, name, email });
   },
 
   async pickFolder(): Promise<string | null> {
@@ -258,17 +253,17 @@ export const backend = {
   },
 
   /** One full cycle: commit → pull → resolve → push. `stamp` goes in commit messages. */
-  async gitSync(path: string, stamp: string): Promise<SyncReport> {
+  async gitSync(path: string, token: string | null, stamp: string): Promise<SyncReport> {
     if (!inTauri) {
       return { committed: false, pulled: "no-remote", pushed: false, conflicts: [], error: null, status: mockGitStatus };
     }
-    return invoke<SyncReport>("git_sync", { path, token: secrets.gitToken() || null, stamp });
+    return invoke<SyncReport>("git_sync", { path, token, stamp });
   },
 
   /** The final sync before the window closes / the app exits (`path` null = nothing to sync); Rust finishes the quit. */
-  async gitQuit(path: string | null, stamp: string, reason: string): Promise<void> {
+  async gitQuit(path: string | null, token: string | null, stamp: string, reason: string): Promise<void> {
     if (!inTauri) return;
-    return invoke("git_quit", { path, token: secrets.gitToken() || null, stamp, reason });
+    return invoke("git_quit", { path, token, stamp, reason });
   },
 
   /** `git-tick` (timer) and `git-quit` (close/exit held back for a sync) events. */
@@ -335,6 +330,28 @@ export const backend = {
   async revealNote(path: string, file: string) {
     if (!inTauri || isMobile) return;
     await revealItemInDir(`${path}/notes/${file}`);
+  },
+
+  // ---- GitHub sign-in --------------------------------------------------------
+
+  /** Begins the device flow; the caller shows `user_code` and opens `verification_uri`. */
+  async githubSigninStart(): Promise<DeviceStart> {
+    if (!inTauri) throw new Error("no-client-id");
+    return invoke<DeviceStart>("github_signin_start");
+  },
+
+  async githubSigninPoll(deviceCode: string): Promise<DevicePoll> {
+    return invoke<DevicePoll>("github_signin_poll", { deviceCode });
+  },
+
+  async githubRefresh(refreshToken: string): Promise<Token> {
+    return invoke<Token>("github_refresh", { refreshToken });
+  },
+
+  /** Opens a URL in the user's own browser. */
+  async openExternal(url: string) {
+    if (!inTauri) window.open(url, "_blank");
+    else await openUrl(url);
   },
 
   /** Token from `gh auth token`, if the GitHub CLI is logged in. */

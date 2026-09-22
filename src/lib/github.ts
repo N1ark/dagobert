@@ -1,6 +1,6 @@
 import { t } from "./i18n";
 import { backend } from "./backend";
-import { secrets } from "./secrets";
+import { auth } from "./auth.svelte";
 
 /** An issue or pull request as shown in the picker. */
 export interface IssueRef {
@@ -15,22 +15,14 @@ export interface IssueRef {
   comments: number;
 }
 
-export function storedToken(): string {
-  return secrets.githubToken();
-}
+let cliToken: string | null | undefined;
 
-export function setStoredToken(t: string) {
-  secrets.setGithubToken(t);
-  cachedToken = undefined;
-}
-
-let cachedToken: string | null | undefined;
-
-/** Personal token from settings, else the gh CLI's; null when neither exists. */
+/** The signed-in session's token, else the gh CLI's; null when neither exists. */
 export async function token(): Promise<string | null> {
-  if (cachedToken !== undefined) return cachedToken;
-  cachedToken = storedToken() || (await backend.githubCliToken().catch(() => null)) || null;
-  return cachedToken;
+  const signed = await auth.token();
+  if (signed) return signed;
+  if (cliToken === undefined) cliToken = (await backend.githubCliToken().catch(() => null)) || null;
+  return cliToken;
 }
 
 async function api<T>(path: string): Promise<T> {
