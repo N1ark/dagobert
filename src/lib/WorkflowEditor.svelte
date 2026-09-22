@@ -100,7 +100,9 @@
 {#snippet panel()}
   <header>
     <h3>{t("settings.title")}</h3>
-    <button class="ghost" onclick={onclose} aria-label={t("settings.close")}><X size={16} /></button>
+    {#if !sheet}
+      <button class="ghost" onclick={onclose} aria-label={t("settings.close")}><X size={16} /></button>
+    {/if}
   </header>
   <div class="cols">
     <nav>

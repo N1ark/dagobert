@@ -10,6 +10,7 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import Terminal from "phosphor-svelte/lib/Terminal";
   import { t } from "./i18n";
+  import { isMobile } from "./backend";
   import { keys } from "./keys";
 
   export interface Action {
@@ -153,7 +154,9 @@
         placeholder={t(mode === "commands" ? "quick.commands.placeholder" : "quick.notes.placeholder")}
         spellcheck="false"
       />
-      <span class="mode">{mode === "commands" ? keys.commands : keys["quick-open"]}</span>
+      {#if !isMobile}
+        <span class="mode">{mode === "commands" ? keys.commands : keys["quick-open"]}</span>
+      {/if}
     </div>
     <div class="list" bind:this={list}>
       {#each rows as row, i (row.kind === "note" ? row.note.id : row.kind === "action" ? "a:" + row.action.label : "create")}

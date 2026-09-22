@@ -153,7 +153,7 @@
         aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={16} /></button
       >
     {/if}
-    {#if !standalone}
+    {#if !standalone && !isMobile}
       <button
         class="ghost close"
         onclick={() => store.select(null)}

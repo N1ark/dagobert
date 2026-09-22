@@ -69,6 +69,29 @@ called from `syncNow` when `SyncReport.pulled` is `fast-forward` or `merging`. I
 the project and routes every note through `applyExternal` — **not** `store.open`, which
 would clear the undo history, the selection and the viewport and ignore in-flight saves.
 
+## Panels
+
+A phone shows **one** panel at a time and it is always `Sheet.svelte`: the same
+container, the same thumb, the same drag and the same stops. `mobilePanel` in `App.svelte`
+picks which — settings, trash, pull requests or the selected note, in that order — and
+`closePanel` closes whichever it is.
+
+Anything that is a full-screen dialog on the desktop must join that list rather than grow
+its own mobile treatment. To add one:
+
+1. Give the component a `sheet` prop. Put its contents in a `{#snippet}` and render either
+   the snippet alone (in the sheet) or the snippet wrapped in its usual
+   `.backdrop` / `.dialog` (on the desktop) — never two copies of the markup.
+2. Hide its own close button when `sheet` is set. The thumb is the way out; a second
+   affordance in the corner is what the title bar covers.
+3. Add it to `mobilePanel` and `closePanel`, and gate its desktop mount with
+   `{#if ... && !isMobile}` — otherwise it renders **twice** on a phone, and the invisible
+   copy's backdrop eats every tap.
+
+`.dialog.bare` is the no-chrome form (`app.css` also strips the safe-area padding it would
+otherwise inherit from the full-screen dialog rule). Small confirmations that don't fill
+the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
+
 ## Touch
 
 `Canvas.svelte` tracks live pointers in `touches`:

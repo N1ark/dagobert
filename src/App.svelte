@@ -168,15 +168,16 @@
   let settingsSection = $state<"workflows" | "github" | "git">("workflows");
 
   $effect(() => {
-    if (isMobile && showWorkflows) store.sheetFull = true;
+    if (isMobile && (showWorkflows || showTrash)) store.sheetFull = true;
   });
 
   /** The phone shows exactly one panel; this is which. */
   const mobilePanel = $derived(
-    !isMobile || !store.path ? null : showWorkflows ? "settings" : showPRs ? "prs" : store.selected ? "note" : null,
+    !isMobile || !store.path ? null : showWorkflows ? "settings" : showTrash ? "trash" : showPRs ? "prs" : store.selected ? "note" : null,
   );
   function closePanel() {
     if (mobilePanel === "settings") showWorkflows = false;
+    else if (mobilePanel === "trash") showTrash = false;
     else if (mobilePanel === "prs") showPRs = false;
     else store.select(null);
   }
@@ -216,12 +217,16 @@
   });
 
   function jump(id: string) {
-    store.select(id);
-    canvas?.focusNode(id);
+    // The panel switch comes first: anything below it could throw and leave the
+    // note hidden behind whichever panel was open.
     if (isMobile) {
       showPRs = false;
+      showTrash = false;
+      showWorkflows = false;
       store.sheetFull = true;
     }
+    store.select(id);
+    canvas?.focusNode(id);
   }
   store.jump = jump;
 
@@ -688,6 +693,8 @@
             {/key}
           {:else if mobilePanel === "prs"}
             <PullRequests sheet onclose={togglePRs} onjump={jump} />
+          {:else if mobilePanel === "trash"}
+            <TrashDialog sheet onclose={() => (showTrash = false)} onrestored={(id) => jump(id)} />
           {:else if mobilePanel === "settings"}
             <WorkflowEditor sheet section={settingsSection} onclose={() => (showWorkflows = false)} />
           {/if}
@@ -762,7 +769,7 @@
   <GitDialog kind="conflicts" conflicts={store.conflictReport} onclose={() => (store.conflictReport = null)} />
 {/if}
 
-{#if showTrash}
+{#if showTrash && !isMobile}
   <TrashDialog
     onclose={() => (showTrash = false)}
     onrestored={(id) => {
