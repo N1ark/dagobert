@@ -33,13 +33,13 @@
 }
 
 body.mobile {
-  /* Nothing here is a document: a long press should act, not select text. The
-     page is pinned too, so focusing a field can't scroll the shell away. */
+  /* Nothing here is a document: a long press should act, not select text.
+     Deliberately not `position: fixed` — that also takes away the scroll iOS
+     performs to lift a focused field above the keyboard, which is the only
+     keyboard avoidance we get when the visual viewport reports nothing. */
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-  position: fixed;
-  inset: 0;
   /* 44px is the smallest comfortable touch target. */
   --btn: 44px;
   --mark: 28px;
@@ -479,6 +479,12 @@ body.mobile .dialog .nav-sep {
 }
 
 /* Dialogs and the PR pane take the whole screen. */
+body.mobile .dialog.bare {
+  padding: 0;
+  height: 100%;
+  max-height: none;
+}
+
 body.mobile .dialog {
   width: 100%;
   max-width: 100%;

@@ -7,8 +7,13 @@ document.body.classList.toggle("mobile", isMobile);
 
 // The software keyboard shrinks the visual viewport without moving the layout
 // one; `--kb` is how much of the screen it covers, so the sheet can clear it.
-// Focusing a field can still scroll the window on iOS; nothing here scrolls.
-if (isMobile) window.addEventListener("scroll", () => window.scrollTo(0, 0), { passive: true });
+// Nothing here is a scrolling document, but iOS scrolls it to lift a focused
+// field above the keyboard. Leave that alone and undo it once the field is done.
+if (isMobile) {
+  const typing = () => !!document.activeElement?.closest("input, textarea, [contenteditable]");
+  window.addEventListener("scroll", () => !typing() && window.scrollTo(0, 0), { passive: true });
+  window.addEventListener("focusout", () => setTimeout(() => !typing() && window.scrollTo(0, 0), 50));
+}
 
 const vv = window.visualViewport;
 if (isMobile && vv) {

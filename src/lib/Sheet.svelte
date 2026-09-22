@@ -13,7 +13,7 @@
 
   let el = $state<HTMLDivElement | null>(null);
   let y = $state<number | null>(null);
-  let drag: { pointer: number; y: number; from: number; max: number } | null = null;
+  let drag: { pointer: number; y: number; from: number; max: number; engaged: boolean; tap: boolean; el: HTMLElement } | null = null;
 
   function cssPx(name: string, fallback: number) {
     const v = parseFloat(getComputedStyle(el ?? document.body).getPropertyValue(name));
@@ -22,30 +22,74 @@
   const topStop = () => cssPx("--sheet-top", 96);
   const peek = () => cssPx("--sheet-peek", 148);
 
-  function onDown(e: PointerEvent) {
+  function begin(e: PointerEvent, engaged: boolean) {
     if (!el) return;
     const max = el.getBoundingClientRect().height;
-    drag = { pointer: e.pointerId, y: e.clientY, from: full ? topStop() : max - peek(), max };
-    y = drag.from;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    drag = {
+      pointer: e.pointerId,
+      y: e.clientY,
+      from: full ? topStop() : max - peek(),
+      max,
+      engaged,
+      tap: engaged,
+      el: e.currentTarget as HTMLElement,
+    };
+    if (engaged) {
+      y = drag.from;
+      // Capturing before we know it's a drag would steal the click off whatever
+      // was tapped, so content waits until the gesture commits.
+      drag.el.setPointerCapture(e.pointerId);
+    }
+  }
+
+  const onDown = (e: PointerEvent) => begin(e, true);
+
+  /**
+   * Anywhere that isn't a control drags the panel too, but only downwards and
+   * only from the top of its scroll, so reading the contents still scrolls.
+   */
+  function onBodyDown(e: PointerEvent) {
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, select, [contenteditable], .grab")) return;
+    const scroller = target.closest<HTMLElement>(".scroll, [data-scroll]") ?? scrollableAncestor(target);
+    if (scroller && scroller.scrollTop > 0) return;
+    begin(e, false);
+  }
+
+  function scrollableAncestor(from: HTMLElement | null): HTMLElement | null {
+    for (let n = from; n && n !== el; n = n.parentElement) {
+      if (n.scrollHeight > n.clientHeight + 1 && getComputedStyle(n).overflowY !== "visible") return n;
+    }
+    return null;
   }
 
   function onMove(e: PointerEvent) {
     if (!drag || e.pointerId !== drag.pointer) return;
-    y = Math.max(topStop(), Math.min(drag.max, drag.from + (e.clientY - drag.y)));
+    const dy = e.clientY - drag.y;
+    if (!drag.engaged) {
+      // Upwards means they meant to scroll the contents; let go of the gesture.
+      if (dy < -6) return void (drag = null);
+      if (dy < 8) return;
+      drag.engaged = true;
+      drag.el.setPointerCapture(e.pointerId);
+    }
+    y = Math.max(topStop(), Math.min(drag.max, drag.from + dy));
   }
 
   function onUp(e: PointerEvent) {
     if (!drag) return;
     const { max, from } = drag;
     const at = y ?? from;
-    const tapped = Math.abs(e.clientY - drag.y) < 6;
+    const tapped = drag.tap && Math.abs(e.clientY - drag.y) < 6;
+    const engaged = drag.engaged;
     drag = null;
     y = null;
     if (tapped) {
       full = !full;
       return;
     }
+    // A tap on the contents is theirs, not a gesture on the panel.
+    if (!engaged) return;
     // Settle on whichever stop it was left nearest.
     const stops = [topStop(), max - peek(), max];
     const nearest = stops.reduce((a, b) => (Math.abs(b - at) < Math.abs(a - at) ? b : a));
@@ -54,7 +98,18 @@
   }
 </script>
 
-<div class="sheet" class:full class:dragging={y !== null} style={y === null ? undefined : `transform: translateY(${y}px)`} bind:this={el}>
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="sheet"
+  class:full
+  class:dragging={y !== null}
+  style={y === null ? undefined : `transform: translateY(${y}px)`}
+  bind:this={el}
+  onpointerdown={onBodyDown}
+  onpointermove={onMove}
+  onpointerup={onUp}
+  onpointercancel={onUp}
+>
   <button
     class="grab"
     aria-label={t(full ? "panel.sheet.collapse" : "panel.sheet.expand")}
