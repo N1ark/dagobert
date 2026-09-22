@@ -26,9 +26,14 @@
   --safe-bottom: 0px;
   --safe-left: 0px;
   --safe-right: 0px;
+  /* Chrome button hit area; a custom property so components don't have to lose
+     a specificity fight with the mobile overrides. */
+  --btn: 28px;
 }
 
 body.mobile {
+  /* 44px is the smallest comfortable touch target. */
+  --btn: 44px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
@@ -521,12 +526,6 @@ body.mobile .ctx .item {
   padding: 10px 12px;
 }
 
-/* Comfortable touch targets, sized for the larger mobile icons. */
-body.mobile button.icon {
-  width: 40px;
-  height: 40px;
-}
-
 /* The minimap fills the bottom-right corner instead of floating inside it;
    collapsed, the button pulls clear of the corner and the home indicator. */
 body.mobile .minimap {
@@ -543,6 +542,11 @@ body.mobile .minimap.collapsed {
 }
 
 body.mobile .minimap .toggle {
-  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--btn);
+  min-height: var(--btn);
+  padding: 0;
   opacity: 1;
 }

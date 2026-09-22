@@ -80,8 +80,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: var(--btn);
+    height: var(--btn);
     padding: 0;
   }
   .n {
