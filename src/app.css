@@ -406,6 +406,32 @@ body.mobile .toolbar {
 
 body.mobile .panel-wrap.sheet {
   padding-bottom: var(--safe-bottom);
+  bottom: var(--kb, 0px);
+}
+
+body.mobile .panel-wrap.sheet.full {
+  height: calc(100% - var(--kb, 0px));
+}
+
+/* 16px or Safari zooms the page when a field takes focus; the components set
+   their own smaller sizes, so this has to win. */
+body.mobile input,
+body.mobile textarea {
+  font-size: 16px !important;
+}
+
+/* Caret-anchored popups have nowhere to go sideways on a phone. */
+body.mobile .mention,
+body.mobile .picker {
+  left: 8px !important;
+  right: 8px;
+  width: auto;
+  max-width: none;
+}
+
+/* The three resolve buttons don't fit on one phone-width line. */
+body.mobile .conflict .bar {
+  flex-wrap: wrap;
 }
 
 /* Dialogs and the PR pane take the whole screen. */

@@ -13,6 +13,8 @@ All notable changes to Dagobert are documented here. The format follows
   overflow menu, and projects are cloned from a URL instead of picked from a folder.
 - Touch input on the canvas: pinch to zoom, two-finger pan, long-press for the context
   menu, hold a note to drag it, and double-tap to create or open one.
+- The editor keeps clear of the software keyboard, and autocorrect no longer rewrites
+  markdown as it is typed.
 
 ## [0.7.1] - 2026-09-21
 

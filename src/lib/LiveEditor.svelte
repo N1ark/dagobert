@@ -22,6 +22,8 @@
   let container = $state<HTMLDivElement | null>(null);
   let textarea = $state<HTMLTextAreaElement | null>(null);
   let mentionPopup = $state<MentionPopup | null>(null);
+  // Safari's smart punctuation turns markdown into curly quotes and en-dashes.
+  const autocorrectOff = { autocorrect: "off" };
   let issuePopup = $state<IssuePopup | null>(null);
   /** Active `alias#query` GitHub picker. */
   let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
@@ -399,6 +401,8 @@
           onclick={updateMention}
           onblur={() => setTimeout(() => (mention = issue = null), 150)}
           spellcheck="false"
+          autocapitalize="sentences"
+          {...autocorrectOff}
           rows="1"></textarea>
       </div>
     {:else if isConflict(block)}
@@ -421,6 +425,8 @@
         onpaste={onPaste}
         onblur={() => setTimeout(() => (mention = issue = null), 150)}
         spellcheck="false"
+        autocapitalize="sentences"
+        {...autocorrectOff}
         rows="1"></textarea>
     </div>
   {/if}

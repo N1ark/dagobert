@@ -5,6 +5,16 @@ import { isMobile } from "./lib/backend";
 
 document.body.classList.toggle("mobile", isMobile);
 
+// The software keyboard shrinks the visual viewport without moving the layout
+// one; `--kb` is how much of the screen it covers, so the sheet can clear it.
+const vv = window.visualViewport;
+if (isMobile && vv) {
+  const track = () => document.documentElement.style.setProperty("--kb", `${Math.max(0, window.innerHeight - vv.height - vv.offsetTop)}px`);
+  vv.addEventListener("resize", track);
+  vv.addEventListener("scroll", track);
+  track();
+}
+
 const app = mount(App, { target: document.getElementById("app")! });
 
 export default app;
