@@ -18,6 +18,8 @@
   import { stripMarkers } from "./lib/blocks";
   import { backend, isMobile } from "./lib/backend";
   import { ICON } from "./lib/icons";
+  import { minimap, toggleMinimap } from "./lib/minimapState.svelte";
+  import MapTrifold from "phosphor-svelte/lib/MapTrifold";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
   import { keys, matches as pressed } from "./lib/keys";
@@ -622,6 +624,9 @@
       {/if}
       <TagMenu />
       {#if isMobile}
+        <button class="ghost icon" class:on={minimap.open} onclick={toggleMinimap} aria-label={t("minimap.toggle")}
+          ><MapTrifold size={ICON} /></button
+        >
         <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><Terminal size={ICON} /></button>
       {:else}
         <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
@@ -809,6 +814,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    position: relative;
   }
   .toolbar {
     height: var(--toolbar-h);
@@ -917,7 +923,9 @@
   .panel-wrap.sheet {
     display: flex;
     flex-direction: column;
-    position: absolute;
+    /* Fixed, not absolute: it rises from the bottom edge of the screen and over
+       the floating bar, rather than being penned inside the canvas. */
+    position: fixed;
     inset: 0;
     z-index: 6;
     background: var(--bg2);
@@ -960,25 +968,34 @@
     background: var(--border2);
   }
 
+  /* Floats over the canvas rather than taking a strip of it. */
   .bottombar {
-    flex: none;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(8px + var(--safe-bottom));
+    z-index: 4;
+    display: flex;
+    justify-content: space-evenly;
     align-items: center;
-    padding: 2px 12px;
-    padding-bottom: calc(2px + var(--safe-bottom));
+    pointer-events: none;
+  }
+  .bottombar button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--btn);
+    height: var(--btn);
+    padding: 0;
+    pointer-events: auto;
+    border-radius: 999px;
+    box-shadow: var(--shadow-lg);
+  }
+  .bottombar button.ghost {
     background: var(--bg2);
-    border-top: 1px solid var(--border);
-  }
-  .bottombar > :first-child {
-    justify-self: start;
-  }
-  .bottombar > :last-child {
-    justify-self: end;
   }
   .bottombar .create {
     width: 56px;
-    border-radius: 999px;
   }
   .mark-btn {
     display: flex;

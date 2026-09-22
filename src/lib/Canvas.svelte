@@ -617,6 +617,15 @@
       return;
     }
     if (e.pointerType !== "mouse" && !held?.armed && !resize && !linking && onTap(e)) return;
+    // A tap on a node selects it and opens the sheet; holding is what drags.
+    if (held?.id && !held.armed && Math.abs(e.clientY - held.y) < TAP_SLOP && Math.abs(e.clientX - held.x) < TAP_SLOP) {
+      pan = null;
+      isPanning = false;
+      store.select(held.id);
+      store.sheetFull = true;
+      selectedEdge = null;
+      return;
+    }
     if (resize) {
       if (resize.moved) store.touch(resize.id, { immediate: true, silent: true, label: "resize" });
       resize = null;
@@ -840,7 +849,29 @@
    */
   const stopGesture = (e: Event) => e.preventDefault();
 
+  /**
+   * A pointer can end somewhere that never reaches our handler (capture moved,
+   * the gesture was taken over, the app was backgrounded). Left in `touches` it
+   * reads as a finger still down, and the next one starts a phantom pinch.
+   */
+  function forgetPointer(e: PointerEvent) {
+    if (!touches.delete(e.pointerId)) return;
+    if (touches.size < 2 && pinch) {
+      pinch = null;
+      gestureRect = null;
+    }
+  }
+  function forgetAll() {
+    touches.clear();
+    pinch = null;
+    gestureRect = null;
+  }
+
   onMount(() => {
+    window.addEventListener("pointerup", forgetPointer, true);
+    window.addEventListener("pointercancel", forgetPointer, true);
+    window.addEventListener("blur", forgetAll);
+    document.addEventListener("visibilitychange", forgetAll);
     container.addEventListener("wheel", onWheel, { passive: false });
     if (isMobile) {
       container.addEventListener("gesturestart", stopGesture);
@@ -854,6 +885,10 @@
       container.removeEventListener("gesturestart", stopGesture);
       container.removeEventListener("gesturechange", stopGesture);
       window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("pointerup", forgetPointer, true);
+      window.removeEventListener("pointercancel", forgetPointer, true);
+      window.removeEventListener("blur", forgetAll);
+      document.removeEventListener("visibilitychange", forgetAll);
     };
   });
 

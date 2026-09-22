@@ -33,6 +33,13 @@
 }
 
 body.mobile {
+  /* Nothing here is a document: a long press should act, not select text. The
+     page is pinned too, so focusing a field can't scroll the shell away. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  position: fixed;
+  inset: 0;
   /* 44px is the smallest comfortable touch target. */
   --btn: 44px;
   --mark: 28px;
@@ -413,6 +420,7 @@ body.mobile .toolbar {
 
 body.mobile .panel-wrap.sheet {
   padding-bottom: var(--safe-bottom);
+  bottom: var(--kb, 0px);
 }
 
 /* The layout viewport doesn't shrink for the keyboard, so the shell does; the
@@ -571,27 +579,14 @@ body.mobile .ctx .grab::before {
   background: var(--border2);
 }
 
-/* The minimap fills the bottom-right corner instead of floating inside it;
-   collapsed, the button pulls clear of the corner and the home indicator. */
+/* Tucked under the toolbar against the right edge; the toggle is in the bar. */
 body.mobile .minimap {
+  top: 0;
   right: 0;
-  bottom: 0;
-  border-radius: var(--radius) 0 0 0;
-  padding-bottom: var(--safe-bottom);
+  bottom: auto;
+  border-radius: 0 0 0 var(--radius);
 }
 
 body.mobile .minimap.collapsed {
-  right: 12px;
-  bottom: calc(var(--safe-bottom) + 12px);
-  padding-bottom: 0;
-}
-
-body.mobile .minimap .toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--btn);
-  min-height: var(--btn);
-  padding: 0;
-  opacity: 1;
+  display: none;
 }

@@ -4,6 +4,8 @@
   import MapTrifold from "phosphor-svelte/lib/MapTrifold";
   import { t } from "./i18n";
   import { ICON } from "./icons";
+  import { minimap, toggleMinimap } from "./minimapState.svelte";
+  import { isMobile } from "./backend";
 
   /**
    * Overview of the whole graph with the current viewport drawn on top.
@@ -25,10 +27,8 @@
   const W = 180;
   const H = 120;
   const PAD = 40;
-  const KEY = "dagobert.minimap";
-
-  let collapsed = $state(localStorage.getItem(KEY) === "0");
   let dragging = false;
+  const collapsed = $derived(!minimap.open);
 
   const vp = $derived(store.viewport);
 
@@ -91,19 +91,21 @@
     dragging = false;
     store.saveViewport();
   }
-
-  function toggle() {
-    collapsed = !collapsed;
-    localStorage.setItem(KEY, collapsed ? "0" : "1");
-  }
 </script>
 
 <!-- Swallow pointer events so the canvas underneath doesn't pan or create notes. -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="minimap" class:collapsed onpointerdown={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}>
-  <button class="ghost toggle" onclick={toggle} title={t(collapsed ? "minimap.show" : "minimap.hide")} aria-label={t("minimap.toggle")}>
-    {#if collapsed}<MapTrifold size={ICON} />{:else}<CaretDown size={ICON} />{/if}
-  </button>
+  {#if !isMobile}
+    <button
+      class="ghost toggle"
+      onclick={toggleMinimap}
+      title={t(collapsed ? "minimap.show" : "minimap.hide")}
+      aria-label={t("minimap.toggle")}
+    >
+      {#if collapsed}<MapTrifold size={ICON} />{:else}<CaretDown size={ICON} />{/if}
+    </button>
+  {/if}
   {#if !collapsed}
     <svg width={W} height={H} onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} role="presentation">
       {#each store.notes as n (n.id)}
