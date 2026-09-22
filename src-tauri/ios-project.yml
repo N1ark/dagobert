@@ -8,20 +8,23 @@
 #
 # Otherwise this is the built-in template with the optional blocks we don't use
 # (CocoaPods, vendored frameworks, extra build scripts) left out.
-name: dagobert
+name: {{app.name}}
 options:
-  bundleIdPrefix: com.n1ark.dagobert
+  bundleIdPrefix: {{app.identifier}}
   deploymentTarget:
-    iOS: 16.0
-fileGroups: [../../src]
+    iOS: {{apple.ios-version}}
+fileGroups: [{{join file-groups}}]
 configs:
   debug: debug
   release: release
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: Dagobert
-      PRODUCT_BUNDLE_IDENTIFIER: com.n1ark.dagobert
+      PRODUCT_NAME: {{app.stylized-name}}
+      PRODUCT_BUNDLE_IDENTIFIER: {{app.identifier}}
+      {{#if apple.development-team}}
+      DEVELOPMENT_TEAM: {{apple.development-team}}
+      {{/if}}
 targetTemplates:
   app:
     type: application
@@ -34,20 +37,20 @@ targetTemplates:
     settings:
       groups: [app]
 targets:
-  dagobert_iOS:
+  {{app.name}}_iOS:
     type: application
     platform: iOS
     sources:
       - path: Sources
       - path: Assets.xcassets
       - path: Externals
-      - path: dagobert_iOS
-      - path: assets
+      - path: {{app.name}}_iOS
+      - path: {{app.asset-dir}}
         buildPhase: resources
         type: folder
       - path: LaunchScreen.storyboard
     info:
-      path: dagobert_iOS/Info.plist
+      path: {{app.name}}_iOS/Info.plist
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
@@ -67,10 +70,10 @@ targets:
         # tao supplies the scene configuration itself, so none is declared here.
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
-        CFBundleShortVersionString: 0.7.1
-        CFBundleVersion: "0.7.1"
+        CFBundleShortVersionString: {{apple.bundle-version-short}}
+        CFBundleVersion: "{{apple.bundle-version}}"
     entitlements:
-      path: dagobert_iOS/dagobert_iOS.entitlements
+      path: {{app.name}}_iOS/{{app.name}}_iOS.entitlements
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -78,15 +81,15 @@ targets:
     settings:
       base:
         ENABLE_BITCODE: false
-        ARCHS: [arm64]
-        VALID_ARCHS: arm64 
+        ARCHS: [{{join ios-valid-archs}}]
+        VALID_ARCHS: {{~#each ios-valid-archs}} {{this}} {{/each}}
         LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
-      - framework: libapp.a
+      - framework: {{ lib-output-file-name }}
         embed: false
       - sdk: CoreGraphics.framework
       - sdk: Metal.framework
@@ -98,9 +101,9 @@ targets:
       - sdk: libiconv.tbd
       - sdk: libz.tbd
     preBuildScripts:
-      - script: npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
+      - script: {{ tauri-binary }} {{ tauri-binary-args-str }} -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths "${FRAMEWORK_SEARCH_PATHS:?}" --header-search-paths "${HEADER_SEARCH_PATHS:?}" --gcc-preprocessor-definitions "${GCC_PREPROCESSOR_DEFINITIONS:-}" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}
         name: Build Rust Code
         basedOnDependencyAnalysis: false
         outputFiles:
-          - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
-          - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+          - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/{{ lib-output-file-name }}
+          - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/{{ lib-output-file-name }}

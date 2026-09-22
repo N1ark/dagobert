@@ -99,20 +99,43 @@ zooms the page on focus.
 ## Building
 
 Set up once: full Xcode (not just the Command Line Tools) with
-`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, the targets
-(`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`) and CocoaPods
-(`brew install cocoapods`, needed by `tauri ios init`). `src-tauri/gen/apple` is the
-generated Xcode project and is committed; re-running `npm run tauri ios init` regenerates
-it. `gen/schemas` stays ignored, so `mobile.json`'s `$schema` only affects editor
-completion.
+`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` and
+`sudo xcodebuild -license accept`, the targets
+(`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`), and CocoaPods
+(`brew install cocoapods`, needed by `tauri ios init`). The simulator also needs a
+**runtime** whose version matches the SDK — Tauri reports a mismatch as the misleading
+"Simulator SDK not installed"; `xcodebuild -downloadPlatform iOS` fetches one.
+
+`src-tauri/gen/apple` is the generated Xcode project and is committed;
+`npm run tauri ios init` regenerates it from `src-tauri/ios-project.yml`
+(`bundle.iOS.template`, a path relative to the **repo root**, not to `tauri.conf.json`).
+That template is Tauri's own with two changes, both of which the built-in one can't
+express:
+
+- `- sdk: libz.tbd` / `- sdk: libiconv.tbd`. libgit2 needs both, and Xcode links the Rust
+  staticlib itself without ever seeing cargo's `rustc-link-lib` directives.
+  `bundle.iOS.frameworks` looks like the right hook but is dead: Tauri guards that block
+  on a `this.`-prefixed name that never resolves, so entries are silently dropped.
+- `UIApplicationSceneManifest` with `UIApplicationSupportsMultipleScenes: true`. The
+  iOS 26+ SDK refuses to launch an app that declares no manifest at all ("UIScene life
+  cycle is required for apps built with this SDK"), and tao keys its entire scene path
+  off that one flag: with it false it installs no scene delegate, never calls
+  `setWindowScene:`, and the window is never drawn — a black screen with a perfectly
+  healthy WebView behind it. True is right even on an iPhone, which cannot show multiple
+  scenes: tao then moves its window to the main connected scene itself
+  (`platform_impl/ios/view.rs`). No `UISceneConfigurations` is declared, because tao
+  supplies the configuration from `application:configurationForConnectingSceneSession:`.
 
 `npm run tauri ios build` / `ios dev` drive the build: Xcode's "Build Rust Code" phase
 calls back into the Tauri CLI over a socket the CLI opens, so a bare `xcodebuild` on the
 project fails — always go through the CLI. `TAURI_DEV_HOST=<lan-ip> npm run tauri ios dev`
 for a physical device, which also needs `bundle.iOS.developmentTeam` in `tauri.conf.json`
-(or `APPLE_DEVELOPMENT_TEAM`); the simulator needs neither a team nor signing, but it does
-need a simulator **runtime** whose version matches the SDK — Tauri reports a mismatch as
-"Simulator SDK not installed". `xcodebuild -downloadPlatform iOS` fetches one.
+(or `APPLE_DEVELOPMENT_TEAM`); the simulator needs neither a team nor signing.
+
+The app builds, installs, launches and renders in the simulator. GUI interaction needs
+`Simulator.app`, which a partial Xcode install may not have shipped yet even though the
+SDKs and `simctl` work; `xcrun simctl boot`, `install`, `launch` and `io … screenshot`
+drive it headlessly either way.
 
 Signing is a free Apple ID: builds run for 7 days and are re-deployed from Xcode, so
 `npm run tauri ios build` is never the delivery step and `release.yml` keeps shipping the
