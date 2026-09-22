@@ -98,17 +98,26 @@ zooms the page on focus.
 
 ## Building
 
-Not set up in the repo: it needs full Xcode (not just the Command Line Tools), the iOS
-targets (`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`) and CocoaPods
-(`tauri ios init` runs `pod install`). Then `npm run tauri ios init`, and
-`TAURI_DEV_HOST=<lan-ip> npm run tauri ios dev` for a physical device — which also needs
-`bundle.iOS.developmentTeam` in `tauri.conf.json` (or `TAURI_APPLE_DEVELOPMENT_TEAM`).
-The simulator needs neither a team nor signing.
+Set up once: full Xcode (not just the Command Line Tools) with
+`sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`, the targets
+(`rustup target add aarch64-apple-ios aarch64-apple-ios-sim`) and CocoaPods
+(`brew install cocoapods`, needed by `tauri ios init`). `src-tauri/gen/apple` is the
+generated Xcode project and is committed; re-running `npm run tauri ios init` regenerates
+it. `gen/schemas` stays ignored, so `mobile.json`'s `$schema` only affects editor
+completion.
+
+`npm run tauri ios build` / `ios dev` drive the build: Xcode's "Build Rust Code" phase
+calls back into the Tauri CLI over a socket the CLI opens, so a bare `xcodebuild` on the
+project fails — always go through the CLI. `TAURI_DEV_HOST=<lan-ip> npm run tauri ios dev`
+for a physical device, which also needs `bundle.iOS.developmentTeam` in `tauri.conf.json`
+(or `APPLE_DEVELOPMENT_TEAM`); the simulator needs neither a team nor signing, but it does
+need a simulator **runtime** whose version matches the SDK — Tauri reports a mismatch as
+"Simulator SDK not installed". `xcodebuild -downloadPlatform iOS` fetches one.
 
 Signing is a free Apple ID: builds run for 7 days and are re-deployed from Xcode, so
 `npm run tauri ios build` is never the delivery step and `release.yml` keeps shipping the
-Mac app only. CI does run `cargo check --target aarch64-apple-ios`, which needs no Xcode
-project, no CocoaPods and no signing, so the `cfg` gating can't rot.
+Mac app only. CI runs `cargo clippy --target aarch64-apple-ios -- -D warnings`, which
+needs no Xcode project, no CocoaPods and no signing, so the `cfg` gating can't rot.
 
 Still to do: a keychain plugin behind `secrets.ts`, and a `beginBackgroundTask` plugin so
 the background push is reliable rather than best-effort.
