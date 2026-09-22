@@ -5,7 +5,9 @@
 //! the bookkeeping stays in one place.
 
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+#[cfg(any(desktop, test))]
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -42,6 +44,7 @@ impl Recent {
         self.is_recent_at(path, Instant::now())
     }
 
+    #[cfg(any(desktop, test))]
     fn is_recent_at(&self, path: &Path, now: Instant) -> bool {
         let mut m = self.map.lock().unwrap();
         match m.get(path) {

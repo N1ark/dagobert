@@ -28,6 +28,7 @@ pub struct GitState {
     /// Tracking is on for the open project (set by `git_configure`).
     pub enabled: AtomicBool,
     /// A quit-time sync has been requested; the next close/exit goes through.
+    #[cfg(desktop)]
     pub quitting: AtomicBool,
     /// The held-back close/exit has been carried out.
     pub finished: AtomicBool,
