@@ -1,4 +1,4 @@
-import { backend, type ProjectChange, type SyncMessage } from "./backend";
+import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backend";
 import type { Conflict, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
 import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
@@ -10,6 +10,24 @@ import { t, type HistoryLabel } from "./i18n";
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
 const MAX_RECENT = 8;
+
+/** The last path segment — a project's name. */
+function nameOf(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? "";
+}
+
+/**
+ * How a project is remembered. Desktop stores the absolute path; mobile stores
+ * the name, because the app container's path carries a UUID that changes on
+ * reinstall. A stored path on mobile is migrated by taking its name.
+ */
+function projectRef(path: string): string {
+  return isMobile ? nameOf(path) : path;
+}
+
+function resolveRef(ref: string): Promise<string | null> {
+  return isMobile ? backend.projectPath(nameOf(ref)) : Promise.resolve(ref);
+}
 
 function loadRecent(): string[] {
   try {
@@ -263,6 +281,8 @@ class Store {
           this.gitState = "idle";
           this.gitError = null;
           this.gitLastSync = now();
+          // No watcher on mobile: a pull's rewrites have to be read back.
+          if (isMobile && (r.pulled === "fast-forward" || r.pulled === "merging")) await this.reloadFromDisk();
           if (manual) this.#toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
         }
       } catch (e) {
@@ -275,6 +295,25 @@ class Store {
       }
     })();
     return this.#syncing;
+  }
+
+  /**
+   * Mobile foreground: the OS froze the tick thread while we were away, so
+   * re-arm it and run the sync that actually keeps the phone up to date.
+   */
+  resume() {
+    this.#configureGit();
+    void this.syncNow(false);
+  }
+
+  /**
+   * Mobile background. Best-effort only: iOS suspends JS within a second or so,
+   * and neither the flush nor the push is synchronous. Nothing is lost — the
+   * commit happens on the next foreground.
+   */
+  async suspend() {
+    await this.flushAndWait();
+    await this.syncNow(false);
   }
 
   /** The close/exit was held back by Rust: sync, then let it through. */
@@ -489,9 +528,10 @@ class Store {
       this.selectedId = null;
       this.#deleted.clear();
       this.trash = [];
-      this.recent = [p.path, ...this.recent.filter((r) => r !== p.path)].slice(0, MAX_RECENT);
+      const ref = projectRef(p.path);
+      this.recent = [ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT);
       localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
-      localStorage.setItem(LAST_KEY, p.path);
+      localStorage.setItem(LAST_KEY, ref);
       this.error = null;
       this.gitStatus = null;
       this.gitState = "idle";
@@ -511,10 +551,17 @@ class Store {
     this.gitInterval = g?.interval_min && g.interval_min > 0 ? Math.min(120, Math.round(g.interval_min)) : 5;
   }
 
+  /** Open a remembered project (a path on desktop, a name on mobile). */
+  async openRef(ref: string) {
+    const path = await resolveRef(ref).catch(() => null);
+    if (path) await this.open(path);
+    else this.forgetRecent(ref);
+  }
+
   /** Reopen whatever was open last time (called once at startup). */
   async restore() {
     const last = localStorage.getItem(LAST_KEY);
-    if (last) await this.open(last);
+    if (last) await this.openRef(last);
   }
 
   close() {
@@ -888,9 +935,38 @@ class Store {
     backend.revealNote(this.path, n.file).catch((e) => this.fail(e));
   }
 
-  openInWindow(id: string) {
+  /**
+   * Mobile stand-in for the file watcher: re-read the project and route it
+   * through `applyExternal`, which protects saves that are still in flight
+   * (`store.open` would clear the undo history, the selection and the viewport).
+   */
+  async reloadFromDisk() {
+    const path = this.path;
+    if (!path) return;
+    try {
+      const p = await backend.openProject(path);
+      if (this.path !== path) return;
+      const onDisk = new Set(p.notes.map((n) => n.file));
+      const gone = this.notes.map((n) => n.file).filter((f) => f && !onDisk.has(f));
+      for (const note of p.notes) await this.applyExternal({ kind: "note", note });
+      for (const file of gone) await this.applyExternal({ kind: "note-removed", file });
+      await this.applyExternal({ kind: "meta" });
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  /** Mobile: the note sheet is expanded to full screen. */
+  sheetFull = $state(false);
+
+  async openInWindow(id: string) {
     const n = this.byId(id);
-    if (n && this.path) backend.openNoteWindow(this.path, id, n.title);
+    if (!n || !this.path) return;
+    // No windows on mobile: the note takes over the sheet instead.
+    if (!(await backend.openNoteWindow(this.path, id, n.title))) {
+      this.select(id);
+      this.sheetFull = true;
+    }
   }
 
   // ---- undo / redo ---------------------------------------------------------

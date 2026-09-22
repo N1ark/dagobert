@@ -1,6 +1,6 @@
 import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { sfSymbolImage } from "./sfsymbol";
-import { inTauri } from "./backend";
+import { inTauri, isMobile } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
 import { t, type Key } from "./i18n";
 
@@ -43,7 +43,7 @@ export function menuSignature(actions: Action[]): string {
  * editing keeps working in the webview.
  */
 export async function setAppMenu(actions: Action[]) {
-  if (!inTauri) return;
+  if (!inTauri || isMobile) return;
   const groups = new Map<string, Action[]>();
   for (const a of actions) {
     if (!a.menu) continue;

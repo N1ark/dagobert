@@ -15,6 +15,13 @@ import type { GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Sync
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
+/**
+ * Phone-shaped: a coarse pointer on a narrow screen. Deliberately not the OS —
+ * it needs no plugin and works the same in the browser dev loop. An iPad lands
+ * on the desktop side, which is out of scope rather than broken.
+ */
+export const isMobile = matchMedia("(pointer: coarse)").matches && innerWidth < 700;
+
 /** A change on disk reported by the Rust file watcher. */
 export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" };
 
@@ -165,13 +172,14 @@ export const backend = {
 
   // ---- file watching ---------------------------------------------------------
 
+  /** No watcher on mobile; `SyncReport.pulled` drives `store.reloadFromDisk` instead. */
   async watchProject(path: string): Promise<void> {
-    if (!inTauri) return;
+    if (!inTauri || isMobile) return;
     return invoke("watch_project", { path });
   },
 
   async unwatchProject(): Promise<void> {
-    if (!inTauri) return;
+    if (!inTauri || isMobile) return;
     return invoke("unwatch_project");
   },
 
@@ -272,24 +280,27 @@ export const backend = {
   },
 
   /** Open (or focus) a window showing just one note. */
-  async openNoteWindow(path: string, id: string, title: string) {
+  /** Returns false when there are no windows to open into (mobile uses the sheet). */
+  async openNoteWindow(path: string, id: string, title: string): Promise<boolean> {
+    if (isMobile) return false;
     const url = `index.html?note=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`;
     if (!inTauri) {
       window.open(url, `note-${id}`);
-      return;
+      return true;
     }
     const label = `note-${id}`;
     const existing = await WebviewWindow.getByLabel(label);
     if (existing) {
       await existing.setFocus();
-      return;
+      return true;
     }
     new WebviewWindow(label, { url, title: title || t("app.untitled"), width: 720, height: 800, minWidth: 400, minHeight: 300 });
+    return true;
   },
 
   /** Show the note's file in Finder / Explorer. */
   async revealNote(path: string, file: string) {
-    if (!inTauri) return;
+    if (!inTauri || isMobile) return;
     await revealItemInDir(`${path}/notes/${file}`);
   },
 
@@ -300,6 +311,7 @@ export const backend = {
   },
 
   setWindowTitle(title: string) {
+    if (isMobile) return;
     if (inTauri)
       getCurrentWindow()
         .setTitle(title)
@@ -308,6 +320,7 @@ export const backend = {
   },
 
   closeWindow() {
+    if (isMobile) return;
     if (inTauri)
       getCurrentWindow()
         .close()

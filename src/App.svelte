@@ -13,7 +13,7 @@
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
-  import { backend } from "./lib/backend";
+  import { backend, isMobile } from "./lib/backend";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
   import { keys, matches as pressed } from "./lib/keys";
@@ -473,10 +473,16 @@
     window.addEventListener("keydown", onKey);
     // Flush pending debounced saves whenever the page may be going away.
     const flush = () => store.flushAll();
-    const onHide = () => document.visibilityState === "hidden" && flush();
+    // There is no quit on mobile, only background and foreground.
+    const lifecycle = isMobile && !standaloneId;
+    const onVisibility = () => {
+      if (document.visibilityState !== "hidden") lifecycle && store.resume();
+      else if (lifecycle) void store.suspend();
+      else flush();
+    };
     window.addEventListener("beforeunload", flush);
     window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", onHide);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
       unsub();
       unwatch();
@@ -484,7 +490,7 @@
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", flush);
       window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", onHide);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   });
 </script>
@@ -613,7 +619,7 @@
         <ul class="recent">
           {#each store.recent as r (r)}
             <li>
-              <button class="ghost path" onclick={() => store.open(r)} title={r}>
+              <button class="ghost path" onclick={() => store.openRef(r)} title={r}>
                 <span class="name">{r.split(/[\\/]/).filter(Boolean).pop()}</span>
                 <span class="full">{r}</span>
               </button>
