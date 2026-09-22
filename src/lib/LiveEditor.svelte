@@ -5,6 +5,7 @@
   import Markdown from "./Markdown.svelte";
   import ConflictBlock from "./ConflictBlock.svelte";
   import MentionPopup from "./MentionPopup.svelte";
+  import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
   import { command, pasteLink } from "./editor";
@@ -433,7 +434,10 @@
   {#if !blocks.length && active === null}
     <div class="block placeholder" onclick={() => appendBlock()}>
       {t("editor.placeholder")}
-      <span class="hint">{t("editor.placeholder.hint", { bold: keys.bold, italic: keys.italic, link: keys.link, esc: keys.escape })}</span>
+      {#if !isMobile}
+        <span class="hint">{t("editor.placeholder.hint", { bold: keys.bold, italic: keys.italic, link: keys.link, esc: keys.escape })}</span
+        >
+      {/if}
     </div>
   {/if}
   {#if issue}

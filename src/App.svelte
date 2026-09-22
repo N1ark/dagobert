@@ -451,8 +451,8 @@
         enabled: has,
       }),
     ];
-    // Tracking is not optional on a phone: git is the only way notes get there.
-    return isMobile ? actions.filter((x) => x.id !== "git-toggle") : actions;
+    // No tracking toggle and nothing to reveal in: a phone has neither.
+    return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal") : actions;
   });
 
   /** Undo/redo from the menu: native inside text fields, ours elsewhere. */
@@ -571,12 +571,17 @@
   <div class="app">
     <div class="toolbar" data-tauri-drag-region={isMobile ? undefined : true}>
       <div class="brand" data-tauri-drag-region={isMobile ? undefined : true}>
-        <img class="mark" src="/icon.svg" alt="" draggable="false" />
-        {#if !isMobile}
+        {#if isMobile}
+          <!-- The mark is the way back to the project list; there is no menu to hold one. -->
+          <button class="ghost mark-btn" onclick={() => store.close()} aria-label={t("toolbar.projects")}>
+            <img class="mark" src="/icon.svg" alt="" draggable="false" />
+          </button>
+        {:else}
+          <img class="mark" src="/icon.svg" alt="" draggable="false" />
           <span class="logo">{t("app.name")}</span>
           <span class="sep">/</span>
+          <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
         {/if}
-        <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
       </div>
       {#if !isMobile}
         <input
@@ -617,9 +622,6 @@
       {/if}
       <TagMenu />
       {#if isMobile}
-        <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
-          ><MagnifyingGlass size={ICON} /></button
-        >
         <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><Terminal size={ICON} /></button>
       {:else}
         <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
@@ -646,12 +648,14 @@
           ><CornersOut size={ICON} /></button
         >
       {/if}
-      <button
-        class="primary icon"
-        onclick={() => canvas?.createAtCenter()}
-        use:tooltip={t("toolbar.new.tip", { key: keys["new-note"] })}
-        aria-label={t("toolbar.new")}><Plus size={ICON} weight="bold" /></button
-      >
+      {#if !isMobile}
+        <button
+          class="primary icon"
+          onclick={() => canvas?.createAtCenter()}
+          use:tooltip={t("toolbar.new.tip", { key: keys["new-note"] })}
+          aria-label={t("toolbar.new")}><Plus size={ICON} weight="bold" /></button
+        >
+      {/if}
     </div>
     <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
       {#if showPRs}
@@ -703,6 +707,19 @@
         </div>
       {/if}
     </div>
+    {#if isMobile}
+      <div class="bottombar">
+        <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
+          ><MagnifyingGlass size={ICON} /></button
+        >
+        <button class="primary icon create" onclick={() => canvas?.createAtCenter()} aria-label={t("toolbar.new")}
+          ><Plus size={ICON} weight="bold" /></button
+        >
+        <button class="ghost icon" class:on={showPRs} onclick={togglePRs} aria-label={t("toolbar.prs")}
+          ><GitPullRequest size={ICON} /></button
+        >
+      </div>
+    {/if}
   </div>
 {:else}
   <div class="welcome" data-tauri-drag-region={isMobile ? undefined : true}>
@@ -941,6 +958,35 @@
     margin: 8px auto;
     border-radius: 2px;
     background: var(--border2);
+  }
+
+  .bottombar {
+    flex: none;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 2px 12px;
+    padding-bottom: calc(2px + var(--safe-bottom));
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+  }
+  .bottombar > :first-child {
+    justify-self: start;
+  }
+  .bottombar > :last-child {
+    justify-self: end;
+  }
+  .bottombar .create {
+    width: 56px;
+    border-radius: 999px;
+  }
+  .mark-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--btn);
+    height: var(--btn);
+    padding: 0;
   }
 
   .main {

@@ -12,6 +12,8 @@ All notable changes to Dagobert are documented here. The format follows
   browser, and the same sign-in authenticates git over HTTPS. No more pasting tokens.
 - Adding a project picks from a searchable list of your repositories instead of asking
   for a URL.
+- On a phone the actions move to a bottom bar, and search opens from the bottom edge with
+  its results above it.
 - A phone layout: the note panel becomes a bottom sheet, the toolbar collapses to an
   overflow menu, and projects are cloned from a URL instead of picked from a folder.
 - Touch input on the canvas: pinch to zoom, two-finger pan, long-press for the context

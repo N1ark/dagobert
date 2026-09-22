@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store } from "./store.svelte";
+  import { isMobile } from "./backend";
   import { stageColor } from "./workflows";
   import Check from "phosphor-svelte/lib/Check";
   import Minus from "phosphor-svelte/lib/Minus";
@@ -71,6 +72,26 @@
   function onWindowPointerDown(e: PointerEvent) {
     if (!(e.target as HTMLElement).closest(".ctx")) onclose();
   }
+  // An action sheet dismisses by being pushed down, like every other sheet here.
+  let dragY = $state<number | null>(null);
+  let grabFrom = 0;
+
+  function onGrabDown(e: PointerEvent) {
+    grabFrom = e.clientY;
+    dragY = 0;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onGrabMove(e: PointerEvent) {
+    if (dragY === null) return;
+    dragY = Math.max(0, e.clientY - grabFrom);
+  }
+  function onGrabUp() {
+    if (dragY === null) return;
+    const far = dragY > (el?.getBoundingClientRect().height ?? 200) * 0.3;
+    dragY = null;
+    if (far) onclose();
+  }
+
   function onKey(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.stopPropagation();
@@ -92,16 +113,29 @@
 
 <div
   class="ctx"
+  class:dragging={dragY !== null}
   bind:this={el}
-  style="left:{pos.left}px; top:{pos.top}px"
+  style={isMobile && dragY !== null ? `transform: translateY(${dragY}px)` : `left:${pos.left}px; top:${pos.top}px`}
   role="menu"
   tabindex="-1"
   oncontextmenu={(e) => e.preventDefault()}
 >
+  {#if isMobile}
+    <button
+      class="grab"
+      aria-label={t("ctx.dismiss")}
+      onpointerdown={onGrabDown}
+      onpointermove={onGrabMove}
+      onpointerup={onGrabUp}
+      onpointercancel={onGrabUp}
+    ></button>
+  {/if}
   {#if note && workflow}
     <button class="item" onclick={() => run(() => store.select(note.id))}>{t("ctx.open")}</button>
     <button class="item" onclick={() => run(() => store.openInWindow(note.id))}><ArrowSquareOut size={14} /> {t("ctx.openWindow")}</button>
-    <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> {t("ctx.reveal")}</button>
+    {#if !isMobile}
+      <button class="item" onclick={() => run(() => store.revealInFinder(note.id))}><FolderOpen size={14} /> {t("ctx.reveal")}</button>
+    {/if}
     <button class="item" onclick={() => run(() => store.copy(note.id))}><Copy size={14} /> {t("ctx.copy")} <kbd>{keys.copy}</kbd></button>
     <button
       class="item"
@@ -210,7 +244,14 @@
 </div>
 
 <style>
+  .grab {
+    display: none;
+  }
+  .ctx.dragging {
+    transition: none;
+  }
   .ctx {
+    transition: transform 0.18s ease;
     position: fixed;
     z-index: 60;
     min-width: 200px;

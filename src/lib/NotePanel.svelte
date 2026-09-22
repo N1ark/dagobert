@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store } from "./store.svelte";
+  import { isMobile } from "./backend";
   import type { Note } from "./types";
   import { relative, absolute } from "./time";
   import LiveEditor from "./LiveEditor.svelte";
@@ -290,7 +291,11 @@
   </div>
 
   <footer>
-    <button class="ghost file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
+    {#if isMobile}
+      <span class="file plain">{note.file}</span>
+    {:else}
+      <button class="ghost file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
+    {/if}
     {#if confirmDelete}
       <button class="danger" onclick={() => store.remove(note.id)}>{t("panel.reallyDelete")}</button>
       <button class="ghost" onclick={() => (confirmDelete = false)}>{t("panel.cancel")}</button>
@@ -615,6 +620,9 @@
     font-family: var(--mono);
     font-size: 11px;
     color: #555;
+  }
+  .file.plain {
+    cursor: default;
   }
   .file:hover {
     color: var(--accent2);

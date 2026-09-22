@@ -413,7 +413,12 @@ body.mobile .toolbar {
 
 body.mobile .panel-wrap.sheet {
   padding-bottom: var(--safe-bottom);
-  bottom: var(--kb, 0px);
+}
+
+/* The layout viewport doesn't shrink for the keyboard, so the shell does; the
+   sheet and the bottom bar ride up with it. */
+body.mobile .app {
+  height: calc(100% - var(--kb, 0px));
 }
 
 /* 16px or Safari zooms the page when a field takes focus; the components set
@@ -489,8 +494,25 @@ body.mobile .backdrop {
 
 /* Shortcut hints are noise without a keyboard. */
 body.mobile .kbd,
+body.mobile kbd,
 body.mobile .dialog footer.keys {
   display: none;
+}
+
+/* The palette sits on the bottom edge, field last, like Safari's search: the
+   results stay above the thumb, and there is backdrop left to tap to dismiss. */
+body.mobile .backdrop.palette {
+  align-items: flex-end;
+  padding: 0 0 max(var(--kb, 0px), var(--safe-bottom));
+}
+
+body.mobile .backdrop.palette .dialog {
+  height: auto;
+  max-height: calc(100% - var(--safe-top) - 40px);
+  flex-direction: column-reverse;
+  border-radius: 12px 12px 0 0;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 body.mobile .prs {
@@ -526,6 +548,27 @@ body.mobile .ctx {
 
 body.mobile .ctx .item {
   padding: 10px 12px;
+}
+
+body.mobile .ctx .grab {
+  display: block;
+  align-self: center;
+  width: 44px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  touch-action: none;
+}
+
+body.mobile .ctx .grab::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto;
+  border-radius: 2px;
+  background: var(--border2);
 }
 
 /* The minimap fills the bottom-right corner instead of floating inside it;

@@ -321,6 +321,8 @@ export default {
   "clone.private": "private",
   "clone.manage": "Choose which repositories Dagobert can reach",
   "toolbar.more": "More",
+  "toolbar.projects": "Projects",
+  "ctx.dismiss": "Dismiss",
   "panel.sheet.expand": "Expand",
   "panel.sheet.collapse": "Collapse",
   "settings.github.repos": "Repositories",

@@ -1075,7 +1075,11 @@
     <div class="empty">
       <p>{t("canvas.empty.create")}</p>
       <p class="sub">{t("canvas.empty.drag.before")} <span class="dot"></span> {t("canvas.empty.drag.after")}</p>
-      <p class="sub">{t("canvas.empty.keys", { deps: keys["nav-deps"], dependents: keys["nav-dependents"], title: keys["edit-title"] })}</p>
+      {#if !isMobile}
+        <p class="sub">
+          {t("canvas.empty.keys", { deps: keys["nav-deps"], dependents: keys["nav-dependents"], title: keys["edit-title"] })}
+        </p>
+      {/if}
     </div>
   {/if}
 </div>

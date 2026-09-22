@@ -472,6 +472,7 @@
   }
   section {
     padding: 12px 16px;
+    overflow-x: hidden;
     overflow-y: auto;
   }
   .name {
@@ -497,6 +498,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
   }
   .n {
     width: 16px;
@@ -522,6 +524,9 @@
   }
   .stage {
     flex: 1;
+    /* Without this an input refuses to shrink past its intrinsic width and the
+       row scrolls sideways to fit the buttons. */
+    min-width: 0;
     font-size: 13px;
     padding: 4px 8px;
   }
