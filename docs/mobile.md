@@ -106,8 +106,10 @@ Set up once: full Xcode (not just the Command Line Tools) with
 **runtime** whose version matches the SDK — Tauri reports a mismatch as the misleading
 "Simulator SDK not installed"; `xcodebuild -downloadPlatform iOS` fetches one.
 
-`src-tauri/gen/apple` is the generated Xcode project and is committed;
-`npm run tauri ios init` regenerates it from `src-tauri/ios-project.yml`
+`src-tauri/gen/apple` is the generated Xcode project and is committed. Regenerate it with
+**`npm run ios:init`**, not `tauri ios init` directly: init writes Tauri's own default
+icons into `Assets.xcassets` and ignores `src-tauri/icons/ios/`, so the script copies ours
+back over them. It builds from `src-tauri/ios-project.yml`
 (`bundle.iOS.template`, a path relative to the **repo root**, not to `tauri.conf.json`).
 That template is Tauri's own with two changes, both of which the built-in one can't
 express:

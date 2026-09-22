@@ -90,8 +90,9 @@ export default {
   "welcome.forget": "forget",
   "welcome.dialogTitle": "Open a Dagobert folder",
   "welcome.projects": "Projects",
-  "welcome.clone": "Clone from URL",
-  "welcome.noProjects": "No projects yet — clone one from its git remote.",
+  "welcome.clone": "Add a project",
+  "welcome.noProjects": "No projects yet — add one from GitHub.",
+  "welcome.signin.help": "Sign in to pick a repository to clone.",
 
   "standalone.gone": "This note no longer exists.",
 
@@ -311,13 +312,14 @@ export default {
   "clone.aria": "Clone a project",
   "clone.title": "Clone a project",
   "clone.close": "close",
-  "clone.url": "Repository URL",
-  "clone.url.placeholder": "https://github.com/you/notes.git",
-  "clone.help": "An `https://` remote of a project created on your computer; the phone never creates one.", // markdown
-  "clone.signin": "Sign in with GitHub first.",
-  "clone.cancel": "Cancel",
-  "clone.go": "Clone",
+  "clone.help": "Sign in to pick a repository. Projects are made on your computer; the phone only clones them.", // markdown
   "clone.cloning": "Cloning…",
+  "clone.search": "Search repositories",
+  "clone.loading": "Loading repositories…",
+  "clone.noRepos": "The app can't reach any repositories yet.",
+  "clone.noMatch": "No repository matches.",
+  "clone.private": "private",
+  "clone.manage": "Choose which repositories Dagobert can reach",
   "toolbar.more": "More",
   "panel.sheet.expand": "Expand",
   "panel.sheet.collapse": "Collapse",

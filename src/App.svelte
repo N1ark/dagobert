@@ -10,6 +10,8 @@
   import PullRequests from "./lib/PullRequests.svelte";
   import GitDialog from "./lib/GitDialog.svelte";
   import CloneDialog from "./lib/CloneDialog.svelte";
+  import GitHubSignIn from "./lib/GitHubSignIn.svelte";
+  import { auth } from "./lib/auth.svelte";
   import { syncPRs } from "./lib/prs.svelte";
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
@@ -675,7 +677,12 @@
       <h1>{t("app.name")}</h1>
       <p class="tagline">{t("welcome.tagline")}</p>
       {#if isMobile}
-        <button class="primary big" onclick={() => (showClone = true)}><CloudArrowDown size={16} /> {t("welcome.clone")}</button>
+        {#if auth.signedIn}
+          <button class="primary big" onclick={() => (showClone = true)}><CloudArrowDown size={16} /> {t("welcome.clone")}</button>
+        {:else}
+          <p class="hint">{t("welcome.signin.help")}</p>
+        {/if}
+        <GitHubSignIn compact />
         <h3>{t("welcome.projects")}</h3>
         {#if projects.length}
           <ul class="recent">

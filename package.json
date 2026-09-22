@@ -15,7 +15,8 @@
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "lint": "eslint . && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
-    "lint:fix": "eslint . --fix && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --fix --allow-dirty -- -D warnings"
+    "lint:fix": "eslint . --fix && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --fix --allow-dirty -- -D warnings",
+    "ios:init": "tauri ios init && cp src-tauri/icons/ios/*.png src-tauri/gen/apple/Assets.xcassets/AppIcon.appiconset/"
   },
   "license": "MIT",
   "dependencies": {

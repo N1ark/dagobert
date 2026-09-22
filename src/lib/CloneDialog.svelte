@@ -2,30 +2,64 @@
   import { backend } from "./backend";
   import { auth } from "./auth.svelte";
   import { store } from "./store.svelte";
+  import { listRepos, type RepoRef } from "./github";
+  import { fuzzyMatch } from "./fuzzy";
   import X from "phosphor-svelte/lib/X";
   import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
+  import MagnifyingGlass from "phosphor-svelte/lib/MagnifyingGlass";
+  import LockSimple from "phosphor-svelte/lib/LockSimple";
+  import GitHubSignIn from "./GitHubSignIn.svelte";
   import InlineMd from "./InlineMd.svelte";
   import { t } from "./i18n";
 
   let { onclose }: { onclose: () => void } = $props();
 
-  let url = $state("");
-  let busy = $state(false);
+  let repos = $state<RepoRef[]>([]);
+  let query = $state("");
+  let loading = $state(false);
+  let cloning = $state<string | null>(null);
   let error = $state<string | null>(null);
 
-  async function clone() {
-    if (!url.trim() || busy) return;
-    busy = true;
+  async function load() {
+    if (!auth.signedIn) return;
+    loading = true;
+    error = null;
+    try {
+      repos = await listRepos();
+    } catch (e) {
+      error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
+    } finally {
+      loading = false;
+    }
+  }
+  $effect(() => {
+    void auth.session;
+    void load();
+  });
+
+  const shown = $derived(
+    query.trim()
+      ? repos
+          .map((r) => ({ r, m: fuzzyMatch(query.trim(), r.full_name) }))
+          .filter((x) => x.m.score > 0)
+          .sort((a, b) => b.m.score - a.m.score)
+          .map((x) => x.r)
+      : repos,
+  );
+
+  async function clone(repo: RepoRef) {
+    if (cloning) return;
+    cloning = repo.full_name;
     error = null;
     try {
       const s = auth.session;
-      const p = await backend.cloneProject(url.trim(), await auth.token(), s?.name ?? "", s?.email ?? "");
+      const p = await backend.cloneProject(repo.clone_url, await auth.token(), s?.name ?? "", s?.email ?? "");
       onclose();
       await store.open(p.path);
     } catch (e) {
       error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
     } finally {
-      busy = false;
+      cloning = null;
     }
   }
 
@@ -46,30 +80,42 @@
       <h3><CloudArrowDown size={15} /> {t("clone.title")}</h3>
       <button class="ghost" onclick={onclose} aria-label={t("clone.close")}><X size={16} /></button>
     </header>
-    <form
-      class="body"
-      onsubmit={(e) => {
-        e.preventDefault();
-        clone();
-      }}
-    >
-      <label>
-        {t("clone.url")}
-        <!-- svelte-ignore a11y_autofocus -->
-        <input bind:value={url} placeholder={t("clone.url.placeholder")} spellcheck="false" autocapitalize="off" autofocus />
-      </label>
-      <p class="help"><InlineMd source={t("clone.help")} /></p>
+    <div class="body">
       {#if !auth.signedIn}
-        <p class="err">{t("clone.signin")}</p>
+        <p class="help"><InlineMd source={t("clone.help")} /></p>
+        <GitHubSignIn compact />
+      {:else}
+        <div class="search">
+          <MagnifyingGlass size={14} />
+          <!-- svelte-ignore a11y_autofocus -->
+          <input bind:value={query} placeholder={t("clone.search")} spellcheck="false" autocapitalize="off" autofocus />
+        </div>
+        {#if loading}
+          <p class="hint">{t("clone.loading")}</p>
+        {:else if !repos.length}
+          <p class="hint">{t("clone.noRepos")}</p>
+        {:else if !shown.length}
+          <p class="hint">{t("clone.noMatch")}</p>
+        {/if}
+        <ul class="repos">
+          {#each shown as repo (repo.full_name)}
+            <li>
+              <button class="ghost repo" disabled={!!cloning} onclick={() => clone(repo)}>
+                <span class="name">{repo.full_name}</span>
+                {#if repo.private}<span class="lock" aria-label={t("clone.private")}><LockSimple size={12} /></span>{/if}
+                {#if cloning === repo.full_name}<span class="hint">{t("clone.cloning")}</span>{/if}
+              </button>
+            </li>
+          {/each}
+        </ul>
+        <p class="help">
+          <button class="ghost link" onclick={() => backend.openExternal("https://github.com/settings/installations")}
+            >{t("clone.manage")}</button
+          >
+        </p>
       {/if}
       {#if error}<p class="err">{error}</p>{/if}
-      <footer>
-        <button type="button" class="ghost" onclick={onclose}>{t("clone.cancel")}</button>
-        <button type="submit" class="primary" disabled={!url.trim() || busy || !auth.signedIn}
-          >{t(busy ? "clone.cloning" : "clone.go")}</button
-        >
-      </footer>
-    </form>
+    </div>
   </div>
 </div>
 
@@ -84,8 +130,11 @@
     justify-content: center;
   }
   .dialog {
+    display: flex;
+    flex-direction: column;
     width: 460px;
     max-width: calc(100vw - 40px);
+    max-height: 80vh;
     background: var(--bg2);
     border-radius: 10px;
     box-shadow: var(--shadow-lg);
@@ -109,22 +158,59 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    min-height: 0;
     padding: 14px 16px;
   }
-  label {
+  .search {
     display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 12px;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    border-radius: 999px;
+    background: var(--bg);
     color: var(--color-dim);
   }
-  input {
+  .search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 6px 2px;
+  }
+  .repos {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    list-style: none;
+    margin: 8px 0 0;
+    padding: 0;
+  }
+  .repo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     width: 100%;
-    font-size: 14px;
+    padding: 8px 8px;
+    text-align: left;
+    color: var(--color);
+    border-radius: var(--radius);
+  }
+  .repo:hover:not(:disabled) {
+    background: var(--bg3);
+  }
+  .name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lock {
+    color: var(--color-dim);
+    display: inline-flex;
   }
   .help {
-    margin: -4px 0 0;
+    margin: 8px 0 0;
     font-size: 12px;
     color: var(--color-dim);
   }
@@ -135,15 +221,18 @@
     padding: 1px 4px;
     border-radius: 3px;
   }
+  .link {
+    padding: 0;
+    color: var(--accent2);
+    text-decoration: underline;
+  }
+  .hint {
+    font-size: 12px;
+    color: var(--color-dim);
+  }
   .err {
-    margin: 0;
+    margin: 8px 0 0;
     font-size: 12px;
     color: var(--red);
-  }
-  footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding-top: 4px;
   }
 </style>

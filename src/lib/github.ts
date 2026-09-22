@@ -77,6 +77,42 @@ async function api<T>(path: string, repo?: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** A repository the signed-in user reached through the app's installations. */
+export interface RepoRef {
+  full_name: string;
+  clone_url: string;
+  private: boolean;
+}
+
+/** Every page of `path`, following GitHub's `per_page` cap. */
+async function pages<T>(path: string, pick: (body: never) => T[]): Promise<T[]> {
+  const out: T[] = [];
+  for (let page = 1; page <= 10; page++) {
+    const sep = path.includes("?") ? "&" : "?";
+    const batch = pick((await api(`${path}${sep}per_page=100&page=${page}`)) as never);
+    out.push(...batch);
+    if (batch.length < 100) break;
+  }
+  return out;
+}
+
+/**
+ * The repositories the app can reach, alphabetically. This is the one place an
+ * installation list is worth fetching: the user is picking from it, so it has
+ * to be complete and current.
+ */
+export async function listRepos(): Promise<RepoRef[]> {
+  const installs = await pages<{ id: number }>("/user/installations", (b: { installations: { id: number }[] }) => b.installations);
+  const repos: RepoRef[] = [];
+  for (const i of installs) {
+    repos.push(...(await pages<RepoRef>(`/user/installations/${i.id}/repositories`, (b: { repositories: RepoRef[] }) => b.repositories)));
+  }
+  const seen = new Set<string>();
+  return repos
+    .filter((r) => !seen.has(r.full_name) && seen.add(r.full_name))
+    .sort((a, b) => a.full_name.toLowerCase().localeCompare(b.full_name.toLowerCase()));
+}
+
 interface RawIssue {
   number: number;
   title: string;

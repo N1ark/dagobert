@@ -7,13 +7,12 @@
   import Plus from "phosphor-svelte/lib/Plus";
   import ColorPicker from "./ColorPicker.svelte";
   import { stageColor } from "./workflows";
-  import { auth } from "./auth.svelte";
+  import GitHubSignIn from "./GitHubSignIn.svelte";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
   import Circuitry from "phosphor-svelte/lib/Circuitry";
   import { tooltip } from "./tooltip";
   import { relative } from "./time";
-  import { backend } from "./backend";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
 
@@ -224,27 +223,7 @@
           </form>
           <h4>{t("settings.github.account")}</h4>
           <p class="help"><InlineMd source={t("settings.github.signin.help")} /></p>
-          {#if auth.code}
-            <p class="code-label">{t("settings.github.code")}</p>
-            <p class="code">{auth.code}</p>
-            <div class="actions">
-              <span class="hint">{t("settings.github.waiting")}</span>
-              <button onclick={() => auth.url && backend.openExternal(auth.url)}>{t("settings.github.reopen")}</button>
-              <button class="ghost" onclick={() => auth.cancel()}>{t("settings.github.cancel")}</button>
-            </div>
-          {:else if auth.signedIn}
-            <div class="actions">
-              <span class="hint">{t("settings.github.signedInAs", { login: auth.session?.login ?? "" })}</span>
-              <button class="ghost" onclick={() => auth.signOut()}>{t("settings.github.signout")}</button>
-            </div>
-          {:else}
-            <div class="actions">
-              <button class="primary" disabled={auth.busy} onclick={() => auth.signIn()}
-                ><GithubLogo size={14} /> {t("settings.github.signin")}</button
-              >
-            </div>
-          {/if}
-          {#if auth.error}<p class="err">{auth.error}</p>{/if}
+          <GitHubSignIn />
         {:else if wf}
           <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
           <p class="help">{t("settings.wf.help")}</p>
@@ -468,19 +447,6 @@
   }
   .err {
     color: var(--red);
-  }
-  .code-label {
-    margin: 8px 0 2px;
-    font-size: 12px;
-    color: var(--color-dim);
-  }
-  .code {
-    margin: 0 0 8px;
-    font-family: var(--mono);
-    font-size: 22px;
-    letter-spacing: 0.18em;
-    color: var(--color2);
-    user-select: all;
   }
   section :global(code) {
     font-family: var(--mono);
