@@ -9,6 +9,7 @@
   import WorkflowEditor from "./lib/WorkflowEditor.svelte";
   import PullRequests from "./lib/PullRequests.svelte";
   import GitDialog from "./lib/GitDialog.svelte";
+  import CloneDialog from "./lib/CloneDialog.svelte";
   import { syncPRs } from "./lib/prs.svelte";
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
@@ -42,6 +43,9 @@
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
   import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
   import Warning from "phosphor-svelte/lib/Warning";
+  import DotsThree from "phosphor-svelte/lib/DotsThree";
+  import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
+  import type { ProjectRef } from "./lib/types";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
   const params = new URLSearchParams(location.search);
@@ -60,7 +64,8 @@
 
   // Background grain shader (Grain.svelte); purely cosmetic.
   const GRAIN_KEY = "dagobert.grain";
-  let grain = $state(localStorage.getItem(GRAIN_KEY) !== "0");
+  // Off by default on a phone: a cosmetic shader isn't worth the battery.
+  let grain = $state(isMobile ? localStorage.getItem(GRAIN_KEY) === "1" : localStorage.getItem(GRAIN_KEY) !== "0");
   function toggleGrain() {
     grain = !grain;
     localStorage.setItem(GRAIN_KEY, grain ? "1" : "0");
@@ -81,7 +86,8 @@
   function togglePRs() {
     showPRs = !showPRs;
     localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
-    absorb(showPRs ? prsW : -prsW);
+    // On mobile the pane covers the canvas instead of pushing it.
+    if (!isMobile) absorb(showPRs ? prsW : -prsW);
   }
   let prsResizing = $state<{ startX: number; w: number } | null>(null);
   function onPrsResizeDown(e: PointerEvent) {
@@ -118,6 +124,35 @@
     if (!resizing) return;
     resizing = null;
     localStorage.setItem(PANEL_KEY, String(panelW));
+  }
+
+  // The phone has no folder picker: projects live in the app's data directory.
+  let projects = $state<ProjectRef[]>([]);
+  let showClone = $state(false);
+  $effect(() => {
+    if (isMobile && !store.path) backend.listProjects().then((p) => (projects = p), console.error);
+  });
+
+  // The note panel is a bottom sheet on mobile: peek, or dragged up to full screen.
+  let sheetDrag = $state<{ y: number; full: boolean } | null>(null);
+  function onSheetDown(e: PointerEvent) {
+    sheetDrag = { y: e.clientY, full: store.sheetFull };
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onSheetMove(e: PointerEvent) {
+    if (!sheetDrag) return;
+    const dy = e.clientY - sheetDrag.y;
+    if (dy < -40) store.sheetFull = true;
+    else if (dy > 40) {
+      if (sheetDrag.full) store.sheetFull = false;
+      else store.select(null);
+      sheetDrag = null;
+    }
+  }
+  function onSheetUp(e: PointerEvent) {
+    // A tap (no drag) toggles, so the grabber works without a gesture.
+    if (sheetDrag && Math.abs(e.clientY - sheetDrag.y) < 6) store.sheetFull = !sheetDrag.full;
+    sheetDrag = null;
   }
 
   let canvas = $state<Canvas | null>(null);
@@ -507,25 +542,27 @@
   </div>
 {:else if store.path}
   <div class="app">
-    <div class="toolbar" data-tauri-drag-region>
-      <div class="brand" data-tauri-drag-region>
+    <div class="toolbar" data-tauri-drag-region={isMobile ? undefined : true}>
+      <div class="brand" data-tauri-drag-region={isMobile ? undefined : true}>
         <img class="mark" src="/icon.svg" alt="" draggable="false" />
         <span class="logo">{t("app.name")}</span>
         <span class="sep">/</span>
         <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
       </div>
-      <input
-        class="search"
-        placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
-        bind:value={query}
-        bind:this={searchEl}
-        onkeydown={onSearchKey}
-      />
-      {#if matches}
-        <span class="hint">{plural("toolbar.matches", matches.size)}</span>
+      {#if !isMobile}
+        <input
+          class="search"
+          placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
+          bind:value={query}
+          bind:this={searchEl}
+          onkeydown={onSearchKey}
+        />
+        {#if matches}
+          <span class="hint">{plural("toolbar.matches", matches.size)}</span>
+        {/if}
       {/if}
-      <div class="spacer" data-tauri-drag-region></div>
-      <span class="stats" title={t("toolbar.stats.title")}>
+      <div class="spacer" data-tauri-drag-region={isMobile ? undefined : true}></div>
+      <span class="stats" class:hide={isMobile} title={t("toolbar.stats.title")}>
         <span class="ready">{t("toolbar.stats.ready", { n: stats.ready })}</span> · {t("toolbar.stats.done", {
           done: stats.done,
           total: stats.total,
@@ -550,25 +587,36 @@
         </button>
       {/if}
       <TagMenu />
-      <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
-        ><Trash size={16} /></button
-      >
-      <button
-        class="ghost icon"
-        class:on={showPRs}
-        onclick={togglePRs}
-        use:tooltip={t("toolbar.prs.tip", { key: keys.prs })}
-        aria-label={t("toolbar.prs")}><GitPullRequest size={16} /></button
-      >
-      <button class="ghost icon" class:on={focus} onclick={toggleFocus} use:tooltip={t("toolbar.focus.tip")} aria-label={t("toolbar.focus")}
-        ><Crosshair size={16} /></button
-      >
-      <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={t("toolbar.tidy.tip")} aria-label={t("toolbar.tidy")}
-        ><TreeStructure size={16} /></button
-      >
-      <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
-        ><CornersOut size={16} /></button
-      >
+      {#if isMobile}
+        <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
+          ><MagnifyingGlass size={16} /></button
+        >
+        <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><DotsThree size={20} /></button>
+      {:else}
+        <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
+          ><Trash size={16} /></button
+        >
+        <button
+          class="ghost icon"
+          class:on={showPRs}
+          onclick={togglePRs}
+          use:tooltip={t("toolbar.prs.tip", { key: keys.prs })}
+          aria-label={t("toolbar.prs")}><GitPullRequest size={16} /></button
+        >
+        <button
+          class="ghost icon"
+          class:on={focus}
+          onclick={toggleFocus}
+          use:tooltip={t("toolbar.focus.tip")}
+          aria-label={t("toolbar.focus")}><Crosshair size={16} /></button
+        >
+        <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={t("toolbar.tidy.tip")} aria-label={t("toolbar.tidy")}
+          ><TreeStructure size={16} /></button
+        >
+        <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
+          ><CornersOut size={16} /></button
+        >
+      {/if}
       <button
         class="primary icon"
         onclick={() => canvas?.createAtCenter()}
@@ -591,45 +639,79 @@
       {/if}
       <Canvas bind:this={canvas} {matches} {focus} {grain} />
       {#if store.selected}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="resizer"
-          class:active={!!resizing}
-          onpointerdown={onResizeDown}
-          onpointermove={onResizeMove}
-          onpointerup={onResizeUp}
-          onpointercancel={onResizeUp}
-        ></div>
-        {#key store.selected.id}
-          <NotePanel note={store.selected} onjump={jump} />
-        {/key}
+        {#if !isMobile}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div
+            class="resizer"
+            class:active={!!resizing}
+            onpointerdown={onResizeDown}
+            onpointermove={onResizeMove}
+            onpointerup={onResizeUp}
+            onpointercancel={onResizeUp}
+          ></div>
+        {/if}
+        <div class="panel-wrap" class:sheet={isMobile} class:full={store.sheetFull}>
+          {#if isMobile}
+            <button
+              class="grab"
+              aria-label={t(store.sheetFull ? "panel.sheet.collapse" : "panel.sheet.expand")}
+              onpointerdown={onSheetDown}
+              onpointermove={onSheetMove}
+              onpointerup={onSheetUp}
+              onpointercancel={() => (sheetDrag = null)}
+            ></button>
+          {/if}
+          {#key store.selected.id}
+            <NotePanel note={store.selected} onjump={jump} />
+          {/key}
+        </div>
       {/if}
     </div>
   </div>
 {:else}
-  <div class="welcome" data-tauri-drag-region>
+  <div class="welcome" data-tauri-drag-region={isMobile ? undefined : true}>
     <div class="card">
       <img class="hero" src="/logo.svg" alt="" draggable="false" />
       <h1>{t("app.name")}</h1>
       <p class="tagline">{t("welcome.tagline")}</p>
-      <button class="primary big" onclick={() => store.pickAndOpen()}>{t("welcome.open")}</button>
-      <p class="hint">{t("welcome.hint")}</p>
-      {#if store.recent.length}
-        <h3>{t("welcome.recent")}</h3>
-        <ul class="recent">
-          {#each store.recent as r (r)}
-            <li>
-              <button class="ghost path" onclick={() => store.openRef(r)} title={r}>
-                <span class="name">{r.split(/[\\/]/).filter(Boolean).pop()}</span>
-                <span class="full">{r}</span>
-              </button>
-              <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label={t("welcome.forget")}><X size={14} /></button>
-            </li>
-          {/each}
-        </ul>
+      {#if isMobile}
+        <button class="primary big" onclick={() => (showClone = true)}><CloudArrowDown size={16} /> {t("welcome.clone")}</button>
+        <h3>{t("welcome.projects")}</h3>
+        {#if projects.length}
+          <ul class="recent">
+            {#each projects as p (p.name)}
+              <li>
+                <button class="ghost path" onclick={() => store.open(p.path)}><span class="name">{p.name}</span></button>
+              </li>
+            {/each}
+          </ul>
+        {:else}
+          <p class="hint">{t("welcome.noProjects")}</p>
+        {/if}
+      {:else}
+        <button class="primary big" onclick={() => store.pickAndOpen()}>{t("welcome.open")}</button>
+        <p class="hint">{t("welcome.hint")}</p>
+        {#if store.recent.length}
+          <h3>{t("welcome.recent")}</h3>
+          <ul class="recent">
+            {#each store.recent as r (r)}
+              <li>
+                <button class="ghost path" onclick={() => store.openRef(r)} title={r}>
+                  <span class="name">{r.split(/[\\/]/).filter(Boolean).pop()}</span>
+                  <span class="full">{r}</span>
+                </button>
+                <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label={t("welcome.forget")}><X size={14} /></button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
       {/if}
     </div>
   </div>
+{/if}
+
+{#if showClone}
+  <CloneDialog onclose={() => (showClone = false)} />
 {/if}
 
 {#if showQuickOpen}
@@ -733,6 +815,9 @@
     height: 28px;
     padding: 0;
   }
+  .stats.hide {
+    display: none;
+  }
   .stats {
     font-size: 12px;
     color: var(--color-dim);
@@ -767,6 +852,55 @@
       transform: rotate(360deg);
     }
   }
+  /* Desktop: a pass-through wrapper, so the flex row is unchanged. */
+  .panel-wrap {
+    display: contents;
+  }
+  .panel-wrap.sheet {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    height: var(--sheet-peek);
+    z-index: 6;
+    background: var(--bg2);
+    border-top: 1px solid var(--border2);
+    border-radius: 12px 12px 0 0;
+    box-shadow: var(--shadow-lg);
+    transition: height 0.18s ease;
+  }
+  .panel-wrap.sheet.full {
+    height: 100%;
+    border-radius: 0;
+  }
+  .panel-wrap.sheet :global(.panel) {
+    width: 100%;
+    min-height: 0;
+    border-left: none;
+  }
+  .grab {
+    flex: none;
+    align-self: center;
+    width: 44px;
+    height: 20px;
+    padding: 0;
+    background: none;
+    border: none;
+    touch-action: none;
+  }
+  .grab::before {
+    content: "";
+    display: block;
+    width: 36px;
+    height: 4px;
+    margin: 8px auto;
+    border-radius: 2px;
+    background: var(--border2);
+  }
+
   .main {
     flex: 1;
     display: flex;
@@ -815,6 +949,15 @@
     background:
       radial-gradient(ellipse at 20% 0%, #45155166, transparent 60%), radial-gradient(ellipse at 80% 100%, #421a4066, transparent 60%),
       var(--bg);
+  }
+  :global(body.mobile) .welcome {
+    padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 12px);
+    align-items: flex-start;
+    overflow: auto;
+  }
+  :global(body.mobile) .card {
+    width: 100%;
+    padding: 24px 20px;
   }
   .card {
     width: 380px;

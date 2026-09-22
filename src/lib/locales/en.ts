@@ -89,6 +89,9 @@ export default {
   "welcome.recent": "Recent",
   "welcome.forget": "forget",
   "welcome.dialogTitle": "Open a Dagobert folder",
+  "welcome.projects": "Projects",
+  "welcome.clone": "Clone from URL",
+  "welcome.noProjects": "No projects yet — clone one from its git remote.",
 
   "standalone.gone": "This note no longer exists.",
 
@@ -305,6 +308,21 @@ export default {
   "settings.git.syncing": "syncing…",
   "settings.git.notYet": "not yet this session",
   "settings.git.syncNow": "Sync now",
+  "clone.aria": "Clone a project",
+  "clone.title": "Clone a project",
+  "clone.close": "close",
+  "clone.url": "Repository URL",
+  "clone.url.placeholder": "https://github.com/you/notes.git",
+  "clone.help": "An `https://` remote of a project created on your computer; the phone never creates one.", // markdown
+  "clone.token": "Access token",
+  "clone.name": "Name",
+  "clone.email": "Email",
+  "clone.cancel": "Cancel",
+  "clone.go": "Clone",
+  "clone.cloning": "Cloning…",
+  "toolbar.more": "More",
+  "panel.sheet.expand": "Expand",
+  "panel.sheet.collapse": "Collapse",
   "settings.git.credentials": "Credentials",
   "settings.git.token.help":
     "Used for `https://` remotes when there is no ssh key or credential helper — a fine-grained token with read/write access to the repository.", // markdown

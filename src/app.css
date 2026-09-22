@@ -388,3 +388,55 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* ---- phone layout -------------------------------------------------------- */
+/* Overrides for components whose own rules assume a desktop window. The class
+   is set once in main.ts; `isMobile` gates the markup that goes with it. */
+
+body.mobile {
+  --toolbar-h: 52px;
+  --sheet-peek: 148px;
+}
+
+body.mobile .toolbar {
+  padding: var(--safe-top) 8px 0 8px; /* no traffic lights to clear */
+  height: calc(var(--toolbar-h) + var(--safe-top));
+  gap: 4px;
+}
+
+body.mobile .panel-wrap.sheet {
+  padding-bottom: var(--safe-bottom);
+}
+
+/* Dialogs and the PR pane take the whole screen. */
+body.mobile .dialog {
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  max-height: 100%;
+  border-radius: 0;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+}
+
+body.mobile .prs {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  border-right: none;
+  z-index: 8;
+}
+
+/* Hover-only affordances have nowhere to hover: keep them visible. */
+body.mobile .node .port,
+body.mobile .node .grip {
+  opacity: 1;
+}
+
+/* Comfortable touch targets. */
+body.mobile button.icon {
+  width: 34px;
+  height: 34px;
+}

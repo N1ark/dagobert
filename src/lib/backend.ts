@@ -20,7 +20,10 @@ export const inTauri = "__TAURI_INTERNALS__" in window;
  * it needs no plugin and works the same in the browser dev loop. An iPad lands
  * on the desktop side, which is out of scope rather than broken.
  */
-export const isMobile = matchMedia("(pointer: coarse)").matches && innerWidth < 700;
+export const isMobile =
+  (matchMedia("(pointer: coarse)").matches && innerWidth < 700) ||
+  // `npm run dev` + `?mobile` forces it, for layout work without a device.
+  (import.meta.env.DEV && new URLSearchParams(location.search).has("mobile"));
 
 /** A change on disk reported by the Rust file watcher. */
 export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" };
@@ -34,8 +37,38 @@ export type SyncMessage =
 
 const channel = inTauri ? null : new BroadcastChannel("dagobert");
 
+/** A small graph so the browser dev loop has something to lay out. */
+function seed(): Map<string, Note> {
+  const at = new Date().toISOString();
+  const notes: Note[] = (
+    [
+      ["design", "Sketch the layout", ["ui"], [], 40, 40, "Bottom sheet, peek then full.\n\n- [ ] grabber\n- [ ] dismiss"],
+      ["touch", "Pinch and pan", ["ui"], ["design"], 340, 0, "Two pointers, midpoint zoom."],
+      ["sheet", "Note sheet", ["ui"], ["design"], 340, 160, "Peek shows the title and status."],
+      ["creds", "Token credentials", ["git"], [], 40, 300, "HTTPS + a fine-grained PAT."],
+      ["clone", "Clone a project", ["git"], ["creds"], 340, 320, "No folder picker on a phone."],
+      ["ship", "Put it on the phone", [], ["touch", "sheet", "clone"], 640, 160, "Free Apple ID, 7-day builds."],
+    ] as const
+  ).map(([id, title, tags, deps, x, y, body]) => ({
+    id,
+    title,
+    tags: [...tags],
+    created: at,
+    modified: at,
+    workflow: null,
+    status: id === "design" ? "done" : "todo",
+    x,
+    y,
+    width: null,
+    deps: [...deps],
+    body,
+    file: `${id}.md`,
+  }));
+  return new Map(notes.map((n) => [n.id, n]));
+}
+
 const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local } = {
-  notes: new Map(),
+  notes: seed(),
   trash: [],
   local: { viewport: { x: 0, y: 0, zoom: 1 } },
   meta: {
