@@ -11,6 +11,7 @@
   import GitDialog from "./lib/GitDialog.svelte";
   import CloneDialog from "./lib/CloneDialog.svelte";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
+  import Sheet from "./lib/Sheet.svelte";
   import { auth } from "./lib/auth.svelte";
   import { syncPRs } from "./lib/prs.svelte";
   import { tooltip } from "./lib/tooltip";
@@ -89,6 +90,7 @@
   }
   function togglePRs() {
     showPRs = !showPRs;
+    if (isMobile && showPRs) store.sheetFull = true;
     localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
     // On mobile the pane covers the canvas instead of pushing it.
     if (!isMobile) absorb(showPRs ? prsW : -prsW);
@@ -137,51 +139,6 @@
     if (isMobile && !store.path) backend.listProjects().then((p) => (projects = p), console.error);
   });
 
-  /**
-   * The note panel is a bottom sheet on mobile. It is always full height and
-   * slid down by a transform, so a drag moves it on the compositor instead of
-   * re-laying out the editor on every frame.
-   */
-  let sheetEl = $state<HTMLDivElement | null>(null);
-  let sheetY = $state<number | null>(null);
-  let sheetDrag: { pointer: number; y: number; from: number; max: number } | null = null;
-
-  function peekHeight() {
-    const v = parseFloat(getComputedStyle(document.body).getPropertyValue("--sheet-peek"));
-    return Number.isFinite(v) ? v : 148;
-  }
-
-  function onSheetDown(e: PointerEvent) {
-    if (!sheetEl) return;
-    const max = sheetEl.getBoundingClientRect().height;
-    sheetDrag = { pointer: e.pointerId, y: e.clientY, from: store.sheetFull ? 0 : max - peekHeight(), max };
-    sheetY = sheetDrag.from;
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-  }
-
-  function onSheetMove(e: PointerEvent) {
-    if (!sheetDrag || e.pointerId !== sheetDrag.pointer) return;
-    sheetY = Math.max(0, Math.min(sheetDrag.max, sheetDrag.from + (e.clientY - sheetDrag.y)));
-  }
-
-  function onSheetUp(e: PointerEvent) {
-    if (!sheetDrag) return;
-    const { max, from } = sheetDrag;
-    const y = sheetY ?? from;
-    const tapped = Math.abs(e.clientY - sheetDrag.y) < 6;
-    sheetDrag = null;
-    sheetY = null;
-    if (tapped) {
-      store.sheetFull = !store.sheetFull;
-      return;
-    }
-    // Settle on whichever of the three stops the sheet was left nearest.
-    const stops = [0, max - peekHeight(), max];
-    const nearest = stops.reduce((a, b) => (Math.abs(b - y) < Math.abs(a - y) ? b : a));
-    if (nearest === max) store.select(null);
-    else store.sheetFull = nearest === 0;
-  }
-
   let canvas = $state<Canvas | null>(null);
   let query = $state("");
   let searchEl = $state<HTMLInputElement | null>(null);
@@ -209,6 +166,20 @@
   }
   let showWorkflows = $state(false);
   let settingsSection = $state<"workflows" | "github" | "git">("workflows");
+
+  $effect(() => {
+    if (isMobile && showWorkflows) store.sheetFull = true;
+  });
+
+  /** The phone shows exactly one panel; this is which. */
+  const mobilePanel = $derived(
+    !isMobile || !store.path ? null : showWorkflows ? "settings" : showPRs ? "prs" : store.selected ? "note" : null,
+  );
+  function closePanel() {
+    if (mobilePanel === "settings") showWorkflows = false;
+    else if (mobilePanel === "prs") showPRs = false;
+    else store.select(null);
+  }
 
   /** Tooltip for the git status item in the toolbar. */
   function gitTip() {
@@ -247,6 +218,10 @@
   function jump(id: string) {
     store.select(id);
     canvas?.focusNode(id);
+    if (isMobile) {
+      showPRs = false;
+      store.sheetFull = true;
+    }
   }
   store.jump = jump;
 
@@ -663,7 +638,7 @@
       {/if}
     </div>
     <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
-      {#if showPRs}
+      {#if showPRs && !isMobile}
         <PullRequests onclose={togglePRs} onjump={jump} />
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
@@ -676,36 +651,17 @@
         ></div>
       {/if}
       <Canvas bind:this={canvas} {matches} {focus} {grain} />
-      {#if store.selected}
-        {#if !isMobile}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="resizer"
-            class:active={!!resizing}
-            onpointerdown={onResizeDown}
-            onpointermove={onResizeMove}
-            onpointerup={onResizeUp}
-            onpointercancel={onResizeUp}
-          ></div>
-        {/if}
+      {#if store.selected && !isMobile}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-          class="panel-wrap"
-          class:sheet={isMobile}
-          class:full={store.sheetFull}
-          class:dragging={sheetY !== null}
-          style={sheetY === null ? undefined : `transform: translateY(${sheetY}px)`}
-          bind:this={sheetEl}
-        >
-          {#if isMobile}
-            <button
-              class="grab"
-              aria-label={t(store.sheetFull ? "panel.sheet.collapse" : "panel.sheet.expand")}
-              onpointerdown={onSheetDown}
-              onpointermove={onSheetMove}
-              onpointerup={onSheetUp}
-              onpointercancel={onSheetUp}
-            ></button>
-          {/if}
+          class="resizer"
+          class:active={!!resizing}
+          onpointerdown={onResizeDown}
+          onpointermove={onResizeMove}
+          onpointerup={onResizeUp}
+          onpointercancel={onResizeUp}
+        ></div>
+        <div class="panel-wrap">
           {#key store.selected.id}
             <NotePanel note={store.selected} onjump={jump} />
           {/key}
@@ -724,6 +680,19 @@
           ><GitPullRequest size={ICON} /></button
         >
       </div>
+      {#if mobilePanel}
+        <Sheet bind:full={store.sheetFull} onclose={closePanel}>
+          {#if mobilePanel === "note" && store.selected}
+            {#key store.selected.id}
+              <NotePanel note={store.selected} onjump={jump} />
+            {/key}
+          {:else if mobilePanel === "prs"}
+            <PullRequests sheet onclose={togglePRs} onjump={jump} />
+          {:else if mobilePanel === "settings"}
+            <WorkflowEditor sheet section={settingsSection} onclose={() => (showWorkflows = false)} />
+          {/if}
+        </Sheet>
+      {/if}
     {/if}
   </div>
 {:else}
@@ -783,7 +752,7 @@
   {/key}
 {/if}
 
-{#if showWorkflows}
+{#if showWorkflows && !isMobile}
   <WorkflowEditor section={settingsSection} onclose={() => (showWorkflows = false)} />
 {/if}
 
@@ -916,56 +885,8 @@
       transform: rotate(360deg);
     }
   }
-  /* Desktop: a pass-through wrapper, so the flex row is unchanged. */
   .panel-wrap {
     display: contents;
-  }
-  .panel-wrap.sheet {
-    display: flex;
-    flex-direction: column;
-    /* Fixed, not absolute: it rises from the bottom edge of the screen and over
-       the floating bar, rather than being penned inside the canvas. */
-    position: fixed;
-    inset: 0;
-    z-index: 6;
-    background: var(--bg2);
-    border-top: 1px solid var(--border2);
-    border-radius: 12px 12px 0 0;
-    box-shadow: var(--shadow-lg);
-    /* Slid down so only the peek shows; dragging moves this, not the layout. */
-    transform: translateY(calc(100% - var(--sheet-peek)));
-    transition: transform 0.22s ease;
-    will-change: transform;
-  }
-  .panel-wrap.sheet.full {
-    transform: translateY(0);
-  }
-  .panel-wrap.sheet.dragging {
-    transition: none;
-  }
-  .panel-wrap.sheet :global(.panel) {
-    width: 100%;
-    min-height: 0;
-    border-left: none;
-  }
-  .grab {
-    flex: none;
-    align-self: center;
-    width: 44px;
-    height: 20px;
-    padding: 0;
-    background: none;
-    border: none;
-    touch-action: none;
-  }
-  .grab::before {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 4px;
-    margin: 8px auto;
-    border-radius: 2px;
-    background: var(--border2);
   }
 
   /* Floats over the canvas rather than taking a strip of it. */

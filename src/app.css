@@ -410,17 +410,14 @@ a {
 body.mobile {
   --toolbar-h: 52px;
   --sheet-peek: 148px;
+  /* A full sheet stops below the bar, clear of the status bar and the island. */
+  --sheet-top: calc(var(--toolbar-h) + var(--safe-top) + 32px);
 }
 
 body.mobile .toolbar {
   padding: var(--safe-top) 8px 0 8px; /* no traffic lights to clear */
   height: calc(var(--toolbar-h) + var(--safe-top));
   gap: 4px;
-}
-
-body.mobile .panel-wrap.sheet {
-  padding-bottom: var(--safe-bottom);
-  bottom: var(--kb, 0px);
 }
 
 /* The layout viewport doesn't shrink for the keyboard, so the shell does; the
@@ -521,16 +518,6 @@ body.mobile .backdrop.palette .dialog {
   border-radius: 12px 12px 0 0;
   padding-top: 0;
   padding-bottom: 0;
-}
-
-body.mobile .prs {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
-  border-right: none;
-  z-index: 8;
 }
 
 /* Hover-only affordances have nowhere to hover: keep them visible. */

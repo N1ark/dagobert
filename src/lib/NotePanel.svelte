@@ -145,13 +145,15 @@
         }
       }}
     />
-    {#if !standalone}
+    {#if !standalone && !isMobile}
       <button
         class="ghost close"
         onclick={() => store.openInWindow(note.id)}
         title={t("panel.openWindow")}
         aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={16} /></button
       >
+    {/if}
+    {#if !standalone}
       <button
         class="ghost close"
         onclick={() => store.select(null)}

@@ -14,7 +14,7 @@
   import ChatCircle from "phosphor-svelte/lib/ChatCircle";
   import EyeSlash from "phosphor-svelte/lib/EyeSlash";
 
-  let { onclose, onjump }: { onclose: () => void; onjump: (id: string) => void } = $props();
+  let { onclose, onjump, sheet = false }: { onclose: () => void; onjump: (id: string) => void; sheet?: boolean } = $props();
 
   const HIDE_KEY = "dagobert.prsHideClosed";
   let hideClosed = $state(localStorage.getItem(HIDE_KEY) === "1");
@@ -65,7 +65,7 @@
   }
 </script>
 
-<aside class="prs">
+<aside class="prs" class:bare={sheet}>
   <header>
     <h3>
       {t("prs.title")}
@@ -76,7 +76,9 @@
       ><EyeSlash size={15} /></button
     >
     <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={t("prs.refresh")}><ArrowsClockwise size={15} /></button>
-    <button class="ghost icon" onclick={onclose} aria-label={t("prs.close")}><X size={15} /></button>
+    {#if !sheet}
+      <button class="ghost icon" onclick={onclose} aria-label={t("prs.close")}><X size={15} /></button>
+    {/if}
   </header>
   <div class="list">
     {#if noRepos}
@@ -127,6 +129,11 @@
 </aside>
 
 <style>
+  /* Inside the mobile sheet it just fills what it is given. */
+  .prs.bare {
+    width: 100%;
+    border-right: none;
+  }
   .prs {
     flex: none;
     width: var(--prs-w, 300px);
