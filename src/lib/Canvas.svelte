@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { store } from "./store.svelte";
+  import { isMobile } from "./backend";
   import NodeCard from "./NodeCard.svelte";
   import ContextMenu, { type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
@@ -55,6 +56,11 @@
   /** Live touch/pen pointers, for pinch-zoom and two-finger pan. */
   const touches = new Map<number, { x: number; y: number }>();
   let pinch: { dist: number; cx: number; cy: number } | null = null;
+  /** Container rect, read once per gesture: reading it per event forces layout. */
+  let gestureRect: DOMRect | null = null;
+  /** Latest pointer of a one-finger pan, applied once per frame (see `flushGesture`). */
+  let panAt: { x: number; y: number } | null = null;
+  let gestureRaf = 0;
   /**
    * A touch waiting to become something else. On a node, holding arms the drag
    * (a plain drag pans the canvas instead, so the graph scrolls); lifting
@@ -409,6 +415,7 @@
         pan = null;
         isPanning = false;
         pinch = pinchFrom();
+        gestureRect = container.getBoundingClientRect();
         return;
       }
       if (touches.size > 2) return;
@@ -490,11 +497,30 @@
     return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
   }
 
+  /**
+   * Pointer-driven viewport changes are applied once per animation frame, for
+   * the same reason `applyWheel` exists: WebKit re-flushes style and hit-tests
+   * the world after each one, and a finger reports far faster than the display
+   * refreshes.
+   */
+  function scheduleGesture() {
+    gestureRaf ||= requestAnimationFrame(flushGesture);
+  }
+
+  function flushGesture() {
+    gestureRaf = 0;
+    if (pinch && touches.size >= 2) applyPinch();
+    else if (pan && panAt) {
+      vp.x = pan.vx + (panAt.x - pan.startX);
+      vp.y = pan.vy + (panAt.y - pan.startY);
+    }
+  }
+
   /** Zoom about the midpoint, then follow it — the two-finger pan comes free. */
   function applyPinch() {
     if (!pinch) return;
     const next = pinchFrom();
-    const rect = container.getBoundingClientRect();
+    const rect = (gestureRect ??= container.getBoundingClientRect());
     const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * (next.dist / pinch.dist)));
     const mx = pinch.cx - rect.left;
     const my = pinch.cy - rect.top;
@@ -508,7 +534,7 @@
     lastPointer = { x: e.clientX, y: e.clientY };
     if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch) {
-      if (touches.size >= 2) applyPinch();
+      if (touches.size >= 2) scheduleGesture();
       return;
     }
     // Moving before the hold fires means the finger is panning, not pressing.
@@ -559,15 +585,20 @@
       return;
     }
     if (pan) {
-      vp.x = pan.vx + (e.clientX - pan.startX);
-      vp.y = pan.vy + (e.clientY - pan.startY);
+      panAt = { x: e.clientX, y: e.clientY };
+      scheduleGesture();
     }
   }
 
   function onPointerUp(e: PointerEvent) {
     const wasPinching = !!pinch;
     if (touches.delete(e.pointerId) && touches.size < 2 && pinch) {
+      if (gestureRaf) {
+        cancelAnimationFrame(gestureRaf);
+        flushGesture();
+      }
       pinch = null;
+      gestureRect = null;
       store.saveViewport();
     }
     // The finger that ends a pinch must not also count as a tap.
@@ -613,6 +644,11 @@
       return;
     }
     if (pan) {
+      // A gesture can end before its last queued frame runs.
+      if (gestureRaf) {
+        cancelAnimationFrame(gestureRaf);
+        flushGesture();
+      }
       const moved = Math.hypot(e.clientX - pan.startX, e.clientY - pan.startY) > 3;
       if (moved) store.saveViewport();
       else {
@@ -620,6 +656,8 @@
         selectedEdge = null;
       }
       pan = null;
+      panAt = null;
+      gestureRect = null;
       isPanning = false;
     }
   }
@@ -795,16 +833,23 @@
     }
   }
 
-  // Safari zooms the whole page on a pinch unless the gesture is claimed here.
+  /**
+   * iOS Safari zooms the whole page on a pinch unless the gesture is claimed.
+   * Mobile only: macOS WebKit is the same engine, and a trackpad pinch arrives
+   * as these very events, so swallowing them there kills zooming instead.
+   */
   const stopGesture = (e: Event) => e.preventDefault();
 
   onMount(() => {
     container.addEventListener("wheel", onWheel, { passive: false });
-    container.addEventListener("gesturestart", stopGesture);
-    container.addEventListener("gesturechange", stopGesture);
+    if (isMobile) {
+      container.addEventListener("gesturestart", stopGesture);
+      container.addEventListener("gesturechange", stopGesture);
+    }
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelAnimationFrame(wheelRaf);
+      cancelAnimationFrame(gestureRaf);
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("gesturestart", stopGesture);
       container.removeEventListener("gesturechange", stopGesture);
