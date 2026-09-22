@@ -146,10 +146,9 @@
     flex-direction: column;
     position: fixed;
     top: 0;
-    /* Pulled in from the edges so the rounded top corners are fully on screen
-       rather than dying into the side of the display. */
-    left: max(2px, var(--safe-left));
-    right: max(2px, var(--safe-right));
+    /* Flush with the edges; the safe-area insets are only non-zero in landscape. */
+    left: var(--safe-left);
+    right: var(--safe-right);
     bottom: var(--kb, 0px);
     z-index: 6;
     background: var(--bg2);

@@ -533,7 +533,7 @@ body.mobile .dialog footer.keys {
    results stay above the thumb, and there is backdrop left to tap to dismiss. */
 body.mobile .backdrop.palette {
   align-items: flex-end;
-  padding: 0 max(2px, var(--safe-right)) max(var(--kb, 0px), var(--safe-bottom)) max(2px, var(--safe-left));
+  padding: 0 var(--safe-right) max(var(--kb, 0px), var(--safe-bottom)) var(--safe-left);
 }
 
 /* While the keyboard is up it covers the home indicator, so that inset would
