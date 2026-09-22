@@ -25,13 +25,51 @@ export async function token(): Promise<string | null> {
   return cliToken;
 }
 
-async function api<T>(path: string): Promise<T> {
+function send(path: string, tok: string | null) {
   const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
-  const tok = await token();
   if (tok) headers.Authorization = `Bearer ${tok}`;
-  const res = await fetch(`https://api.github.com${path}`, { headers });
+  return fetch(`https://api.github.com${path}`, { headers });
+}
+
+/** Rate limiting, rather than the repo being missing or out of reach. */
+function rateLimited(res: Response) {
+  return res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0";
+}
+
+/**
+ * Repos the signed-in token can't reach, so we go straight to an anonymous read
+ * next time. Learned rather than looked up: an installation list would have to
+ * page through every repo of an "all repositories" install and would go stale
+ * the moment the app is installed somewhere new.
+ */
+const readAnonymously = new Set<string>();
+let scopeOf: string | null = null;
+
+async function scopedToken(repo?: string): Promise<string | null> {
+  const tok = await token();
+  // A different sign-in reaches different repos; start the memo over.
+  if (tok !== scopeOf) {
+    scopeOf = tok;
+    readAnonymously.clear();
+  }
+  return repo && readAnonymously.has(repo) ? null : tok;
+}
+
+async function api<T>(path: string, repo?: string): Promise<T> {
+  const tok = await scopedToken(repo);
+  let res = await send(path, tok);
+  // A GitHub App token only reaches repositories the app is installed on, and
+  // answers 404/403 for the rest. Public data needs no token at all, so drop it
+  // and retry — that keeps aliases working for any public repo.
+  if (tok && !res.ok && (res.status === 404 || (res.status === 403 && !rateLimited(res)))) {
+    const anon = await send(path, null);
+    if (anon.ok) {
+      readAnonymously.add(repo ?? "");
+      res = anon;
+    } else if (rateLimited(anon)) res = anon;
+  }
   if (!res.ok) {
-    if (res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0") throw new Error(t("github.rateLimit"));
+    if (rateLimited(res)) throw new Error(t("github.rateLimit"));
     if (res.status === 401) throw new Error(t("github.tokenRejected"));
     if (res.status === 404) throw new Error(t("github.notFound"));
     throw new Error(t("github.status", { status: res.status }));
@@ -102,7 +140,7 @@ export async function issue(repo: string, number: number): Promise<IssueRef | nu
   const hit = recent.find((r) => r.number === number);
   if (hit) return hit;
   const one = await cached(`issue ${repo} ${number}`, () =>
-    api<RawIssue>(`/repos/${repo}/issues/${number}`)
+    api<RawIssue>(`/repos/${repo}/issues/${number}`, repo)
       .then((r) => [toRef(r)])
       .catch((e: Error) => (/not found/i.test(e.message) ? [] : Promise.reject(e))),
   );
@@ -112,7 +150,7 @@ export async function issue(repo: string, number: number): Promise<IssueRef | nu
 /** The 100 most recently updated issues + PRs of a repo (one request, cached). */
 export function recentIssues(repo: string): Promise<IssueRef[]> {
   return cached(`recent ${repo}`, async () =>
-    (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100`)).map(toRef),
+    (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100`, repo)).map(toRef),
   );
 }
 
@@ -135,12 +173,15 @@ export async function searchIssues(repo: string, query: string): Promise<IssueRe
     const jobs: Promise<IssueRef[]>[] = [];
     if (/^\d+$/.test(q))
       jobs.push(
-        api<RawIssue>(`/repos/${repo}/issues/${q}`)
+        api<RawIssue>(`/repos/${repo}/issues/${q}`, repo)
           .then((r) => [toRef(r)])
           .catch(() => []),
       );
     jobs.push(
-      api<{ items: RawIssue[] }>(`/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`)
+      api<{ items: RawIssue[] }>(
+        `/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`,
+        repo,
+      )
         .then((r) => r.items.map(toRef))
         .catch(() => []),
     );
