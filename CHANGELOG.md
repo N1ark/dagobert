@@ -11,6 +11,8 @@ All notable changes to Dagobert are documented here. The format follows
 - Git settings take an access token and a commit identity, for remotes over HTTPS.
 - A phone layout: the note panel becomes a bottom sheet, the toolbar collapses to an
   overflow menu, and projects are cloned from a URL instead of picked from a folder.
+- Touch input on the canvas: pinch to zoom, two-finger pan, long-press for the context
+  menu, hold a note to drag it, and double-tap to create or open one.
 
 ## [0.7.1] - 2026-09-21
 

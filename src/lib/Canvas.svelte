@@ -51,6 +51,25 @@
   let pan: { startX: number; startY: number; vx: number; vy: number } | null = null;
   let resize: { id: string; startX: number; ow: number; moved: boolean } | null = null;
 
+  // ---- touch state ---------------------------------------------------------
+  /** Live touch/pen pointers, for pinch-zoom and two-finger pan. */
+  const touches = new Map<number, { x: number; y: number }>();
+  let pinch: { dist: number; cx: number; cy: number } | null = null;
+  /**
+   * A touch waiting to become something else. On a node, holding arms the drag
+   * (a plain drag pans the canvas instead, so the graph scrolls); lifting
+   * without moving opens the context menu, which is what a right-click does.
+   */
+  let hold: { timer: number; x: number; y: number; id: string | null; armed: boolean } | null = null;
+  let lastTap: { at: number; x: number; y: number } | null = null;
+  const HOLD_MS = 450;
+  const TAP_SLOP = 12;
+
+  function cancelHold() {
+    if (hold) clearTimeout(hold.timer);
+    hold = null;
+  }
+
   const vp = $derived(store.viewport);
 
   // Every writer (wheel, pan, minimap, fitAll, restore) goes through the same clamp so the
@@ -380,6 +399,20 @@
     const target = e.target as HTMLElement;
     if (target.closest("button, input, textarea, a")) return; // links: let the click through (no capture)
     const id = nodeIdAt(target);
+    const touch = e.pointerType !== "mouse";
+    if (touch) {
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      // A second finger turns whatever was happening into a pinch.
+      if (touches.size === 2) {
+        cancelHold();
+        drag = marquee = linking = resize = null;
+        pan = null;
+        isPanning = false;
+        pinch = pinchFrom();
+        return;
+      }
+      if (touches.size > 2) return;
+    }
     container.setPointerCapture(e.pointerId);
 
     if (id && target.closest("[data-resize]")) {
@@ -403,13 +436,13 @@
         return;
       }
       // Dragging a node in the group moves the whole group.
-      const ids = store.multi.includes(id) ? store.multi : [id];
-      const origins = new Map<string, { x: number; y: number }>();
-      for (const gid of ids) {
-        const n = store.byId(gid);
-        if (n) origins.set(gid, { x: n.x, y: n.y });
+      if (touch) {
+        startHold(e, id);
+        pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y };
+        isPanning = true;
+        return;
       }
-      drag = { clicked: id, ids, startX: e.clientX, startY: e.clientY, origins, moved: false };
+      drag = startDrag(id, e);
       return;
     }
     if (target.closest("[data-edge]")) return; // handled by edge click
@@ -418,12 +451,68 @@
       marquee = { x0: e.clientX - r.left, y0: e.clientY - r.top, x1: e.clientX - r.left, y1: e.clientY - r.top, base: store.multi };
       return;
     }
+    if (touch) startHold(e, null);
     pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y };
     isPanning = true;
   }
 
+  function startDrag(id: string, e: { clientX: number; clientY: number }) {
+    const ids = store.multi.includes(id) ? store.multi : [id];
+    const origins = new Map<string, { x: number; y: number }>();
+    for (const gid of ids) {
+      const n = store.byId(gid);
+      if (n) origins.set(gid, { x: n.x, y: n.y });
+    }
+    return { clicked: id, ids, startX: e.clientX, startY: e.clientY, origins, moved: false };
+  }
+
+  /** Arms the long press: on a node it becomes a drag, on the background a menu. */
+  function startHold(e: PointerEvent, id: string | null) {
+    const { clientX: x, clientY: y } = e;
+    const timer = window.setTimeout(() => {
+      if (!hold) return;
+      hold.armed = true;
+      pan = null;
+      isPanning = false;
+      if (id) {
+        if (store.selectedId !== id && !store.multi.includes(id)) store.select(id);
+        drag = startDrag(id, { clientX: x, clientY: y });
+      } else {
+        openMenuAt(x, y, document.elementFromPoint(x, y) as HTMLElement | null);
+        cancelHold();
+      }
+    }, HOLD_MS);
+    hold = { timer, x, y, id, armed: false };
+  }
+
+  function pinchFrom() {
+    const [a, b] = [...touches.values()];
+    return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+  }
+
+  /** Zoom about the midpoint, then follow it — the two-finger pan comes free. */
+  function applyPinch() {
+    if (!pinch) return;
+    const next = pinchFrom();
+    const rect = container.getBoundingClientRect();
+    const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, vp.zoom * (next.dist / pinch.dist)));
+    const mx = pinch.cx - rect.left;
+    const my = pinch.cy - rect.top;
+    vp.x = mx - ((mx - vp.x) / vp.zoom) * zoom + (next.cx - pinch.cx);
+    vp.y = my - ((my - vp.y) / vp.zoom) * zoom + (next.cy - pinch.cy);
+    vp.zoom = zoom;
+    pinch = next;
+  }
+
   function onPointerMove(e: PointerEvent) {
     lastPointer = { x: e.clientX, y: e.clientY };
+    if (touches.has(e.pointerId)) touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch) {
+      if (touches.size >= 2) applyPinch();
+      return;
+    }
+    // Moving before the hold fires means the finger is panning, not pressing.
+    if (hold && !hold.armed && Math.hypot(e.clientX - hold.x, e.clientY - hold.y) > TAP_SLOP) cancelHold();
     if (linking) {
       const w = toWorld(e.clientX, e.clientY);
       linking.x = w.x;
@@ -476,6 +565,27 @@
   }
 
   function onPointerUp(e: PointerEvent) {
+    const wasPinching = !!pinch;
+    if (touches.delete(e.pointerId) && touches.size < 2 && pinch) {
+      pinch = null;
+      store.saveViewport();
+    }
+    // The finger that ends a pinch must not also count as a tap.
+    if (wasPinching) {
+      cancelHold();
+      pan = null;
+      isPanning = false;
+      return;
+    }
+    const held = hold;
+    cancelHold();
+    // Held on a node and lifted without moving: that's the right-click.
+    if (held?.armed && held.id && drag && !drag.moved) {
+      drag = null;
+      openMenuAt(held.x, held.y, document.elementFromPoint(held.x, held.y) as HTMLElement | null);
+      return;
+    }
+    if (e.pointerType !== "mouse" && !held?.armed && !resize && !linking && onTap(e)) return;
     if (resize) {
       if (resize.moved) store.touch(resize.id, { immediate: true, silent: true, label: "resize" });
       resize = null;
@@ -516,7 +626,10 @@
 
   function onContextMenu(e: MouseEvent) {
     e.preventDefault();
-    const target = e.target as HTMLElement;
+    openMenuAt(e.clientX, e.clientY, e.target as HTMLElement);
+  }
+
+  function openMenuAt(x: number, y: number, target: HTMLElement | null) {
     const id = nodeIdAt(target);
     let t: MenuTarget;
     if (id) {
@@ -526,30 +639,53 @@
         t = { kind: "node", id };
       }
     } else {
-      const edgeEl = target.closest("[data-edge]") as HTMLElement | null;
+      const edgeEl = target?.closest("[data-edge]") as HTMLElement | null;
       if (edgeEl) {
         t = { kind: "edge", from: edgeEl.dataset.from!, to: edgeEl.dataset.to! };
       } else {
-        const w = toWorld(e.clientX, e.clientY);
+        const w = toWorld(x, y);
         t = { kind: "background", wx: w.x - NODE_W / 2, wy: w.y - 20 };
       }
     }
-    menu = { x: e.clientX, y: e.clientY, target: t };
+    menu = { x, y, target: t };
   }
 
   function onDblClick(e: MouseEvent) {
+    activateAt(e.clientX, e.clientY, e.target as HTMLElement);
+  }
+
+  /**
+   * A tap that lands within `TAP_SLOP` of the last one, soon enough, is a
+   * double-tap: WebKit's own `dblclick` is unreliable under pointer capture
+   * with `touch-action: none`.
+   */
+  function onTap(e: PointerEvent): boolean {
+    const now = Date.now();
+    const prev = lastTap;
+    lastTap = { at: now, x: e.clientX, y: e.clientY };
+    if (!prev || now - prev.at > 320 || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > TAP_SLOP * 2) return false;
+    // A double-tap replaces the single tap that would otherwise have landed.
+    lastTap = null;
+    drag = marquee = linking = resize = null;
+    pan = null;
+    isPanning = false;
+    activateAt(e.clientX, e.clientY, e.target as HTMLElement);
+    return true;
+  }
+
+  function activateAt(x: number, y: number, fallback: HTMLElement | null) {
     // Pointer capture (set on pointerdown) makes the browser target the
     // container, not what's under the cursor — hit-test by position instead.
-    const target = (document.elementFromPoint(e.clientX, e.clientY) ?? e.target) as HTMLElement;
+    const target = (document.elementFromPoint(x, y) ?? fallback) as HTMLElement;
     const id = nodeIdAt(target);
     if (id) {
       // Double-clicking a node opens it in its own window (not a control inside it).
       if (target.closest("button, input, textarea, a, [data-port], [data-resize]")) return;
-      store.openInWindow(id);
+      void store.openInWindow(id);
       return;
     }
     if (target.closest("[data-edge]")) return;
-    const w = toWorld(e.clientX, e.clientY);
+    const w = toWorld(x, y);
     createAt(w.x - NODE_W / 2, w.y - 20);
   }
 
@@ -659,12 +795,19 @@
     }
   }
 
+  // Safari zooms the whole page on a pinch unless the gesture is claimed here.
+  const stopGesture = (e: Event) => e.preventDefault();
+
   onMount(() => {
     container.addEventListener("wheel", onWheel, { passive: false });
+    container.addEventListener("gesturestart", stopGesture);
+    container.addEventListener("gesturechange", stopGesture);
     window.addEventListener("keydown", onKeyDown);
     return () => {
       cancelAnimationFrame(wheelRaf);
       container.removeEventListener("wheel", onWheel);
+      container.removeEventListener("gesturestart", stopGesture);
+      container.removeEventListener("gesturechange", stopGesture);
       window.removeEventListener("keydown", onKeyDown);
     };
   });
