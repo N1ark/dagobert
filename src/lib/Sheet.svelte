@@ -12,8 +12,26 @@
   let { full = $bindable(false), onclose, children }: { full?: boolean; onclose: () => void; children: Snippet } = $props();
 
   let el = $state<HTMLDivElement | null>(null);
+  /** Off-screen for the first frame, so it slides up rather than appearing. */
+  let entering = $state(true);
+  let leaving = $state(false);
+  $effect(() => {
+    // A frame later, so the browser paints the off-screen position first. The
+    // timeout is the safety net: frames don't run while the app is backgrounded,
+    // and the panel must not be stuck off-screen when it comes back.
+    const frame = requestAnimationFrame(() => (entering = false));
+    const timer = setTimeout(() => (entering = false), 100);
+    return () => (cancelAnimationFrame(frame), clearTimeout(timer));
+  });
   let y = $state<number | null>(null);
   let drag: { pointer: number; y: number; from: number; max: number; engaged: boolean; tap: boolean; el: HTMLElement } | null = null;
+
+  /** Slides out before it's unmounted, so it leaves the way it arrived. */
+  export function dismiss() {
+    if (leaving) return;
+    leaving = true;
+    setTimeout(onclose, 220);
+  }
 
   function cssPx(name: string, fallback: number) {
     const v = parseFloat(getComputedStyle(el ?? document.body).getPropertyValue(name));
@@ -93,7 +111,7 @@
     // Settle on whichever stop it was left nearest.
     const stops = [topStop(), max - peek(), max];
     const nearest = stops.reduce((a, b) => (Math.abs(b - at) < Math.abs(a - at) ? b : a));
-    if (nearest === max) onclose();
+    if (nearest === max) dismiss();
     else full = nearest === topStop();
   }
 </script>
@@ -102,6 +120,7 @@
 <div
   class="sheet"
   class:full
+  class:off={entering || leaving}
   class:dragging={y !== null}
   style={y === null ? undefined : `transform: translateY(${y}px)`}
   bind:this={el}
@@ -141,6 +160,10 @@
   }
   .sheet.full {
     transform: translateY(var(--sheet-top));
+  }
+  .sheet.off,
+  .sheet.off.full {
+    transform: translateY(100%);
   }
   .sheet.dragging {
     transition: none;

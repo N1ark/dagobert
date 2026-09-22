@@ -661,6 +661,7 @@
       const moved = Math.hypot(e.clientX - pan.startX, e.clientY - pan.startY) > 3;
       if (moved) store.saveViewport();
       else {
+        if (isMobile) store.dismissPanel();
         store.select(null);
         selectedEdge = null;
       }

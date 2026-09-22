@@ -165,7 +165,8 @@
     }
   }
   let showWorkflows = $state(false);
-  let settingsSection = $state<"workflows" | "github" | "git">("workflows");
+  let settingsSection = $state<"workflows" | "tracking" | "github" | "git">("workflows");
+  let settingsWorkflow = $state<string | null | undefined>(undefined);
 
   $effect(() => {
     if (isMobile && (showWorkflows || showTrash)) store.sheetFull = true;
@@ -175,11 +176,21 @@
   const mobilePanel = $derived(
     !isMobile || !store.path ? null : showWorkflows ? "settings" : showTrash ? "trash" : showPRs ? "prs" : store.selected ? "note" : null,
   );
+  let sheet = $state<Sheet | null>(null);
+  /** Canvas taps ask the panel to leave, so it animates out. */
+  store.dismissPanel = () => sheet?.dismiss();
+  store.openSettings = (section, workflow) => {
+    settingsSection = section;
+    settingsWorkflow = workflow;
+    showWorkflows = true;
+  };
+
+  /** Dismissing is dismissing: there is no stack to pop back to. */
   function closePanel() {
-    if (mobilePanel === "settings") showWorkflows = false;
-    else if (mobilePanel === "trash") showTrash = false;
-    else if (mobilePanel === "prs") showPRs = false;
-    else store.select(null);
+    showWorkflows = false;
+    showTrash = false;
+    showPRs = false;
+    store.select(null);
   }
 
   /** Tooltip for the git status item in the toolbar. */
@@ -399,19 +410,24 @@
         menuLabel: t("action.grain.menu"),
       }),
       a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
-      a("settings", t("action.settings"), () => ((settingsSection = "github"), (showWorkflows = true)), {
+      a("settings", t("action.settings"), () => ((settingsSection = "github"), (settingsWorkflow = undefined), (showWorkflows = true)), {
         hint: keys.settings,
         icon: GearSix,
         symbol: ["gearshape", "gear"],
         menu: "App",
         enabled: has,
       }),
-      a("workflows", t("action.workflows"), () => ((settingsSection = "workflows"), (showWorkflows = true)), {
-        icon: Kanban,
-        symbol: ["list.bullet.rectangle", "list.bullet"],
-        menu: "Tools",
-        enabled: has,
-      }),
+      a(
+        "workflows",
+        t("action.workflows"),
+        () => ((settingsSection = "workflows"), (settingsWorkflow = undefined), (showWorkflows = true)),
+        {
+          icon: Kanban,
+          symbol: ["list.bullet.rectangle", "list.bullet"],
+          menu: "Tools",
+          enabled: has,
+        },
+      ),
       a("prs", t(showPRs ? "action.prs.hide" : "action.prs.show"), () => togglePRs(), {
         hint: keys.prs,
         icon: GitPullRequest,
@@ -420,18 +436,23 @@
         menuLabel: t("action.prs.menu"),
         enabled: has,
       }),
-      a("github", t("action.github"), () => ((settingsSection = "github"), (showWorkflows = true)), {
+      a("github", t("action.github"), () => ((settingsSection = "github"), (settingsWorkflow = undefined), (showWorkflows = true)), {
         icon: GithubLogo,
         symbol: ["link"],
         menu: "Tools",
         enabled: has,
       }),
-      a("git-settings", t("action.git-settings"), () => ((settingsSection = "git"), (showWorkflows = true)), {
-        icon: GitBranch,
-        symbol: ["arrow.triangle.branch"],
-        menu: "Tools",
-        enabled: has,
-      }),
+      a(
+        "git-settings",
+        t("action.git-settings"),
+        () => ((settingsSection = "git"), (settingsWorkflow = undefined), (showWorkflows = true)),
+        {
+          icon: GitBranch,
+          symbol: ["arrow.triangle.branch"],
+          menu: "Tools",
+          enabled: has,
+        },
+      ),
     ];
     // No tracking toggle and nothing to reveal in: a phone has neither.
     return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal") : actions;
@@ -686,7 +707,7 @@
         >
       </div>
       {#if mobilePanel}
-        <Sheet bind:full={store.sheetFull} onclose={closePanel}>
+        <Sheet bind:this={sheet} bind:full={store.sheetFull} onclose={closePanel}>
           {#if mobilePanel === "note" && store.selected}
             {#key store.selected.id}
               <NotePanel note={store.selected} onjump={jump} />
@@ -696,7 +717,7 @@
           {:else if mobilePanel === "trash"}
             <TrashDialog sheet onclose={() => (showTrash = false)} onrestored={(id) => jump(id)} />
           {:else if mobilePanel === "settings"}
-            <WorkflowEditor sheet section={settingsSection} onclose={() => (showWorkflows = false)} />
+            <WorkflowEditor sheet section={settingsSection} workflow={settingsWorkflow} onclose={() => (showWorkflows = false)} />
           {/if}
         </Sheet>
       {/if}

@@ -111,7 +111,7 @@
   }
 </script>
 
-{#if editingWorkflows}
+{#if editingWorkflows && !isMobile}
   <WorkflowEditor
     section={note.tracking ? "tracking" : "workflows"}
     workflow={note.tracking ? null : note.workflow}
@@ -198,8 +198,13 @@
             <option value={wf.id}>{wf.name}</option>
           {/each}
         </select>
-        <button class="ghost edit-wf" onclick={() => (editingWorkflows = true)} title={t("panel.manageWorkflows")}
-          ><GearSix size={15} /></button
+        <button
+          class="ghost edit-wf"
+          onclick={() =>
+            isMobile
+              ? store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)
+              : (editingWorkflows = true)}
+          title={t("panel.manageWorkflows")}><GearSix size={15} /></button
         >
       </div>
 

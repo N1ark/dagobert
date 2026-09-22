@@ -479,6 +479,16 @@ body.mobile .dialog .nav-sep {
 }
 
 /* Dialogs and the PR pane take the whole screen. */
+/* Deleted-when and the filename each get their own line. */
+body.mobile .dialog .sub {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+body.mobile .dialog .sub .file {
+  flex-basis: 100%;
+}
+
 body.mobile .dialog.bare {
   padding: 0;
   height: 100%;
@@ -517,9 +527,17 @@ body.mobile .backdrop.palette {
   padding: 0 0 max(var(--kb, 0px), var(--safe-bottom));
 }
 
+/* While the keyboard is up it covers the home indicator, so that inset would
+   only open a gap between the field and the keys. */
+body.mobile.typing .backdrop.palette {
+  padding-bottom: var(--kb, 0px);
+}
+
 body.mobile .backdrop.palette .dialog {
   height: auto;
-  max-height: calc(100% - var(--safe-top) - 40px);
+  /* Short on purpose: WKWebView reports no keyboard, and iOS lifts the whole
+     viewport instead, so anything taller is pushed off the top of the screen. */
+  max-height: 42vh;
   flex-direction: column-reverse;
   border-radius: 12px 12px 0 0;
   padding-top: 0;

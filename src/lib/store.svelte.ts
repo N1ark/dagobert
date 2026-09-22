@@ -76,6 +76,10 @@ class Store {
 
   /** Installed by App: select a note and centre the canvas on it. */
   jump: (id: string) => void = (id) => this.select(id);
+  /** Set by `App`: shows the settings panel (mobile routes the cog through it). */
+  openSettings: (section: "workflows" | "tracking", workflow: string | null) => void = () => {};
+  /** Set by `App`: slides the mobile panel out rather than dropping it. */
+  dismissPanel: () => void = () => {};
 
   selected = $derived(this.selectedId ? this.byId(this.selectedId) : null);
   /** Every tag in the project with its usage count, most used first. */
