@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Git settings take an access token and a commit identity, for remotes over HTTPS.
+
 ## [0.7.1] - 2026-09-21
 
 ### Added

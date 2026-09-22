@@ -8,6 +8,7 @@
   import ColorPicker from "./ColorPicker.svelte";
   import { stageColor } from "./workflows";
   import { storedToken, setStoredToken } from "./github";
+  import { secrets } from "./secrets";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
   import Circuitry from "phosphor-svelte/lib/Circuitry";
@@ -28,6 +29,9 @@
     if (page === "git") store.refreshGitStatus();
   });
   let ghToken = $state(storedToken());
+  let gitToken = $state(secrets.gitToken());
+  let gitName = $state(secrets.gitName());
+  let gitEmail = $state(secrets.gitEmail());
   let newAlias = $state("");
   let newRepo = $state("");
 
@@ -196,6 +200,32 @@
               <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>{t("settings.git.syncNow")}</button>
             </div>
           {/if}
+          <h4>{t("settings.git.credentials")}</h4>
+          <p class="help"><InlineMd source={t("settings.git.token.help")} /></p>
+          <input
+            class="token"
+            type="password"
+            placeholder={t("settings.git.token.placeholder")}
+            bind:value={gitToken}
+            onchange={() => secrets.setGitToken(gitToken)}
+            spellcheck="false"
+          />
+          <p class="help">{t("settings.git.identity.help")}</p>
+          <div class="identity">
+            <input
+              placeholder={t("settings.git.name")}
+              bind:value={gitName}
+              onchange={() => secrets.setGitName(gitName)}
+              spellcheck="false"
+            />
+            <input
+              placeholder={t("settings.git.email")}
+              type="email"
+              bind:value={gitEmail}
+              onchange={() => secrets.setGitEmail(gitEmail)}
+              spellcheck="false"
+            />
+          </div>
         {:else if page === "github"}
           <h4>{t("settings.github.repos")}</h4>
           <p class="help"><InlineMd source={t("settings.github.help")} /></p>
@@ -455,6 +485,14 @@
   }
   .err {
     color: var(--red);
+  }
+  .identity {
+    display: flex;
+    gap: 8px;
+  }
+  .identity input {
+    flex: 1;
+    min-width: 0;
   }
   .token {
     width: 100%;

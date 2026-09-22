@@ -111,3 +111,9 @@ export interface Project {
   meta: Meta;
   local: Local;
 }
+
+/** A project in the app's data directory, addressed by name. */
+export interface ProjectRef {
+  name: string;
+  path: string;
+}

@@ -10,7 +10,8 @@ import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
-import type { GitStatus, Local, Meta, MetaPatch, Note, Project, SyncReport } from "./types";
+import { secrets } from "./secrets";
+import type { GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -52,6 +53,29 @@ const mockGitStatus: GitStatus = {
 };
 
 export const backend = {
+  /** Projects in the app's own data directory (mobile has no folder picker). */
+  async listProjects(): Promise<ProjectRef[]> {
+    if (!inTauri) return [{ name: "browser-mock", path: "/browser-mock" }];
+    return invoke<ProjectRef[]>("list_projects");
+  },
+
+  /** Resolves a stored project name against the current container path. */
+  async projectPath(name: string): Promise<string | null> {
+    if (!inTauri) return name === "browser-mock" ? "/browser-mock" : null;
+    return (await invoke<string | null>("project_path", { name })) ?? null;
+  },
+
+  /** Clones `url` into the app's data directory, with a commit identity. */
+  async cloneProject(url: string): Promise<ProjectRef> {
+    if (!inTauri) return { name: "browser-mock", path: "/browser-mock" };
+    return invoke<ProjectRef>("clone_project", {
+      url,
+      token: secrets.gitToken() || null,
+      name: secrets.gitName(),
+      email: secrets.gitEmail(),
+    });
+  },
+
   async pickFolder(): Promise<string | null> {
     if (!inTauri) return "/browser-mock";
     const dir = await openDialog({ directory: true, multiple: false, title: t("welcome.dialogTitle") });
@@ -197,13 +221,13 @@ export const backend = {
     if (!inTauri) {
       return { committed: false, pulled: "no-remote", pushed: false, conflicts: [], error: null, status: mockGitStatus };
     }
-    return invoke<SyncReport>("git_sync", { path, stamp });
+    return invoke<SyncReport>("git_sync", { path, token: secrets.gitToken() || null, stamp });
   },
 
   /** The final sync before the window closes / the app exits (`path` null = nothing to sync); Rust finishes the quit. */
   async gitQuit(path: string | null, stamp: string, reason: string): Promise<void> {
     if (!inTauri) return;
-    return invoke("git_quit", { path, stamp, reason });
+    return invoke("git_quit", { path, token: secrets.gitToken() || null, stamp, reason });
   },
 
   /** `git-tick` (timer) and `git-quit` (close/exit held back for a sync) events. */

@@ -305,6 +305,13 @@ export default {
   "settings.git.syncing": "syncing…",
   "settings.git.notYet": "not yet this session",
   "settings.git.syncNow": "Sync now",
+  "settings.git.credentials": "Credentials",
+  "settings.git.token.help":
+    "Used for `https://` remotes when there is no ssh key or credential helper — a fine-grained token with read/write access to the repository.", // markdown
+  "settings.git.token.placeholder": "github_pat_…",
+  "settings.git.identity.help": "Name and email put on commits made here.",
+  "settings.git.name": "Name",
+  "settings.git.email": "Email",
   "settings.github.repos": "Repositories",
   "settings.github.help": "Type `alias#` in a note to pick an issue or PR; `alias#123` then links to it.", // markdown
   "settings.github.remove": "remove {alias}",

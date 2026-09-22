@@ -805,7 +805,7 @@ mod tests {
             save_note(&a, n).unwrap();
         }
         commit_if_dirty(&a, "seed").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::FastForward);
         (base, a, b)
     }
@@ -820,7 +820,7 @@ mod tests {
     /// A pushes, B commits, pulls (conflict) and resolves; returns B's report.
     fn sync_b(a: &Path, b: &Path) -> Vec<Conflict> {
         commit_if_dirty(a, "a").unwrap();
-        push(a, None).unwrap();
+        push(a, None, None).unwrap();
         commit_if_dirty(b, "b").unwrap();
         assert_eq!(pull(b, None).unwrap(), PullOutcome::Merging);
         let r = resolve(b, "merge").unwrap();
@@ -829,7 +829,7 @@ mod tests {
             git2::RepositoryState::Clean
         );
         assert!(!git::status(b).unwrap().dirty, "everything is committed");
-        push(b, None).unwrap();
+        push(b, None, None).unwrap();
         r
     }
 
@@ -954,12 +954,12 @@ mod tests {
         // The other way round.
         edit(&b, "x", |n| n.body = "edited on b".into());
         commit_if_dirty(&b, "b").unwrap();
-        push(&b, None).unwrap();
+        push(&b, None, None).unwrap();
         pull(&a, None).unwrap();
         delete_note(&a, "x.md", "t").unwrap();
         edit(&b, "x", |n| n.body = "edited again on b".into());
         commit_if_dirty(&a, "a").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         commit_if_dirty(&b, "b").unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
         resolve(&b, "merge").unwrap();
@@ -1088,7 +1088,7 @@ mod tests {
         assert_eq!(open(&b).unwrap().notes[0].body, "fine on a");
         // Neither side parses: the file is left as git merged it, not deleted.
         commit_if_dirty(&b, "b").unwrap();
-        push(&b, None).unwrap();
+        push(&b, None, None).unwrap();
         pull(&a, None).unwrap();
         fs::write(a.join("notes/x.md"), "---\nid: [\n---\nfrom a").unwrap();
         fs::write(b.join("notes/x.md"), "---\nid: [\n---\nfrom b").unwrap();
@@ -1113,7 +1113,7 @@ mod tests {
             repo.commit(Some("HEAD"), &sig, &sig, "readme", &tree, &[&head])
                 .unwrap();
         }
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
         let e = resolve(&b, "merge").unwrap_err();
         assert!(e.contains("README"), "{e}");
@@ -1136,7 +1136,7 @@ mod tests {
             n.modified = "m2".into();
         });
         commit_if_dirty(&a, "a").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         commit_if_dirty(&b, "b").unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
         let report = resolve(&b, "merge").unwrap();
@@ -1155,7 +1155,7 @@ mod tests {
         assert!(!git::status(&b).unwrap().dirty);
 
         // Rename on a, delete on b: the note survives under the new name.
-        push(&b, None).unwrap();
+        push(&b, None, None).unwrap();
         pull(&a, None).unwrap();
         edit(&a, "x", |n| {
             n.title = "Renamed twice".into();
@@ -1163,7 +1163,7 @@ mod tests {
         });
         delete_note(&b, "renamed.md", "t").unwrap();
         commit_if_dirty(&a, "a").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         commit_if_dirty(&b, "b").unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);
         resolve(&b, "merge").unwrap();
@@ -1179,7 +1179,7 @@ mod tests {
         let (base, a, b) = seeded("merge-meta", vec![]);
         fs::write(a.join("dagobert.json"), r##"{"tag_colors":{"x":"#111","shared":"#a"},"palette":["#1"],"workflows":[{"id":"w1","name":"A","stages":[]}],"default_template":"from a"}"##).unwrap();
         commit_if_dirty(&a, "seed").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         pull(&b, None).unwrap();
         fs::write(a.join("dagobert.json"), r##"{"tag_colors":{"x":"#111","shared":"#a2","onlya":"#3"},"palette":["#1","#2"],"workflows":[{"id":"w1","name":"A2","stages":[]},{"id":"w2","name":"B","stages":[]}],"default_template":"from a"}"##).unwrap();
         fs::write(b.join("dagobert.json"), r##"{"tag_colors":{"x":"#111","shared":"#b2","onlyb":"#4"},"palette":["#1","#5"],"workflows":[{"id":"w1","name":"B1","stages":[]}],"default_template":"from b"}"##).unwrap();
@@ -1221,11 +1221,11 @@ mod tests {
         let (base, a, b) = seeded("merge-badmeta", vec![note("n", "N", "m", &[])]);
         fs::write(a.join("dagobert.json"), r##"{"palette":["#1"]}"##).unwrap();
         commit_if_dirty(&a, "seed").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         pull(&b, None).unwrap();
         fs::write(a.join("dagobert.json"), r##"{"palette":["#1","#2"]}"##).unwrap();
         commit_if_dirty(&a, "a").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         edit(&b, "n", |n| n.body = "b".into());
         commit_if_dirty(&b, "b").unwrap();
         assert_eq!(pull(&b, None).unwrap(), PullOutcome::Merging);

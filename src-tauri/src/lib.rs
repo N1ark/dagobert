@@ -7,11 +7,78 @@ mod sync;
 #[cfg(desktop)]
 mod watch;
 
+use serde::Serialize;
 use state::AppState;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use store::{Local, Meta, MetaPatch, Note, Project};
 use sync::SyncReport;
 use tauri::{AppHandle, Manager, State};
+
+/// A project inside the app's own data directory. Mobile has no folder picker,
+/// so projects are cloned there and referred to by name (the container path
+/// carries a UUID that changes on reinstall).
+#[derive(Debug, Clone, Serialize)]
+struct ProjectRef {
+    name: String,
+    path: String,
+}
+
+fn projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("projects");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir)
+}
+
+fn project_ref(dir: &Path) -> ProjectRef {
+    ProjectRef {
+        name: dir.file_name().unwrap_or_default().to_string_lossy().into(),
+        path: dir.to_string_lossy().into(),
+    }
+}
+
+#[tauri::command]
+fn list_projects(app: AppHandle) -> Result<Vec<ProjectRef>, String> {
+    let dir = projects_dir(&app)?;
+    let mut out: Vec<ProjectRef> = std::fs::read_dir(&dir)
+        .map_err(|e| e.to_string())?
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .map(|e| project_ref(&e.path()))
+        .filter(|p| !p.name.starts_with('.'))
+        .collect();
+    out.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(out)
+}
+
+/// Resolves a stored project name against the current container path.
+#[tauri::command]
+fn project_path(app: AppHandle, name: String) -> Result<Option<String>, String> {
+    let dir = projects_dir(&app)?.join(&name);
+    Ok(dir.is_dir().then(|| dir.to_string_lossy().into()))
+}
+
+/// Clones `url` into the app's data directory. `name` / `email` become the
+/// clone's commit identity; the token is used for this clone only.
+#[tauri::command]
+async fn clone_project(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    url: String,
+    token: Option<String>,
+    name: String,
+    email: String,
+) -> Result<ProjectRef, String> {
+    let dest = projects_dir(&app)?.join(git::project_name(&url));
+    sync::locked(state.git.lock.clone(), move || {
+        git::clone(&url, &dest, token.as_deref(), &name, &email)?;
+        Ok(project_ref(&dest))
+    })
+    .await?
+}
 
 #[tauri::command]
 fn open_project(path: String) -> Result<Project, String> {
@@ -137,11 +204,12 @@ fn git_configure(app: AppHandle, state: State<AppState>, enabled: bool, interval
 async fn git_sync(
     state: State<'_, AppState>,
     path: String,
+    token: Option<String>,
     stamp: String,
 ) -> Result<SyncReport, String> {
     state.recent.clear();
     sync::locked(state.git.lock.clone(), move || {
-        sync::cycle(Path::new(&path), &stamp, sync::TIMEOUT)
+        sync::cycle(Path::new(&path), token.as_deref(), &stamp, sync::TIMEOUT)
     })
     .await
 }
@@ -154,13 +222,19 @@ async fn git_quit(
     app: AppHandle,
     state: State<'_, AppState>,
     path: Option<String>,
+    token: Option<String>,
     stamp: String,
     reason: String,
 ) -> Result<(), String> {
     if let Some(path) = path {
         state.recent.clear();
         let r = sync::locked(state.git.lock.clone(), move || {
-            sync::cycle(Path::new(&path), &stamp, sync::QUIT_TIMEOUT)
+            sync::cycle(
+                Path::new(&path),
+                token.as_deref(),
+                &stamp,
+                sync::QUIT_TIMEOUT,
+            )
         })
         .await?;
         if let Some(e) = r.error {
@@ -216,6 +290,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             open_project,
+            list_projects,
+            project_path,
+            clone_project,
             save_note,
             delete_note,
             discard_note,

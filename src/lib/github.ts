@@ -1,5 +1,6 @@
 import { t } from "./i18n";
 import { backend } from "./backend";
+import { secrets } from "./secrets";
 
 /** An issue or pull request as shown in the picker. */
 export interface IssueRef {
@@ -14,21 +15,12 @@ export interface IssueRef {
   comments: number;
 }
 
-const TOKEN_KEY = "dagobert.githubToken";
-
 export function storedToken(): string {
-  try {
-    return localStorage.getItem(TOKEN_KEY) ?? "";
-  } catch {
-    return "";
-  }
+  return secrets.githubToken();
 }
 
 export function setStoredToken(t: string) {
-  try {
-    if (t.trim()) localStorage.setItem(TOKEN_KEY, t.trim());
-    else localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  secrets.setGithubToken(t);
   cachedToken = undefined;
 }
 

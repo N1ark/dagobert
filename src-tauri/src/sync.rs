@@ -46,14 +46,14 @@ pub struct SyncReport {
 }
 
 /// One full cycle. Errors are reported in the result, after whatever succeeded.
-pub fn cycle(root: &Path, stamp: &str, timeout: Duration) -> SyncReport {
+pub fn cycle(root: &Path, token: Option<&str>, stamp: &str, timeout: Duration) -> SyncReport {
     let mut r = SyncReport::default();
     let step = |r: &mut SyncReport| -> Result<(), String> {
         // A merge left half-done by a crash is finished first.
         r.conflicts = merge::resolve(root, &format!("dagobert merge {stamp}"))?;
         let save = format!("dagobert auto-save {stamp}");
         r.committed = git::commit_if_dirty(root, &save)?;
-        let pulled = if git::fetch(root, Some(timeout))? {
+        let pulled = if git::fetch(root, token, Some(timeout))? {
             // A note saved while fetching would otherwise be skipped by the
             // checkout and silently overwrite the remote's version.
             r.committed |= git::commit_if_dirty(root, &save)?;
@@ -69,7 +69,7 @@ pub fn cycle(root: &Path, stamp: &str, timeout: Duration) -> SyncReport {
         let st = git::status(root)?;
         let unpublished = !st.has_upstream && st.last_commit_at.is_some();
         if st.has_remote && (st.ahead > 0 || unpublished) {
-            git::push(root, Some(timeout))?;
+            git::push(root, token, Some(timeout))?;
             r.pushed = true;
         }
         Ok(())
@@ -164,11 +164,11 @@ mod tests {
     fn cycle_commits_pulls_and_pushes() {
         let (base, a, b) = pair("sync-cycle");
         write_note(&a, "a.md", "a", "A", "from a");
-        let r = cycle(&a, "2026-01-01 10:00", TIMEOUT);
+        let r = cycle(&a, None, "2026-01-01 10:00", TIMEOUT);
         assert!(r.committed && r.pushed && r.error.is_none(), "{r:?}");
         assert_eq!(r.pulled, Some(PullOutcome::NoRemote), "nothing to pull yet");
         // b commits its own .gitignore first, so the two histories merge.
-        let r = cycle(&b, "2026-01-01 10:01", TIMEOUT);
+        let r = cycle(&b, None, "2026-01-01 10:01", TIMEOUT);
         assert!(
             r.committed && r.pulled == Some(PullOutcome::Merging),
             "{r:?}"
@@ -177,9 +177,9 @@ mod tests {
         assert!(b.join("notes/a.md").exists());
         // Concurrent edits: b's cycle merges, resolves and pushes.
         write_note(&a, "a.md", "a", "A", "a again");
-        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
         write_note(&b, "a.md", "a", "A", "b again");
-        let r = cycle(&b, "t", TIMEOUT);
+        let r = cycle(&b, None, "t", TIMEOUT);
         assert!(r.error.is_none(), "{r:?}");
         assert_eq!(r.conflicts.len(), 1);
         assert!(r.conflicts[0].body_conflict && r.pushed);
@@ -192,13 +192,13 @@ mod tests {
     fn edit_during_fetch_merges_instead_of_overwriting() {
         let (base, a, b) = pair("sync-fetch-window");
         write_note(&a, "a.md", "a", "A", "v1");
-        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
-        assert!(cycle(&b, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&b, None, "t", TIMEOUT).error.is_none());
         write_note(&a, "a.md", "a", "A", "v2 from a");
-        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
         // b saves while the fetch is in flight: a plain fast-forward would keep
         // b's text and the next commit would bury a's v2.
-        assert!(git::fetch(&b, Some(TIMEOUT)).unwrap());
+        assert!(git::fetch(&b, None, Some(TIMEOUT)).unwrap());
         write_note(&b, "a.md", "a", "A", "v2 from b");
         assert!(git::commit_if_dirty(&b, "late save").unwrap());
         assert_eq!(
@@ -215,13 +215,13 @@ mod tests {
     fn edit_before_fast_forward_merges_instead_of_overwriting() {
         let (base, a, b) = pair("sync-ff-window");
         write_note(&a, "a.md", "a", "A", "v1");
-        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
-        assert!(cycle(&b, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&b, None, "t", TIMEOUT).error.is_none());
         write_note(&a, "a.md", "a", "A", "v2 from a");
-        assert!(cycle(&a, "t", TIMEOUT).error.is_none());
+        assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
         // b (a standalone window) saves after the second commit, right before
         // the fast-forward checkout would have skipped the file.
-        assert!(git::fetch(&b, Some(TIMEOUT)).unwrap());
+        assert!(git::fetch(&b, None, Some(TIMEOUT)).unwrap());
         assert!(!git::commit_if_dirty(&b, "nothing").unwrap());
         write_note(&b, "a.md", "a", "A", "v2 from b");
         assert_eq!(
@@ -239,7 +239,7 @@ mod tests {
         let dir = tmp("sync-local");
         git::init(&dir).unwrap();
         write_note(&dir, "a.md", "a", "A", "x");
-        let r = cycle(&dir, "t", TIMEOUT);
+        let r = cycle(&dir, None, "t", TIMEOUT);
         assert!(r.committed && !r.pushed && r.error.is_none(), "{r:?}");
         assert_eq!(r.pulled, Some(PullOutcome::NoRemote));
         assert!(!r.status.unwrap().has_remote);

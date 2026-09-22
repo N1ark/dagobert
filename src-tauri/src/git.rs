@@ -95,6 +95,52 @@ pub fn init(root: &Path) -> Result<()> {
     ensure_ignore(root)
 }
 
+/// The folder name a clone of `url` gets: its last path segment, without
+/// `.git` and with anything but word characters, `-` and `.` dropped.
+pub fn project_name(url: &str) -> String {
+    let last = url
+        .trim_end_matches('/')
+        .rsplit(['/', ':'])
+        .next()
+        .unwrap_or("");
+    let name: String = last
+        .trim_end_matches(".git")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'))
+        .collect();
+    let name = name.trim_matches('.').to_string();
+    if name.is_empty() {
+        "project".to_string()
+    } else {
+        name
+    }
+}
+
+/// Clones `url` into `dest` and writes the commit identity into the new
+/// repository (a phone has no `~/.gitconfig` to fall back on).
+pub fn clone(url: &str, dest: &Path, token: Option<&str>, name: &str, email: &str) -> Result<()> {
+    if dest.exists() {
+        return Err("A project with that name is already here.".into());
+    }
+    let mut fo = FetchOptions::new();
+    fo.remote_callbacks(callbacks(token.map(str::to_string), None));
+    let mut builder = git2::build::RepoBuilder::new();
+    builder.fetch_options(fo);
+    let repo = builder.clone(url, dest).map_err(|e| {
+        let _ = fs::remove_dir_all(dest);
+        format!("clone failed: {}", e.message())
+    })?;
+    let mut cfg = repo.config().map_err(err)?;
+    for (k, v) in [("user.name", name), ("user.email", email)] {
+        if !v.is_empty() {
+            cfg.set_str(k, v).map_err(err)?;
+        }
+    }
+    drop(cfg);
+    drop(repo);
+    ensure_ignore(dest)
+}
+
 /// Adds the per-machine files to the project's `.gitignore` if missing.
 pub fn ensure_ignore(root: &Path) -> Result<()> {
     let path = root.join(".gitignore");
@@ -295,36 +341,75 @@ pub fn commit_if_dirty(root: &Path, message: &str) -> Result<bool> {
     Ok(true)
 }
 
-/// Credentials tried in order: ssh-agent, `~/.ssh/id_*` keys, the credential
-/// helper (osxkeychain, gh, …), then libgit2's default. Never prompts.
-fn callbacks<'a>(deadline: Option<Instant>) -> RemoteCallbacks<'a> {
+/// What `callbacks` offers on a given attempt, kept pure so it can be tested
+/// without a network remote.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CredChoice {
+    Username,
+    Token,
+    SshAgent,
+    SshKey(usize),
+    Helper,
+    Default,
+    None,
+}
+
+/// Credentials tried in order: the token (HTTPS only, when we have one),
+/// ssh-agent, `~/.ssh/id_*` keys, the credential helper (osxkeychain, gh, …),
+/// then libgit2's default. Never prompts.
+fn pick_cred(token: bool, allowed: CredentialType, attempt: usize, keys: usize) -> CredChoice {
+    if allowed == CredentialType::USERNAME {
+        return CredChoice::Username;
+    }
+    if allowed.contains(CredentialType::SSH_KEY) {
+        return match attempt {
+            0 => CredChoice::SshAgent,
+            n if n - 1 < keys => CredChoice::SshKey(n - 1),
+            _ => CredChoice::None,
+        };
+    }
+    if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
+        if token && attempt == 0 {
+            return CredChoice::Token;
+        }
+        if attempt == usize::from(token) {
+            return CredChoice::Helper;
+        }
+        return CredChoice::None;
+    }
+    if allowed.contains(CredentialType::DEFAULT) && attempt == 0 {
+        return CredChoice::Default;
+    }
+    CredChoice::None
+}
+
+fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCallbacks<'a> {
     let mut cb = RemoteCallbacks::new();
     let attempt = Cell::new(0usize);
     cb.credentials(move |url, username, allowed| {
         let user = username.unwrap_or("git");
-        if allowed == CredentialType::USERNAME {
-            return Cred::username(user);
+        let keys = ssh_keys();
+        let choice = pick_cred(token.is_some(), allowed, attempt.get(), keys.len());
+        if choice != CredChoice::Username {
+            attempt.set(attempt.get() + 1);
         }
-        let n = attempt.get();
-        attempt.set(n + 1);
-        if allowed.contains(CredentialType::SSH_KEY) {
-            let keys = ssh_keys();
-            if n == 0 {
-                return Cred::ssh_key_from_agent(user);
+        match choice {
+            CredChoice::Username => Cred::username(user),
+            // GitHub, GitLab and Bitbucket all accept a PAT as the password.
+            CredChoice::Token => Cred::userpass_plaintext(
+                username
+                    .filter(|u| !u.is_empty())
+                    .unwrap_or("x-access-token"),
+                token.as_deref().unwrap_or_default(),
+            ),
+            CredChoice::SshAgent => Cred::ssh_key_from_agent(user),
+            CredChoice::SshKey(i) => Cred::ssh_key(user, None, &keys[i], None),
+            CredChoice::Helper => {
+                Cred::credential_helper(&git2::Config::open_default()?, url, username)
             }
-            if let Some(k) = keys.get(n - 1) {
-                return Cred::ssh_key(user, None, k, None);
-            }
-            return Err(git2::Error::from_str("no usable SSH credentials"));
+            CredChoice::Default => Cred::default(),
+            CredChoice::None => Err(git2::Error::from_str("no usable credentials")),
         }
-        if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) && n == 0 {
-            let cfg = git2::Config::open_default()?;
-            return Cred::credential_helper(&cfg, url, username);
-        }
-        if allowed.contains(CredentialType::DEFAULT) && n == 0 {
-            return Cred::default();
-        }
-        Err(git2::Error::from_str("no usable credentials"))
     });
     // Aborts a fetch past the deadline; a push's upload can't be interrupted
     // through git2 (its progress callback has no return value).
@@ -376,7 +461,7 @@ fn deadline(timeout: Option<Duration>) -> Option<Instant> {
 }
 
 /// Fetches `origin`; `false` when there is no remote (or no branch).
-pub fn fetch(root: &Path, timeout: Option<Duration>) -> Result<bool> {
+pub fn fetch(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Result<bool> {
     let repo = require(root)?;
     if current_branch(&repo)?.is_none() {
         return Ok(false);
@@ -387,7 +472,7 @@ pub fn fetch(root: &Path, timeout: Option<Duration>) -> Result<bool> {
     };
     let d = deadline(timeout);
     let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(d));
+    fo.remote_callbacks(callbacks(token.map(str::to_string), d));
     remote
         .fetch(&[] as &[&str], Some(&mut fo), None)
         .map_err(|e| transfer_err("fetch", d, e))?;
@@ -397,7 +482,7 @@ pub fn fetch(root: &Path, timeout: Option<Duration>) -> Result<bool> {
 /// `fetch` then `merge_fetched`.
 #[cfg(test)]
 pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
-    if !fetch(root, timeout)? {
+    if !fetch(root, None, timeout)? {
         return Ok(PullOutcome::NoRemote);
     }
     merge_fetched(root, "dagobert auto-save")
@@ -507,7 +592,7 @@ pub fn commit_merge(repo: &mut Repository, message: &str) -> Result<Oid> {
 }
 
 /// Pushes the current branch to `origin`, setting the upstream if it had none.
-pub fn push(root: &Path, timeout: Option<Duration>) -> Result<()> {
+pub fn push(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Result<()> {
     let repo = require(root)?;
     let branch = current_branch(&repo)?.ok_or("no branch to push")?;
     if repo.head().is_err() {
@@ -517,7 +602,7 @@ pub fn push(root: &Path, timeout: Option<Duration>) -> Result<()> {
         .find_remote(REMOTE)
         .map_err(|_| "no remote named origin".to_string())?;
     let d = deadline(timeout);
-    let mut cb = callbacks(d);
+    let mut cb = callbacks(token.map(str::to_string), d);
     let failure = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
     let f = failure.clone();
     cb.push_update_reference(move |_, status| {
@@ -652,6 +737,59 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn credentials_try_the_token_first_then_the_helper() {
+        use CredChoice::*;
+        let https = CredentialType::USER_PASS_PLAINTEXT;
+        assert_eq!(pick_cred(true, https, 0, 0), Token);
+        assert_eq!(pick_cred(true, https, 1, 0), Helper);
+        assert_eq!(pick_cred(true, https, 2, 0), None);
+        assert_eq!(pick_cred(false, https, 0, 0), Helper);
+        assert_eq!(pick_cred(false, https, 1, 0), None);
+        // A token never displaces the ssh path.
+        let ssh = CredentialType::SSH_KEY;
+        assert_eq!(pick_cred(true, ssh, 0, 2), SshAgent);
+        assert_eq!(pick_cred(true, ssh, 1, 2), SshKey(0));
+        assert_eq!(pick_cred(true, ssh, 2, 2), SshKey(1));
+        assert_eq!(pick_cred(true, ssh, 3, 2), None);
+        assert_eq!(pick_cred(true, CredentialType::USERNAME, 7, 0), Username);
+        assert_eq!(pick_cred(true, CredentialType::DEFAULT, 0, 0), Default);
+    }
+
+    #[test]
+    fn project_names_come_from_the_url() {
+        assert_eq!(project_name("https://github.com/n1ark/notes.git"), "notes");
+        assert_eq!(project_name("https://github.com/n1ark/notes/"), "notes");
+        assert_eq!(project_name("git@github.com:n1ark/my notes.git"), "mynotes");
+        assert_eq!(project_name("https://example.com/"), "example.com");
+        assert_eq!(project_name("https://example.com/../"), "project");
+    }
+
+    #[test]
+    fn clone_lays_out_a_project_with_an_identity() {
+        let (base, a, _b) = pair("git-clone");
+        write_note(&a, "a.md", "a", "A", "hello");
+        assert!(commit_if_dirty(&a, "first").unwrap());
+        push(&a, None, None).unwrap();
+        let dest = base.join("cloned");
+        let remote = base.join("remote.git");
+        clone(
+            remote.to_str().unwrap(),
+            &dest,
+            None,
+            "Phone",
+            "p@example.com",
+        )
+        .unwrap();
+        assert!(dest.join("notes/a.md").exists());
+        let cfg = Repository::open(&dest).unwrap().config().unwrap();
+        assert_eq!(cfg.get_string("user.name").unwrap(), "Phone");
+        assert_eq!(cfg.get_string("user.email").unwrap(), "p@example.com");
+        assert!(status(&dest).unwrap().has_remote);
+        assert!(clone(remote.to_str().unwrap(), &dest, None, "", "").is_err());
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
     fn init_starts_on_main() {
         let dir = tmp("git-init-main");
         init(&dir).unwrap();
@@ -737,7 +875,7 @@ pub(crate) mod tests {
         let (base, a, b) = pair("git-upstream");
         write_note(&a, "a.md", "a", "A", "x");
         commit_if_dirty(&a, "a1").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         pull(&b, None).unwrap();
         // b works on a local branch `work` tracking origin/<a's branch>.
         let repo = Repository::open(&b).unwrap();
@@ -752,7 +890,7 @@ pub(crate) mod tests {
         write_note(&b, "b.md", "b", "B", "y");
         commit_if_dirty(&b, "b1").unwrap();
         assert_eq!(status(&b).unwrap().ahead, 1);
-        push(&b, None).unwrap();
+        push(&b, None, None).unwrap();
         let st = status(&b).unwrap();
         assert!(st.ahead == 0 && st.has_upstream, "{st:?}");
         assert!(repo.find_reference("refs/remotes/origin/work").is_err());
@@ -766,7 +904,7 @@ pub(crate) mod tests {
         let (base, a, b) = pair("git-sync");
         write_note(&a, "a.md", "a", "A", "from a");
         assert!(commit_if_dirty(&a, "a1").unwrap());
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         let st = status(&a).unwrap();
         assert!(st.has_remote && st.ahead == 0 && st.behind == 0);
 
@@ -777,7 +915,7 @@ pub(crate) mod tests {
         // Divergent, non-conflicting edits merge.
         write_note(&a, "a2.md", "a2", "A2", "more a");
         commit_if_dirty(&a, "a2").unwrap();
-        push(&a, None).unwrap();
+        push(&a, None, None).unwrap();
         write_note(&b, "b.md", "b", "B", "from b");
         commit_if_dirty(&b, "b1").unwrap();
         assert_eq!(status(&b).unwrap().ahead, 1);
@@ -788,7 +926,7 @@ pub(crate) mod tests {
             Repository::open(&b).unwrap().state(),
             RepositoryState::Clean
         );
-        push(&b, None).unwrap();
+        push(&b, None, None).unwrap();
         assert_eq!(pull(&a, None).unwrap(), PullOutcome::FastForward);
         assert!(a.join("notes/b.md").exists());
         assert!(!status(&a).unwrap().dirty);
