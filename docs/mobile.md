@@ -137,6 +137,37 @@ The app builds, installs, launches and renders in the simulator. GUI interaction
 SDKs and `simctl` work; `xcrun simctl boot`, `install`, `launch` and `io … screenshot`
 drive it headlessly either way.
 
+### Onto a phone
+
+Signing needs an Apple ID added in Xcode (Settings → Accounts) and the team picked once
+in the generated project's Signing & Capabilities — that is what issues the certificate
+and the first provisioning profile. Afterwards the team lives in the environment, not in
+the repo: Xcode writes `DEVELOPMENT_TEAM` into `project.pbxproj`, which is generated and
+must not carry a personal id.
+
+The team id is the profile's `TeamIdentifier`, **not** the value in the certificate's
+name — those differ, and using the wrong one fails with "No Account for Team":
+
+```sh
+security cms -D -i ~/Library/Developer/Xcode/UserData/Provisioning\ Profiles/*.mobileprovision \
+  | plutil -p - | grep -A2 TeamIdentifier
+APPLE_DEVELOPMENT_TEAM=<team> npm run tauri ios build --debug --target aarch64
+```
+
+That builds and signs a `.app`. The `.ipa` export step may still fail on a stale team;
+it isn't needed — install the `.app` directly:
+
+```sh
+xcrun devicectl device install app --device <udid> <path to Dagobert.app>
+xcrun devicectl device process launch --device <udid> com.n1ark.dagobert
+```
+
+`xcrun xctrace list devices` gives the udid. The device must be unlocked, have Developer
+Mode on (Settings → Privacy & Security → Developer Mode, which only appears after an
+install has been attempted, and needs a restart), and the certificate trusted once under
+Settings → General → VPN & Device Management. Each of those surfaces as its own install
+or launch error.
+
 Signing is a free Apple ID: builds run for 7 days and are re-deployed from Xcode, so
 `npm run tauri ios build` is never the delivery step and `release.yml` keeps shipping the
 Mac app only. CI runs `cargo clippy --target aarch64-apple-ios -- -D warnings`, which

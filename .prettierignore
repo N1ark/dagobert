@@ -5,3 +5,6 @@ src-tauri/gen
 package-lock.json
 public
 assets
+
+# XcodeGen template: handlebars, not parseable as YAML
+src-tauri/ios-project.yml
