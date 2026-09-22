@@ -15,6 +15,7 @@ use tauri::{AppHandle, Emitter, Manager};
 /// Network operations give up after this long (10 s when quitting).
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 pub const QUIT_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(desktop)]
 /// The quit goes through regardless once this has elapsed (connecting and
 /// authenticating aren't covered by `QUIT_TIMEOUT`, nor is a frontend that
 /// never answers).
@@ -103,7 +104,7 @@ pub fn configure(app: AppHandle, state: &GitState, enabled: bool, interval_min: 
     let period = Duration::from_secs(u64::from(interval_min) * 60);
     std::thread::spawn(move || loop {
         std::thread::sleep(period);
-        let state = app.state::<crate::watch::AppState>();
+        let state = app.state::<crate::state::AppState>();
         if state.git.generation.load(Ordering::SeqCst) != gen {
             return;
         }
@@ -117,6 +118,7 @@ pub fn configure(app: AppHandle, state: &GitState, enabled: bool, interval_min: 
 /// with tracking on answers `true` and emits `git-quit` (carrying `reason`);
 /// the frontend syncs and then calls `git_quit`, whose `finish_quit` lets the
 /// close/exit it triggers through.
+#[cfg(desktop)]
 pub fn intercept_quit(app: &AppHandle, state: &GitState, reason: &str) -> bool {
     if !state.enabled.load(Ordering::SeqCst) || state.finished.load(Ordering::SeqCst) {
         return false;
@@ -140,7 +142,7 @@ pub fn intercept_quit(app: &AppHandle, state: &GitState, reason: &str) -> bool {
 
 /// Carries out the close/exit held back by `intercept_quit`, once.
 pub fn finish_quit(app: &AppHandle, reason: &str) {
-    let state = app.state::<crate::watch::AppState>();
+    let state = app.state::<crate::state::AppState>();
     if state.git.finished.swap(true, Ordering::SeqCst) {
         return;
     }

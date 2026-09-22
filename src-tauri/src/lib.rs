@@ -1,15 +1,17 @@
 mod git;
 mod merge;
+mod state;
 mod store;
 mod symbols;
 mod sync;
+#[cfg(desktop)]
 mod watch;
 
-use std::path::{Path, PathBuf};
+use state::AppState;
+use std::path::Path;
 use store::{Local, Meta, MetaPatch, Note, Project};
 use sync::SyncReport;
-use tauri::{AppHandle, Manager, State, WindowEvent};
-use watch::AppState;
+use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
 fn open_project(path: String) -> Result<Project, String> {
@@ -85,13 +87,19 @@ fn save_local(path: String, local: Local) -> Result<(), String> {
     store::save_local(Path::new(&path), &local)
 }
 
+/// No-op on mobile, which has no watcher; `SyncReport.pulled` drives reloads there.
 #[tauri::command]
+#[allow(unused_variables)]
 fn watch_project(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
-    watch::start(app, &state, PathBuf::from(path))
+    #[cfg(desktop)]
+    watch::start(app, &state, std::path::PathBuf::from(path))?;
+    Ok(())
 }
 
 #[tauri::command]
+#[allow(unused_variables)]
 fn unwatch_project(state: State<AppState>) {
+    #[cfg(desktop)]
     watch::stop(&state);
 }
 
@@ -172,7 +180,9 @@ fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
 }
 
 /// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
+/// Always `None` on mobile: there is no `gh`, and iOS forbids spawning it.
 #[tauri::command]
+#[cfg(desktop)]
 fn github_cli_token() -> Option<String> {
     let out = std::process::Command::new("gh")
         .args(["auth", "token"])
@@ -187,6 +197,12 @@ fn github_cli_token() -> Option<String> {
     } else {
         Some(t)
     }
+}
+
+#[tauri::command]
+#[cfg(mobile)]
+fn github_cli_token() -> Option<String> {
+    None
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -221,7 +237,9 @@ pub fn run() {
             git_quit
         ])
         .on_window_event(|window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
+            let _ = (&window, &event);
+            #[cfg(desktop)]
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
                 if window.label() == "main" {
                     let app = window.app_handle();
                     if sync::intercept_quit(app, &app.state::<AppState>().git, "close") {
@@ -233,6 +251,8 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            let _ = (app, &event);
+            #[cfg(desktop)]
             if let tauri::RunEvent::ExitRequested { api, .. } = &event {
                 if sync::intercept_quit(app, &app.state::<AppState>().git, "exit") {
                     api.prevent_exit();

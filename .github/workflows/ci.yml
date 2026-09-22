@@ -26,6 +26,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+          targets: aarch64-apple-ios
 
       - uses: Swatinem/rust-cache@v2
         with:
@@ -47,3 +48,7 @@ jobs:
 
       - name: Build frontend
         run: npm run build
+
+      # Guards the `cfg(desktop)` gating; needs no Xcode project or signing.
+      - name: Check the iOS target
+        run: cargo check --target aarch64-apple-ios --manifest-path src-tauri/Cargo.toml
