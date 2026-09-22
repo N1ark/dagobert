@@ -4,6 +4,7 @@
   import Tag from "phosphor-svelte/lib/Tag";
   import { tooltip } from "./tooltip";
   import { t } from "./i18n";
+  import { ICON } from "./icons";
 
   let open = $state(false);
   let picking = $state<string | null>(null);
@@ -27,7 +28,7 @@
     use:tooltip={t("tags.filter")}
     aria-label={t("tags.filter")}
   >
-    <Tag size={16} />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
+    <Tag size={ICON} />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
   </button>
 
   {#if open}

@@ -56,6 +56,8 @@
       const p = await backend.cloneProject(repo.clone_url, await auth.token(), s?.name ?? "", s?.email ?? "");
       onclose();
       await store.open(p.path);
+      // A phone only ever syncs; a clone that arrived untracked still tracks.
+      if (!store.gitEnabled) await store.enableGit();
     } catch (e) {
       error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
     } finally {

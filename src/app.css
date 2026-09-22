@@ -409,10 +409,6 @@ body.mobile .panel-wrap.sheet {
   bottom: var(--kb, 0px);
 }
 
-body.mobile .panel-wrap.sheet.full {
-  height: calc(100% - var(--kb, 0px));
-}
-
 /* 16px or Safari zooms the page when a field takes focus; the components set
    their own smaller sizes, so this has to win. */
 body.mobile input,
@@ -434,15 +430,60 @@ body.mobile .conflict .bar {
   flex-wrap: wrap;
 }
 
+/* Settings is two rows on a phone, not two columns: the nav sits on top with
+   its groups side by side. Its desktop height is fixed, which would leave dead
+   space inside a full-screen dialog. */
+body.mobile .dialog .cols {
+  grid-template-columns: 1fr;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  max-height: none;
+}
+
+body.mobile .dialog nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: start;
+  gap: 0 8px;
+  max-height: 38vh;
+  border-right: none;
+  border-bottom: 1px solid var(--border);
+}
+
+body.mobile .dialog .nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+body.mobile .dialog .nav-sep {
+  display: none;
+}
+
 /* Dialogs and the PR pane take the whole screen. */
 body.mobile .dialog {
   width: 100%;
   max-width: 100%;
-  height: 100%;
-  max-height: 100%;
+  /* Shrink with the software keyboard so the list below stays reachable. */
+  height: calc(100% - var(--kb, 0px));
+  max-height: calc(100% - var(--kb, 0px));
   border-radius: 0;
   padding-top: var(--safe-top);
   padding-bottom: var(--safe-bottom);
+}
+
+/* The palette floats away from the top edge; that padding plus a full-height
+   dialog would overflow. */
+body.mobile .backdrop {
+  padding-top: 0;
+  align-items: stretch;
+}
+
+/* Shortcut hints are noise without a keyboard. */
+body.mobile .kbd,
+body.mobile .dialog footer.keys {
+  display: none;
 }
 
 body.mobile .prs {
@@ -480,8 +521,28 @@ body.mobile .ctx .item {
   padding: 10px 12px;
 }
 
-/* Comfortable touch targets. */
+/* Comfortable touch targets, sized for the larger mobile icons. */
 body.mobile button.icon {
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
+}
+
+/* The minimap fills the bottom-right corner instead of floating inside it;
+   collapsed, the button pulls clear of the corner and the home indicator. */
+body.mobile .minimap {
+  right: 0;
+  bottom: 0;
+  border-radius: var(--radius) 0 0 0;
+  padding-bottom: var(--safe-bottom);
+}
+
+body.mobile .minimap.collapsed {
+  right: 12px;
+  bottom: calc(var(--safe-bottom) + 12px);
+  padding-bottom: 0;
+}
+
+body.mobile .minimap .toggle {
+  padding: 6px;
+  opacity: 1;
 }

@@ -8,6 +8,7 @@
   import ColorPicker from "./ColorPicker.svelte";
   import { stageColor } from "./workflows";
   import GitHubSignIn from "./GitHubSignIn.svelte";
+  import { isMobile } from "./backend";
   import GithubLogo from "phosphor-svelte/lib/GithubLogo";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
   import Circuitry from "phosphor-svelte/lib/Circuitry";
@@ -100,35 +101,39 @@
     </header>
     <div class="cols">
       <nav>
-        <span class="group">{t("settings.group.general")}</span>
-        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
-          ><GithubLogo size={14} /> {t("settings.github")}</button
-        >
-        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
-          ><GitBranch size={14} /> {t("settings.git")}</button
-        >
+        <div class="nav-group">
+          <span class="group">{t("settings.group.general")}</span>
+          <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
+            ><GithubLogo size={14} /> {t("settings.github")}</button
+          >
+          <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
+            ><GitBranch size={14} /> {t("settings.git")}</button
+          >
+        </div>
         <div class="nav-sep"></div>
-        <span class="group">{t("settings.group.workflows")}</span>
-        <button
-          class="ghost item"
-          class:active={page === "workflows" && selectedId === null}
-          onclick={() => ((page = "workflows"), (selectedId = null))}
-        >
-          {t("settings.nav.todo")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
-        </button>
-        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>
-          {t("settings.nav.tracking")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
-        </button>
-        {#each store.workflows as w (w.id)}
+        <div class="nav-group">
+          <span class="group">{t("settings.group.workflows")}</span>
           <button
             class="ghost item"
-            class:active={page === "workflows" && w.id === selectedId}
-            onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || t("settings.nav.unnamed")}</button
+            class:active={page === "workflows" && selectedId === null}
+            onclick={() => ((page = "workflows"), (selectedId = null))}
           >
-        {/each}
-        <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> {t("settings.nav.new")}</button>
+            {t("settings.nav.todo")}
+            <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
+          </button>
+          <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>
+            {t("settings.nav.tracking")}
+            <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
+          </button>
+          {#each store.workflows as w (w.id)}
+            <button
+              class="ghost item"
+              class:active={page === "workflows" && w.id === selectedId}
+              onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || t("settings.nav.unnamed")}</button
+            >
+          {/each}
+          <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> {t("settings.nav.new")}</button>
+        </div>
       </nav>
       <section>
         {#if page === "tracking"}
@@ -144,20 +149,22 @@
             spellcheck="false"></textarea>
         {:else if page === "git"}
           <p class="help"><InlineMd source={t("settings.git.help")} /></p>
-          <label class="row">
-            <input
-              type="checkbox"
-              checked={store.gitEnabled}
-              onchange={async (e) => {
-                const box = e.currentTarget;
-                if (store.gitEnabled) store.disableGit();
-                else await store.enableGit();
-                // Enabling can be declined (no repository): keep the box honest.
-                box.checked = store.gitEnabled;
-              }}
-            />
-            {t("settings.git.enable")}
-          </label>
+          {#if !isMobile}
+            <label class="row">
+              <input
+                type="checkbox"
+                checked={store.gitEnabled}
+                onchange={async (e) => {
+                  const box = e.currentTarget;
+                  if (store.gitEnabled) store.disableGit();
+                  else await store.enableGit();
+                  // Enabling can be declined (no repository): keep the box honest.
+                  box.checked = store.gitEnabled;
+                }}
+              />
+              {t("settings.git.enable")}
+            </label>
+          {/if}
           {#if store.gitEnabled}
             <label class="row">
               {t("settings.git.every")}
@@ -350,6 +357,10 @@
     padding: 8px;
     border-right: 1px solid var(--border);
     overflow-y: auto;
+  }
+  /* Transparent on desktop: the nav is one column there. */
+  .nav-group {
+    display: contents;
   }
   .group {
     padding: 4px 8px 2px;

@@ -17,6 +17,7 @@
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
   import { backend, isMobile } from "./lib/backend";
+  import { ICON } from "./lib/icons";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
   import { keys, matches as pressed } from "./lib/keys";
@@ -45,7 +46,6 @@
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
   import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
   import Warning from "phosphor-svelte/lib/Warning";
-  import DotsThree from "phosphor-svelte/lib/DotsThree";
   import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
   import type { ProjectRef } from "./lib/types";
 
@@ -135,26 +135,49 @@
     if (isMobile && !store.path) backend.listProjects().then((p) => (projects = p), console.error);
   });
 
-  // The note panel is a bottom sheet on mobile: peek, or dragged up to full screen.
-  let sheetDrag = $state<{ y: number; full: boolean } | null>(null);
+  /**
+   * The note panel is a bottom sheet on mobile. It is always full height and
+   * slid down by a transform, so a drag moves it on the compositor instead of
+   * re-laying out the editor on every frame.
+   */
+  let sheetEl = $state<HTMLDivElement | null>(null);
+  let sheetY = $state<number | null>(null);
+  let sheetDrag: { pointer: number; y: number; from: number; max: number } | null = null;
+
+  function peekHeight() {
+    const v = parseFloat(getComputedStyle(document.body).getPropertyValue("--sheet-peek"));
+    return Number.isFinite(v) ? v : 148;
+  }
+
   function onSheetDown(e: PointerEvent) {
-    sheetDrag = { y: e.clientY, full: store.sheetFull };
+    if (!sheetEl) return;
+    const max = sheetEl.getBoundingClientRect().height;
+    sheetDrag = { pointer: e.pointerId, y: e.clientY, from: store.sheetFull ? 0 : max - peekHeight(), max };
+    sheetY = sheetDrag.from;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
+
   function onSheetMove(e: PointerEvent) {
-    if (!sheetDrag) return;
-    const dy = e.clientY - sheetDrag.y;
-    if (dy < -40) store.sheetFull = true;
-    else if (dy > 40) {
-      if (sheetDrag.full) store.sheetFull = false;
-      else store.select(null);
-      sheetDrag = null;
-    }
+    if (!sheetDrag || e.pointerId !== sheetDrag.pointer) return;
+    sheetY = Math.max(0, Math.min(sheetDrag.max, sheetDrag.from + (e.clientY - sheetDrag.y)));
   }
+
   function onSheetUp(e: PointerEvent) {
-    // A tap (no drag) toggles, so the grabber works without a gesture.
-    if (sheetDrag && Math.abs(e.clientY - sheetDrag.y) < 6) store.sheetFull = !sheetDrag.full;
+    if (!sheetDrag) return;
+    const { max, from } = sheetDrag;
+    const y = sheetY ?? from;
+    const tapped = Math.abs(e.clientY - sheetDrag.y) < 6;
     sheetDrag = null;
+    sheetY = null;
+    if (tapped) {
+      store.sheetFull = !store.sheetFull;
+      return;
+    }
+    // Settle on whichever of the three stops the sheet was left nearest.
+    const stops = [0, max - peekHeight(), max];
+    const nearest = stops.reduce((a, b) => (Math.abs(b - y) < Math.abs(a - y) ? b : a));
+    if (nearest === max) store.select(null);
+    else store.sheetFull = nearest === 0;
   }
 
   let canvas = $state<Canvas | null>(null);
@@ -249,7 +272,7 @@
       run: () => once(id, run),
       ...extra,
     });
-    return [
+    const actions = [
       a("new-note", t("action.new-note"), () => canvas?.createAtCenter(), {
         hint: keys["new-note"],
         icon: Plus,
@@ -428,6 +451,8 @@
         enabled: has,
       }),
     ];
+    // Tracking is not optional on a phone: git is the only way notes get there.
+    return isMobile ? actions.filter((x) => x.id !== "git-toggle") : actions;
   });
 
   /** Undo/redo from the menu: native inside text fields, ours elsewhere. */
@@ -547,8 +572,10 @@
     <div class="toolbar" data-tauri-drag-region={isMobile ? undefined : true}>
       <div class="brand" data-tauri-drag-region={isMobile ? undefined : true}>
         <img class="mark" src="/icon.svg" alt="" draggable="false" />
-        <span class="logo">{t("app.name")}</span>
-        <span class="sep">/</span>
+        {#if !isMobile}
+          <span class="logo">{t("app.name")}</span>
+          <span class="sep">/</span>
+        {/if}
         <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
       </div>
       {#if !isMobile}
@@ -585,45 +612,45 @@
           use:tooltip={gitTip}
           aria-label={t("toolbar.git.aria")}
         >
-          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={16} /></span>{:else}<GitBranch size={16} />{/if}
+          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={ICON} /></span>{:else}<GitBranch size={ICON} />{/if}
         </button>
       {/if}
       <TagMenu />
       {#if isMobile}
         <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
-          ><MagnifyingGlass size={16} /></button
+          ><MagnifyingGlass size={ICON} /></button
         >
-        <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><DotsThree size={20} /></button>
+        <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><Terminal size={ICON} /></button>
       {:else}
         <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
-          ><Trash size={16} /></button
+          ><Trash size={ICON} /></button
         >
         <button
           class="ghost icon"
           class:on={showPRs}
           onclick={togglePRs}
           use:tooltip={t("toolbar.prs.tip", { key: keys.prs })}
-          aria-label={t("toolbar.prs")}><GitPullRequest size={16} /></button
+          aria-label={t("toolbar.prs")}><GitPullRequest size={ICON} /></button
         >
         <button
           class="ghost icon"
           class:on={focus}
           onclick={toggleFocus}
           use:tooltip={t("toolbar.focus.tip")}
-          aria-label={t("toolbar.focus")}><Crosshair size={16} /></button
+          aria-label={t("toolbar.focus")}><Crosshair size={ICON} /></button
         >
         <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={t("toolbar.tidy.tip")} aria-label={t("toolbar.tidy")}
-          ><TreeStructure size={16} /></button
+          ><TreeStructure size={ICON} /></button
         >
         <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
-          ><CornersOut size={16} /></button
+          ><CornersOut size={ICON} /></button
         >
       {/if}
       <button
         class="primary icon"
         onclick={() => canvas?.createAtCenter()}
         use:tooltip={t("toolbar.new.tip", { key: keys["new-note"] })}
-        aria-label={t("toolbar.new")}><Plus size={16} weight="bold" /></button
+        aria-label={t("toolbar.new")}><Plus size={ICON} weight="bold" /></button
       >
     </div>
     <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
@@ -652,7 +679,14 @@
             onpointercancel={onResizeUp}
           ></div>
         {/if}
-        <div class="panel-wrap" class:sheet={isMobile} class:full={store.sheetFull}>
+        <div
+          class="panel-wrap"
+          class:sheet={isMobile}
+          class:full={store.sheetFull}
+          class:dragging={sheetY !== null}
+          style={sheetY === null ? undefined : `transform: translateY(${sheetY}px)`}
+          bind:this={sheetEl}
+        >
           {#if isMobile}
             <button
               class="grab"
@@ -660,7 +694,7 @@
               onpointerdown={onSheetDown}
               onpointermove={onSheetMove}
               onpointerup={onSheetUp}
-              onpointercancel={() => (sheetDrag = null)}
+              onpointercancel={onSheetUp}
             ></button>
           {/if}
           {#key store.selected.id}
@@ -867,21 +901,22 @@
     display: flex;
     flex-direction: column;
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: auto;
-    height: var(--sheet-peek);
+    inset: 0;
     z-index: 6;
     background: var(--bg2);
     border-top: 1px solid var(--border2);
     border-radius: 12px 12px 0 0;
     box-shadow: var(--shadow-lg);
-    transition: height 0.18s ease;
+    /* Slid down so only the peek shows; dragging moves this, not the layout. */
+    transform: translateY(calc(100% - var(--sheet-peek)));
+    transition: transform 0.22s ease;
+    will-change: transform;
   }
   .panel-wrap.sheet.full {
-    height: 100%;
-    border-radius: 0;
+    transform: translateY(0);
+  }
+  .panel-wrap.sheet.dragging {
+    transition: none;
   }
   .panel-wrap.sheet :global(.panel) {
     width: 100%;

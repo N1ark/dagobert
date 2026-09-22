@@ -219,7 +219,7 @@
         <div class="empty">{t(mode === "commands" ? "quick.noCommand" : "quick.noNotes")}</div>
       {/each}
     </div>
-    <footer>
+    <footer class="keys">
       <span><kbd>↑↓</kbd> {t("quick.foot.navigate")}</span>
       <span><kbd>↩</kbd> {t(mode === "commands" ? "quick.foot.run" : "quick.foot.open")}</span>
       {#if mode === "notes"}
