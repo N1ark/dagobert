@@ -148,8 +148,8 @@
     top: 0;
     /* Pulled in from the edges so the rounded top corners are fully on screen
        rather than dying into the side of the display. */
-    left: max(4px, var(--safe-left));
-    right: max(4px, var(--safe-right));
+    left: max(2px, var(--safe-left));
+    right: max(2px, var(--safe-right));
     bottom: var(--kb, 0px);
     z-index: 6;
     background: var(--bg2);

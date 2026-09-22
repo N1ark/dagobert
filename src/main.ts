@@ -14,9 +14,12 @@ document.body.classList.toggle("mobile", isMobile);
 if (isMobile) {
   const typing = () => !!document.activeElement?.closest("input, textarea, [contenteditable]");
   const sync = () => document.body.classList.toggle("typing", typing());
-  document.addEventListener("focusin", sync);
-  document.addEventListener("focusout", () => setTimeout(() => (sync(), typing() || window.scrollTo(0, 0)), 50));
-  window.addEventListener("scroll", () => typing() || window.scrollTo(0, 0), { passive: true });
+  // The shell never scrolls, not even to reveal a focused field: letting it
+  // would put the field the user is typing in behind the keyboard.
+  const pin = () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0);
+  window.addEventListener("scroll", pin, { passive: true });
+  document.addEventListener("focusin", () => (sync(), setTimeout(pin, 0)));
+  document.addEventListener("focusout", () => setTimeout(() => (sync(), pin()), 50));
 }
 
 const vv = window.visualViewport;

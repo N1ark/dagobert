@@ -428,6 +428,15 @@ body.mobile .app {
 
 /* 16px or Safari zooms the page when a field takes focus; the components set
    their own smaller sizes, so this has to win. */
+/* Only the panels' own lists scroll; a scroll that reaches the page would take
+   the whole shell with it, keyboard and all. */
+body.mobile .list,
+body.mobile section,
+body.mobile .repos,
+body.mobile .sheet {
+  overscroll-behavior: contain;
+}
+
 body.mobile input,
 body.mobile textarea {
   font-size: 16px !important;
@@ -524,7 +533,7 @@ body.mobile .dialog footer.keys {
    results stay above the thumb, and there is backdrop left to tap to dismiss. */
 body.mobile .backdrop.palette {
   align-items: flex-end;
-  padding: 0 max(4px, var(--safe-right)) max(var(--kb, 0px), var(--safe-bottom)) max(4px, var(--safe-left));
+  padding: 0 max(2px, var(--safe-right)) max(var(--kb, 0px), var(--safe-bottom)) max(2px, var(--safe-left));
 }
 
 /* While the keyboard is up it covers the home indicator, so that inset would
