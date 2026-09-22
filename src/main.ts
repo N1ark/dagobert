@@ -1,29 +1,27 @@
 import { mount } from "svelte";
 import "./app.css";
 import App from "./App.svelte";
-import { isMobile } from "./lib/backend";
+import { backend, inTauri, isMobile } from "./lib/backend";
 
 document.body.classList.toggle("mobile", isMobile);
 
-// The software keyboard shrinks the visual viewport without moving the layout
-// one; `--kb` is how much of the screen it covers, so the sheet can clear it.
-// WKWebView reports no keyboard through `visualViewport`, so iOS lifting the
-// viewport is the only avoidance there is. Leave it be, mark that a field has
-// the keyboard up (layout drops the home-indicator inset while it does), and
-// put the scroll back once nothing is focused.
+// The keyboard's height comes from UIKit, because WKWebView never tells the web
+// layer about it. `--kb` is how much of the screen it covers; the shell shrinks
+// by that much, so nothing has to be scrolled out of its way.
 if (isMobile) {
+  const setKb = (px: number) => document.documentElement.style.setProperty("--kb", `${Math.max(0, Math.round(px))}px`);
+  backend.onKeyboard(setKb);
   const typing = () => !!document.activeElement?.closest("input, textarea, [contenteditable]");
   const sync = () => document.body.classList.toggle("typing", typing());
-  // The shell never scrolls, not even to reveal a focused field: letting it
-  // would put the field the user is typing in behind the keyboard.
-  const pin = () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0);
-  window.addEventListener("scroll", pin, { passive: true });
-  document.addEventListener("focusin", () => (sync(), setTimeout(pin, 0)));
-  document.addEventListener("focusout", () => setTimeout(() => (sync(), pin()), 50));
+  document.addEventListener("focusin", sync);
+  document.addEventListener("focusout", () => setTimeout(sync, 50));
+  // Nothing here is a scrolling document; the keyboard is accounted for above.
+  window.addEventListener("scroll", () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0), { passive: true });
 }
 
+// In the browser dev loop there is no UIKit, but the visual viewport does shrink.
 const vv = window.visualViewport;
-if (isMobile && vv) {
+if (isMobile && !inTauri && vv) {
   const track = () => document.documentElement.style.setProperty("--kb", `${Math.max(0, window.innerHeight - vv.height - vv.offsetTop)}px`);
   vv.addEventListener("resize", track);
   vv.addEventListener("scroll", track);

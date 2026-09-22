@@ -1,5 +1,7 @@
 mod git;
 mod github;
+#[cfg(target_os = "ios")]
+mod keyboard;
 mod merge;
 mod state;
 mod store;
@@ -311,6 +313,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(AppState::default());
+            #[cfg(target_os = "ios")]
+            keyboard::watch(app.handle().clone());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

@@ -28,6 +28,11 @@ git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl", "
 
 [target.'cfg(target_os = "ios")'.dependencies]
 git2 = { version = "0.20", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"] }
+# Reading the software keyboard's height, which the webview never learns.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSDictionary", "NSNotification", "NSString", "NSValue", "NSGeometry"] }
+objc2-ui-kit = { version = "0.3", features = ["UIWindow", "UIScreen", "objc2-core-foundation"] }
+block2 = "0.6"
 
 # The file watcher is desktop-only; `mod watch` is gated to match.
 [target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))'.dependencies]

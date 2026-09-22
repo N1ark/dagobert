@@ -544,9 +544,7 @@ body.mobile.typing .backdrop.palette {
 
 body.mobile .backdrop.palette .dialog {
   height: auto;
-  /* Short on purpose: WKWebView reports no keyboard, and iOS lifts the whole
-     viewport instead, so anything taller is pushed off the top of the screen. */
-  max-height: 42vh;
+  max-height: calc(100% - var(--sheet-top));
   flex-direction: column-reverse;
   border-radius: 12px 12px 0 0;
   padding-top: 0;

@@ -200,3 +200,20 @@ needs no Xcode project, no CocoaPods and no signing, so the `cfg` gating can't r
 
 Still to do: a keychain plugin behind `secrets.ts`, and a `beginBackgroundTask` plugin so
 the background push is reliable rather than best-effort.
+
+## The software keyboard
+
+WKWebView never tells the web layer about the keyboard — `visualViewport` doesn't shrink,
+so every web-only trick for keeping a field visible is guesswork. `keyboard.rs` observes
+`UIKeyboardWillChangeFrameNotification` and `UIKeyboardWillHideNotification` and emits the
+end frame's height, which in points is the same unit as a CSS pixel. `main.ts` puts it in
+`--kb`; `body.mobile .app` and the panels shrink by it, and `body.mobile.typing` drops the
+home-indicator inset the keyboard already covers.
+
+Hide fires after the frame change that comes with it, so it has the last word — a
+dismissing keyboard still reports its full height on the way out.
+
+Nothing in the shell scrolls, and nothing should: with `--kb` correct there is nothing to
+scroll out of the way, and a scrolling shell can put the focused field back under the
+keyboard. In the browser dev loop there is no UIKit, so `main.ts` falls back to
+`visualViewport`, which does shrink there.

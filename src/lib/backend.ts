@@ -348,6 +348,18 @@ export const backend = {
     return invoke<Token>("github_refresh", { refreshToken });
   },
 
+  /** Software keyboard height in CSS pixels, from UIKit. Returns an unsubscribe. */
+  onKeyboard(cb: (height: number) => void): () => void {
+    if (!inTauri) return () => {};
+    let un: (() => void) | null = null;
+    let cancelled = false;
+    listen<number>("keyboard", (e) => cb(e.payload)).then((u) => (cancelled ? u() : (un = u)));
+    return () => {
+      cancelled = true;
+      un?.();
+    };
+  },
+
   /** Opens a URL in the user's own browser. */
   async openExternal(url: string) {
     if (!inTauri) window.open(url, "_blank");

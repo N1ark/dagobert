@@ -647,12 +647,14 @@ checksum = "52560adf09603e58c9a7ee1fe1dcb95a16927b17c127f0ac02d6e768a0e25bc1"
 name = "dagobert"
 version = "0.7.1"
 dependencies = [
+ "block2",
  "git2",
  "notify",
  "notify-debouncer-mini",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
+ "objc2-ui-kit",
  "serde",
  "serde_json",
  "serde_yaml",
