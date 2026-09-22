@@ -812,8 +812,8 @@
     margin-right: 8px;
   }
   .mark {
-    width: 18px;
-    height: 18px;
+    width: var(--mark);
+    height: var(--mark);
     opacity: 0.9;
   }
   .logo {

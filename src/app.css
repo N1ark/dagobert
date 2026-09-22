@@ -29,11 +29,13 @@
   /* Chrome button hit area; a custom property so components don't have to lose
      a specificity fight with the mobile overrides. */
   --btn: 28px;
+  --mark: 18px;
 }
 
 body.mobile {
   /* 44px is the smallest comfortable touch target. */
   --btn: 44px;
+  --mark: 28px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
