@@ -36,9 +36,11 @@ Verifying UI changes: `npm run dev`, open http://localhost:1420, click "Open a f
 
 ## Layout
 
-- `src-tauri/src/` — `store.rs` (all disk I/O), `watch.rs` (file watcher), `git.rs` /
-  `merge.rs` / `sync.rs` (git tracking), `symbols.rs` (SF Symbols), `lib.rs` (commands).
-- `src/lib/backend.ts` — wraps `invoke`; in-memory mock in the browser.
+- `src-tauri/src/` — `store.rs` (all disk I/O), `watch.rs` (file watcher, desktop only),
+  `state.rs` (managed state), `git.rs` / `merge.rs` / `sync.rs` (git tracking),
+  `symbols.rs` (SF Symbols), `lib.rs` (commands).
+- `src/lib/backend.ts` — wraps `invoke`; in-memory mock in the browser; `isMobile`.
+- `src/lib/secrets.ts` — the GitHub API token and the git push/pull token.
 - `src/lib/store.svelte.ts` — the single `store` instance: notes, viewport, selection,
   graph helpers (`wouldCycle`, `dependents`, `isReady`), debounced saves, undo, git slice.
 - `src/lib/App.svelte` — shell, window keys, palette actions, panel sizes.
@@ -60,6 +62,8 @@ Details per area (read the one you're working in):
 - [docs/github.md](docs/github.md) — repo aliases, PR cache, sidebar, icons.
 - [docs/ui.md](docs/ui.md) — shortcuts & native menu, i18n, undo, multiple windows,
   dialogs/popovers, icons & assets, CI/release.
+- [docs/mobile.md](docs/mobile.md) — the `isMobile` flag, `cfg(desktop)` gating, sandboxed
+  projects, token credentials, the foreground/background lifecycle, touch, phone layout.
 
 ## Core conventions
 
@@ -85,3 +89,5 @@ Details per area (read the one you're working in):
   Merge conflicts in bodies keep git's markers as content and are resolved in the editor.
 - Multiple windows: `?note=<id>&path=<project>` renders a standalone `NotePanel`; every
   window has its own `store`, kept in sync via broadcast messages.
+- Mobile (iOS): markup branches on `isMobile`, CSS on `body.mobile`; desktop-only Rust is
+  `#[cfg(desktop)]` but its commands stay compiled with no-op bodies. See docs/mobile.md.
