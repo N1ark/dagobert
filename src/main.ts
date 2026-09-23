@@ -11,10 +11,6 @@ document.body.classList.toggle("mobile", isMobile);
 if (isMobile) {
   const setKb = (px: number) => document.documentElement.style.setProperty("--kb", `${Math.max(0, Math.round(px))}px`);
   backend.onKeyboard(setKb);
-  const typing = () => !!document.activeElement?.closest("input, textarea, [contenteditable]");
-  const sync = () => document.body.classList.toggle("typing", typing());
-  document.addEventListener("focusin", sync);
-  document.addEventListener("focusout", () => setTimeout(sync, 50));
   // The net for the scrolls WKWebView performs on its own; nothing here scrolls.
   window.addEventListener("scroll", () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0), { passive: true });
 }

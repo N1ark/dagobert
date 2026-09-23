@@ -91,6 +91,13 @@
     input?.focus({ preventScroll: true });
   });
 
+  // On a phone it rises off the bottom edge as the keyboard does, not on top of it.
+  let shown = $state(!isMobile);
+  $effect(() => {
+    const frame = requestAnimationFrame(() => (shown = true));
+    return () => cancelAnimationFrame(frame);
+  });
+
   function choose(i: number, newWindow = false) {
     const row = rows[i];
     if (!row) return;
@@ -141,7 +148,7 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="backdrop palette" onclick={onclose}>
+<div class="backdrop palette" class:shown onclick={onclose}>
   <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("quick.aria")} tabindex="-1">
     <div class="field">
       {#if mode === "commands"}

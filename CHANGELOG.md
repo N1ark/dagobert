@@ -33,6 +33,7 @@ All notable changes to Dagobert are documented here. The format follows
 - The phone's actions follow a panel as it is dragged instead of catching up afterwards.
 - Opening search on a phone no longer shifts the whole screen, and the palette can't be
   dragged around.
+- Search slides up with the keyboard on a phone instead of appearing on top of it.
 
 ## [0.7.1] - 2026-09-21
 

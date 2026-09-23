@@ -606,18 +606,30 @@ body.mobile .dialog footer.keys {
 body.mobile .backdrop.palette {
   align-items: flex-end;
   padding: 0 var(--safe-right) max(var(--kb, 0px), var(--safe-bottom)) var(--safe-left);
+  /* The padding is what the keyboard moves, so it carries the rise. */
+  background: transparent;
+  transition:
+    background var(--dur-sheet) var(--ease-sheet),
+    padding-bottom var(--dur-sheet) var(--ease-sheet);
+}
+
+body.mobile .backdrop.palette.shown {
+  background: #00000088;
+}
+
+body.mobile .backdrop.palette .dialog {
+  transform: translateY(100%);
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+}
+
+body.mobile .backdrop.palette.shown .dialog {
+  transform: translateY(0);
 }
 
 /* The field is the one part of the palette that isn't a scroller; a drag on it
    would otherwise reach the document and take the shell with it. */
 body.mobile .backdrop.palette .field {
   touch-action: none;
-}
-
-/* While the keyboard is up it covers the home indicator, so that inset would
-   only open a gap between the field and the keys. */
-body.mobile.typing .backdrop.palette {
-  padding-bottom: var(--kb, 0px);
 }
 
 body.mobile .backdrop.palette .dialog {
