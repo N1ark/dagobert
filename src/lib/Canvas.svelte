@@ -49,7 +49,7 @@
   } | null = null;
   /** Shift+drag rubber band, in screen coords relative to the container. */
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number; base: string[] } | null>(null);
-  let pan: { startX: number; startY: number; vx: number; vy: number } | null = null;
+  let pan: { startX: number; startY: number; vx: number; vy: number; touch: boolean } | null = null;
   let resize: { id: string; startX: number; ow: number; moved: boolean } | null = null;
 
   // ---- touch state ---------------------------------------------------------
@@ -68,12 +68,68 @@
    */
   let hold: { timer: number; x: number; y: number; id: string | null; armed: boolean } | null = null;
   let lastTap: { at: number; x: number; y: number } | null = null;
+  /** The node a long press has picked up, which draws it lifted off the canvas. */
+  let lifted = $state<string | null>(null);
   const HOLD_MS = 450;
   const TAP_SLOP = 12;
 
   function cancelHold() {
     if (hold) clearTimeout(hold.timer);
     hold = null;
+    lifted = null;
+  }
+
+  // ---- momentum ------------------------------------------------------------
+  /** Recent pan positions, newest last, for the velocity a flick leaves behind. */
+  let panTrail: { t: number; x: number; y: number }[] = [];
+  /** A flick still running: screen px per ms, decayed every frame. */
+  let glide: { vx: number; vy: number; at: number; x: number; y: number } | null = null;
+  let glideRaf = 0;
+  /** Halves the speed about every 150 ms, which is roughly how iOS lists coast. */
+  const GLIDE_DECAY = 0.0046;
+  const GLIDE_STOP = 0.02;
+
+  function stopGlide() {
+    glide = null;
+    if (glideRaf) {
+      cancelAnimationFrame(glideRaf);
+      glideRaf = 0;
+    }
+  }
+
+  /** Velocity over the last few pointer samples, in screen px per ms. */
+  function flickVelocity() {
+    const now = performance.now();
+    const recent = panTrail.filter((s) => now - s.t < 90);
+    if (recent.length < 2) return null;
+    const a = recent[0];
+    const b = recent[recent.length - 1];
+    const dt = b.t - a.t;
+    if (dt < 8) return null;
+    const cap = (v: number) => Math.max(-4, Math.min(4, v));
+    return { x: cap((b.x - a.x) / dt), y: cap((b.y - a.y) / dt) };
+  }
+
+  function stepGlide(now: number) {
+    glideRaf = 0;
+    if (!glide) return;
+    // The viewport clamp can refuse the last frame's move; there is nothing to
+    // coast into in that direction then.
+    if (Math.abs(vp.x - glide.x) > 0.5) glide.vx = 0;
+    if (Math.abs(vp.y - glide.y) > 0.5) glide.vy = 0;
+    const dt = Math.min(48, now - glide.at);
+    glide.at = now;
+    const decay = Math.exp(-GLIDE_DECAY * dt);
+    vp.x = glide.x = vp.x + glide.vx * dt;
+    vp.y = glide.y = vp.y + glide.vy * dt;
+    glide.vx *= decay;
+    glide.vy *= decay;
+    if (Math.hypot(glide.vx, glide.vy) < GLIDE_STOP) {
+      glide = null;
+      store.saveViewport();
+      return;
+    }
+    glideRaf = requestAnimationFrame(stepGlide);
   }
 
   const vp = $derived(store.viewport);
@@ -212,6 +268,7 @@
   export function focusNode(id: string) {
     const n = store.byId(id);
     if (!n) return;
+    stopGlide();
     const r = container.getBoundingClientRect();
     vp.x = r.width / 2 - (n.x + widthOf(n) / 2) * vp.zoom;
     vp.y = r.height / 2 - (n.y + h(id) / 2) * vp.zoom;
@@ -222,6 +279,7 @@
   export function ensureVisible(id: string) {
     const n = store.byId(id);
     if (!n) return;
+    stopGlide();
     const r = container.getBoundingClientRect();
     const m = 40;
     const left = n.x * vp.zoom + vp.x;
@@ -348,6 +406,7 @@
 
   export function fitAll() {
     if (!store.notes.length) return;
+    stopGlide();
     const r = container.getBoundingClientRect();
     let minX = Infinity,
       minY = Infinity,
@@ -401,6 +460,7 @@
   }
 
   function onPointerDown(e: PointerEvent) {
+    stopGlide();
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
     if (target.closest("button, input, textarea, a")) return; // links: let the click through (no capture)
@@ -445,8 +505,9 @@
       // Dragging a node in the group moves the whole group.
       if (touch) {
         startHold(e, id);
-        pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y };
+        pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y, touch };
         isPanning = true;
+        panTrail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
         return;
       }
       drag = startDrag(id, e);
@@ -459,8 +520,9 @@
       return;
     }
     if (touch) startHold(e, null);
-    pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y };
+    pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y, touch };
     isPanning = true;
+    panTrail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
   }
 
   function startDrag(id: string, e: { clientX: number; clientY: number }) {
@@ -484,6 +546,7 @@
       if (id) {
         if (store.selectedId !== id && !store.multi.includes(id)) store.select(id);
         drag = startDrag(id, { clientX: x, clientY: y });
+        lifted = id;
       } else {
         openMenuAt(x, y, document.elementFromPoint(x, y) as HTMLElement | null);
         cancelHold();
@@ -586,6 +649,8 @@
     }
     if (pan) {
       panAt = { x: e.clientX, y: e.clientY };
+      panTrail.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+      if (panTrail.length > 6) panTrail.shift();
       scheduleGesture();
     }
   }
@@ -659,8 +724,15 @@
         flushGesture();
       }
       const moved = Math.hypot(e.clientX - pan.startX, e.clientY - pan.startY) > 3;
-      if (moved) store.saveViewport();
-      else {
+      if (moved) {
+        // A flick keeps going: a canvas that stops dead under the finger reads
+        // as broken on a phone. A mouse drag has no such expectation.
+        const v = pan.touch ? flickVelocity() : null;
+        if (v && Math.hypot(v.x, v.y) > 0.15) {
+          glide = { vx: v.x, vy: v.y, at: performance.now(), x: vp.x, y: vp.y };
+          glideRaf = requestAnimationFrame(stepGlide);
+        } else store.saveViewport();
+      } else {
         if (isMobile) store.dismissPanel();
         store.select(null);
         selectedEdge = null;
@@ -750,6 +822,7 @@
 
   function onWheel(e: WheelEvent) {
     e.preventDefault();
+    stopGlide();
     wheelQueue.push({ dx: e.deltaX, dy: e.deltaY, zoom: e.ctrlKey || e.metaKey, cx: e.clientX, cy: e.clientY });
     if (!wheelRaf) wheelRaf = requestAnimationFrame(applyWheel);
   }
@@ -882,6 +955,7 @@
     return () => {
       cancelAnimationFrame(wheelRaf);
       cancelAnimationFrame(gestureRaf);
+      stopGlide();
       container.removeEventListener("wheel", onWheel);
       container.removeEventListener("gesturestart", stopGesture);
       container.removeEventListener("gesturechange", stopGesture);
@@ -1088,6 +1162,7 @@
         selected={store.selectedId === note.id}
         grouped={store.multi.length > 1 && store.multi.includes(note.id)}
         dim={visible !== null && !visible.has(note.id)}
+        lifted={lifted === note.id}
         linkTarget={linking?.over === note.id}
         onresize={(h) => (heights[note.id] = h)}
       />

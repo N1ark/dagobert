@@ -115,6 +115,11 @@ the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
   bottom action sheet. Holding the background opens it directly.
 - Double-tap is paired in `onTap` rather than left to `dblclick`, which is unreliable
   under pointer capture with `touch-action: none`.
+- A flick leaves momentum behind: `flickVelocity` reads the last few pointer samples and
+  `stepGlide` decays it once per frame, stopping early when the viewport clamp refuses
+  the move. Touch only — a mouse drag is expected to stop where it was let go.
+- An armed hold lifts the note it picked up (`lifted`), which is the only feedback a
+  phone gets that the drag has taken over from the pan.
 - Marquee and shift-click multi-select have no touch equivalent yet. Nothing needs
   hiding: `store.select` already sets `multi` to `[id]`, so every action that reads it
   acts on the one selected note.

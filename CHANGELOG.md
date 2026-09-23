@@ -26,6 +26,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Panels on a phone settle the way a flick throws them, dim what they cover, and give a
   little at the top instead of stopping dead.
+- Flicking the canvas on a phone keeps it moving, and holding a note lifts it.
 - The phone's actions ride above a peeking panel rather than hiding behind it, and
   buttons no longer stay lit after a tap.
 

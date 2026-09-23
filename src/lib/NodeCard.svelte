@@ -15,6 +15,7 @@
     selected = false,
     grouped = false,
     dim = false,
+    lifted = false,
     linkTarget = false,
     onresize,
   }: {
@@ -23,6 +24,7 @@
     selected?: boolean;
     grouped?: boolean;
     dim?: boolean;
+    lifted?: boolean;
     linkTarget?: boolean;
     onresize: (h: number) => void;
   } = $props();
@@ -58,6 +60,7 @@
   class:done
   class:ready
   class:dim
+  class:lifted
   class:link-target={linkTarget}
   data-node={note.id}
   style="left:{note.x}px; top:{note.y}px; width:{width}px"
@@ -129,12 +132,15 @@
     -webkit-user-select: none;
     transition:
       box-shadow 0.15s,
+      transform 0.18s var(--ease-sheet),
       opacity 0.15s;
   }
-  .node:hover {
-    box-shadow:
-      0 0 0 1px #ffffff2a,
-      0 0 4px 4px #ffffff05;
+  @media (hover: hover) {
+    .node:hover {
+      box-shadow:
+        0 0 0 1px #ffffff2a,
+        0 0 4px 4px #ffffff05;
+    }
   }
   .node.ready {
     box-shadow:
@@ -155,6 +161,14 @@
     box-shadow:
       0 0 0 2px var(--green),
       0 0 12px 2px #98c37944;
+  }
+  /* A long press picked it up, so it sits above the canvas until it's let go. */
+  .node.lifted {
+    z-index: 1;
+    transform: scale(1.04);
+    box-shadow:
+      0 0 0 1.5px var(--accent2),
+      0 10px 26px 2px #00000073;
   }
   .node.done {
     opacity: 0.55;
@@ -181,8 +195,10 @@
     align-items: center;
     justify-content: center;
   }
-  .check:hover {
-    border-color: var(--accent2);
+  @media (hover: hover) {
+    .check:hover {
+      border-color: var(--accent2);
+    }
   }
   .check.on {
     background: var(--accent);
@@ -233,9 +249,11 @@
     background: color-mix(in srgb, var(--c) 12%, transparent);
     color: var(--c);
   }
-  .status:hover {
-    background: color-mix(in srgb, var(--c) 22%, transparent);
-    border-color: var(--c);
+  @media (hover: hover) {
+    .status:hover {
+      background: color-mix(in srgb, var(--c) 22%, transparent);
+      border-color: var(--c);
+    }
   }
   .pip {
     width: 6px;
