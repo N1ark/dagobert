@@ -75,6 +75,16 @@
   }
 </script>
 
+{#snippet notes(list: Linked["notes"])}
+  <div class="notes">
+    {#each list as n (n.id)}
+      <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
+        <InlineMd source={n.title} fallback={t("app.untitled")} />
+      </button>
+    {/each}
+  </div>
+{/snippet}
+
 <aside class="prs" class:bare={sheet}>
   <header>
     <h3>
@@ -119,13 +129,7 @@
               <span use:tooltip={absolute(pr.updated)}>{relative(pr.updated)}</span>
               {#if pr.comments}<span class="comments"><ChatCircle size={11} /> {pr.comments}</span>{/if}
             </div>
-            <div class="notes">
-              {#each ref.notes as n (n.id)}
-                <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
-                  <InlineMd source={n.title} fallback={t("app.untitled")} />
-                </button>
-              {/each}
-            </div>
+            {@render notes(ref.notes)}
           </div>
         </div>
       {/each}
@@ -138,13 +142,7 @@
           <div class="body">
             <p class="msg">{message}</p>
             <div class="meta"><span class="ref">{ref.alias}#{ref.number}</span></div>
-            <div class="notes">
-              {#each ref.notes as n (n.id)}
-                <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
-                  <InlineMd source={n.title} fallback={t("app.untitled")} />
-                </button>
-              {/each}
-            </div>
+            {@render notes(ref.notes)}
           </div>
         </div>
       {/each}

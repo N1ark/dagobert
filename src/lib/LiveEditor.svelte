@@ -385,26 +385,30 @@
   }
 </script>
 
+{#snippet input()}
+  <textarea
+    bind:this={textarea}
+    value={draft}
+    oninput={onInput}
+    onkeydown={onKey}
+    onpaste={onPaste}
+    onkeyup={(e) => {
+      if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
+    }}
+    onclick={updateMention}
+    onblur={() => setTimeout(() => (mention = issue = null), 150)}
+    spellcheck="false"
+    autocapitalize="sentences"
+    {...autocorrectOff}
+    rows="1"></textarea>
+{/snippet}
+
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="live" bind:this={container} onclick={onContainerClick}>
   {#each blocks as block, i (i)}
     {#if active === i}
       <div class="block editing" class:code={activeIsCode} data-block={i}>
-        <textarea
-          bind:this={textarea}
-          value={draft}
-          oninput={onInput}
-          onkeydown={onKey}
-          onpaste={onPaste}
-          onkeyup={(e) => {
-            if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
-          }}
-          onclick={updateMention}
-          onblur={() => setTimeout(() => (mention = issue = null), 150)}
-          spellcheck="false"
-          autocapitalize="sentences"
-          {...autocorrectOff}
-          rows="1"></textarea>
+        {@render input()}
       </div>
     {:else if isConflict(block)}
       <div class="block" data-block={i}>
@@ -418,17 +422,7 @@
   {/each}
   {#if active !== null && active >= blocks.length}
     <div class="block editing" class:code={activeIsCode}>
-      <textarea
-        bind:this={textarea}
-        value={draft}
-        oninput={onInput}
-        onkeydown={onKey}
-        onpaste={onPaste}
-        onblur={() => setTimeout(() => (mention = issue = null), 150)}
-        spellcheck="false"
-        autocapitalize="sentences"
-        {...autocorrectOff}
-        rows="1"></textarea>
+      {@render input()}
     </div>
   {/if}
   {#if !blocks.length && active === null}

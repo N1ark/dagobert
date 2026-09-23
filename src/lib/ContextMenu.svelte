@@ -42,8 +42,10 @@
     target.kind === "group" ? target.ids.map((id) => store.byId(id)).filter((n): n is NonNullable<typeof n> => !!n) : [],
   );
 
-  /** "all" / "some" / "none" of the group carry the tag. */
-  function groupHas(tag: string): "all" | "some" | "none" {
+  type Tagged = "all" | "some" | "none";
+
+  /** How much of the group carries the tag. */
+  function groupHas(tag: string): Tagged {
     const c = group.filter((n) => n.tags.includes(tag)).length;
     return c === group.length ? "all" : c ? "some" : "none";
   }
@@ -137,6 +139,30 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} onblur={close} />
 
+{#snippet tags(has: (tag: string) => Tagged, toggle: (tag: string) => void, placeholder: string, add: () => void)}
+  <div class="section">{t("ctx.tags")}</div>
+  <div class="tags">
+    {#each store.allTags as { tag } (tag)}
+      {@const state = has(tag)}
+      <button class="item check" class:on={state === "all"} class:some={state === "some"} onclick={() => toggle(tag)}>
+        <span class="mark"
+          >{#if state === "all"}<Check size={11} weight="bold" />{:else if state === "some"}<Minus size={11} weight="bold" />{/if}</span
+        >
+        <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
+      </button>
+    {/each}
+  </div>
+  <form
+    class="new-tag"
+    onsubmit={(e) => {
+      e.preventDefault();
+      add();
+    }}
+  >
+    <input {placeholder} bind:value={newTag} onblur={add} />
+  </form>
+{/snippet}
+
 {#if isMobile}
   <div class="scrim" class:hit={shown} style="opacity:{shown ? 0.4 : 0}"></div>
 {/if}
@@ -194,26 +220,12 @@
       {/each}
     {/if}
 
-    <div class="section">{t("ctx.tags")}</div>
-    <div class="tags">
-      {#each store.allTags as { tag } (tag)}
-        <button class="item check" class:on={note.tags.includes(tag)} onclick={() => store.toggleTag(note.id, tag)}>
-          <span class="mark"
-            >{#if note.tags.includes(tag)}<Check size={11} weight="bold" />{/if}</span
-          >
-          <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
-        </button>
-      {/each}
-    </div>
-    <form
-      class="new-tag"
-      onsubmit={(e) => {
-        e.preventDefault();
-        addNewTag();
-      }}
-    >
-      <input placeholder={t("ctx.newTag")} bind:value={newTag} onblur={addNewTag} />
-    </form>
+    {@render tags(
+      (tag) => (note.tags.includes(tag) ? "all" : "none"),
+      (tag) => store.toggleTag(note.id, tag),
+      t("ctx.newTag"),
+      addNewTag,
+    )}
 
     {#if note.width != null}
       <button class="item" onclick={() => run(() => store.setWidth(note.id, null))}>{t("ctx.resetWidth")}</button>
@@ -228,27 +240,7 @@
     <div class="section">{t("ctx.group.selected", { n: group.length })}</div>
     <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, true)))}>{t("ctx.group.allDone")}</button>
     <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, false)))}>{t("ctx.group.allNotDone")}</button>
-    <div class="section">{t("ctx.tags")}</div>
-    <div class="tags">
-      {#each store.allTags as { tag } (tag)}
-        {@const has = groupHas(tag)}
-        <button class="item check" class:on={has === "all"} class:some={has === "some"} onclick={() => groupToggleTag(tag)}>
-          <span class="mark"
-            >{#if has === "all"}<Check size={11} weight="bold" />{:else if has === "some"}<Minus size={11} weight="bold" />{/if}</span
-          >
-          <span class="dot" style="--c:{store.tagColor(tag)}"></span>{tag}
-        </button>
-      {/each}
-    </div>
-    <form
-      class="new-tag"
-      onsubmit={(e) => {
-        e.preventDefault();
-        groupAddTag();
-      }}
-    >
-      <input placeholder={t("ctx.group.addTag")} bind:value={newTag} onblur={groupAddTag} />
-    </form>
+    {@render tags(groupHas, groupToggleTag, t("ctx.group.addTag"), groupAddTag)}
     <div class="sep"></div>
     {#if confirmDelete}
       <button class="item danger" onclick={() => run(() => group.forEach((n) => store.remove(n.id)))}
