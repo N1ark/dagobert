@@ -113,6 +113,8 @@
     box-shadow: none;
   }
   .dialog {
+    -webkit-user-select: none;
+    user-select: none;
     width: 560px;
     max-width: calc(100vw - 40px);
     max-height: calc(100vh - 80px);

@@ -97,6 +97,8 @@
 
 <style>
   .mention {
+    -webkit-user-select: none;
+    user-select: none;
     position: absolute;
     z-index: 30;
     width: 280px;

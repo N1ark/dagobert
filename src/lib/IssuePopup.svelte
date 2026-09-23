@@ -116,6 +116,8 @@
 
 <style>
   .issues {
+    -webkit-user-select: none;
+    user-select: none;
     position: absolute;
     z-index: 30;
     width: 360px;

@@ -132,6 +132,8 @@
     justify-content: center;
   }
   .dialog {
+    -webkit-user-select: none;
+    user-select: none;
     display: flex;
     flex-direction: column;
     width: 460px;

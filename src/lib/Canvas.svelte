@@ -1360,6 +1360,8 @@
     background: #8a2aa21a;
   }
   .empty {
+    -webkit-user-select: none;
+    user-select: none;
     position: absolute;
     inset: 0;
     z-index: 3;

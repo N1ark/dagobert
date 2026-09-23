@@ -135,6 +135,8 @@
     border-right: none;
   }
   .prs {
+    -webkit-user-select: none;
+    user-select: none;
     flex: none;
     width: var(--prs-w, 300px);
     height: 100%;

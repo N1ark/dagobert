@@ -43,6 +43,8 @@
     overflow: hidden;
   }
   .bar {
+    -webkit-user-select: none;
+    user-select: none;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -71,6 +73,8 @@
     border-bottom: 1px solid var(--border);
   }
   .side {
+    -webkit-user-select: none;
+    user-select: none;
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;

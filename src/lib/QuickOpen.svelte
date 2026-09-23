@@ -245,6 +245,8 @@
     padding-top: 15vh;
   }
   .dialog {
+    -webkit-user-select: none;
+    user-select: none;
     width: 560px;
     max-width: calc(100vw - 40px);
     max-height: 70vh;

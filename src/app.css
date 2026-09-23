@@ -100,6 +100,8 @@ button {
   border-radius: var(--radius);
   padding: 5px 10px;
   cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
   transition:
     background 0.15s,
     border-color 0.15s,
@@ -147,6 +149,14 @@ button.ghost {
     opacity: 0.5;
     transition: none;
   }
+}
+
+/* Chrome around them may be unselectable; what you type never is. */
+input,
+textarea,
+[contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 input,

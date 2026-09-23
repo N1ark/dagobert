@@ -512,6 +512,8 @@
     font-size: 13px;
   }
   .placeholder {
+    -webkit-user-select: none;
+    user-select: none;
     color: #555;
     font-style: italic;
   }

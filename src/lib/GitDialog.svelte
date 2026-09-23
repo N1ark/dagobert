@@ -77,6 +77,8 @@
     justify-content: center;
   }
   .dialog {
+    -webkit-user-select: none;
+    user-select: none;
     width: 480px;
     max-width: calc(100vw - 40px);
     background: var(--bg2);

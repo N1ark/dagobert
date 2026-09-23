@@ -354,6 +354,8 @@
     max-height: none;
   }
   .dialog {
+    -webkit-user-select: none;
+    user-select: none;
     width: 600px;
     max-width: calc(100vw - 40px);
     background: var(--bg2);

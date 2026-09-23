@@ -1034,6 +1034,8 @@
     padding: 24px 20px;
   }
   .card {
+    -webkit-user-select: none;
+    user-select: none;
     width: 380px;
     padding: 32px;
     background: var(--bg2);

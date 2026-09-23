@@ -539,6 +539,8 @@
     margin-top: 2px;
   }
   .top {
+    -webkit-user-select: none;
+    user-select: none;
     display: flex;
     flex-direction: column;
   }
@@ -613,6 +615,8 @@
     color: var(--accent2);
   }
   footer {
+    -webkit-user-select: none;
+    user-select: none;
     display: flex;
     align-items: center;
     gap: 6px;

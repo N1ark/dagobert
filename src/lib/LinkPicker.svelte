@@ -105,6 +105,8 @@
     font-size: 13px;
   }
   .results {
+    -webkit-user-select: none;
+    user-select: none;
     position: absolute;
     z-index: 5;
     left: 0;

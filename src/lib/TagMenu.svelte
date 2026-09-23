@@ -99,6 +99,8 @@
     text-align: center;
   }
   .popover {
+    -webkit-user-select: none;
+    user-select: none;
     position: absolute;
     z-index: 20;
     top: calc(100% + 6px);
