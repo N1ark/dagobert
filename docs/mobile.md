@@ -203,7 +203,18 @@ xcrun devicectl device install app --device <udid> <path to Dagobert.app>
 xcrun devicectl device process launch --device <udid> com.n1ark.dagobert
 ```
 
-`xcrun xctrace list devices` gives the udid. The device must be unlocked, have Developer
+`xcrun xctrace list devices` gives the udid. **`npm run install:ios`** is all of the
+above in one step: it reads the team out of the provisioning profile, picks the first
+paired device (`-- --device <udid>` to choose), builds, installs from the archive at
+`src-tauri/gen/apple/build/dagobert_iOS.xcarchive` and launches. `-- --skip-build`
+installs what is already there.
+
+It builds `--debug` because a release build doesn't link: every Swift symbol swift-rs
+supplies (`_register_plugin`, `_on_webview_created`, `_init_plugin_dialog`, …) comes out
+undefined. What fails is the incidental `cdylib` crate-type — the `staticlib` Xcode
+actually consumes is archived, not linked, and the same cdylib links fine in debug — so
+the release profile is somehow losing swift-rs's `libTauri.a`. Unresolved; `-- --release`
+is left in for when it stops. The device must be unlocked, have Developer
 Mode on (Settings → Privacy & Security → Developer Mode, which only appears after an
 install has been attempted, and needs a restart), and the certificate trusted once under
 Settings → General → VPN & Device Management. Each of those surfaces as its own install

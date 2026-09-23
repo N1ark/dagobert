@@ -12,6 +12,7 @@
     "version": "node scripts/version.mjs",
     "test": "for f in tests/*.test.mjs; do node \"$f\" || exit 1; done && cargo test --manifest-path src-tauri/Cargo.toml",
     "install:app": "scripts/install.sh",
+    "install:ios": "scripts/ios-install.sh",
     "format": "prettier --write . && cargo fmt --manifest-path src-tauri/Cargo.toml",
     "format:check": "prettier --check . && cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
     "lint": "eslint . && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings",
