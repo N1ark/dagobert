@@ -700,7 +700,7 @@
     </div>
     {#if isMobile}
       <!-- Rides above a peeking sheet, and gets out of the way of a full one. -->
-      <div class="bottombar" class:raised={!!mobilePanel && !store.sheetFull} class:tucked={!!mobilePanel && store.sheetFull}>
+      <div class="bottombar" class:tucked={!!mobilePanel && store.sheetFull}>
         <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
           ><MagnifyingGlass size={ICON} /></button
         >
@@ -935,16 +935,15 @@
     justify-content: space-evenly;
     align-items: center;
     pointer-events: none;
+    /* Follows the sheet: the vars are live while one is on screen. */
+    transform: translateY(calc(24px * var(--sheet-dim, 0) - var(--sheet-lift, 0px)));
+    opacity: calc(1 - var(--sheet-dim, 0));
     transition:
       transform var(--dur-sheet) var(--ease-sheet),
       opacity 0.2s ease;
   }
-  .bottombar.raised {
-    transform: translateY(calc(-1 * var(--sheet-peek)));
-  }
-  .bottombar.tucked {
-    transform: translateY(24px);
-    opacity: 0;
+  :global(body.sheet-dragging) .bottombar {
+    transition: none;
   }
   .bottombar.tucked button {
     pointer-events: none;

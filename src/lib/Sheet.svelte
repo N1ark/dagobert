@@ -51,6 +51,26 @@
     return Math.max(0, Math.min(1, (stops.peek - y) / span));
   });
 
+  /** How far the bottom bar rides up, so it follows the sheet frame by frame. */
+  const lift = $derived.by(() => {
+    const peek = cssPx("--sheet-peek", 148);
+    if (entering || leaving) return 0;
+    if (y === null || !stops) return peek;
+    return Math.max(0, Math.min(peek, stops.max - y));
+  });
+
+  $effect(() => {
+    const s = document.documentElement.style;
+    s.setProperty("--sheet-lift", `${lift}px`);
+    s.setProperty("--sheet-dim", `${dim}`);
+    document.body.classList.toggle("sheet-dragging", y !== null);
+    return () => {
+      s.removeProperty("--sheet-lift");
+      s.removeProperty("--sheet-dim");
+      document.body.classList.remove("sheet-dragging");
+    };
+  });
+
   /** Slides out before it's unmounted, so it leaves the way it arrived. */
   export function dismiss() {
     if (leaving) return;

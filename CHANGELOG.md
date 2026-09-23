@@ -30,6 +30,7 @@ All notable changes to Dagobert are documented here. The format follows
 - The phone's actions ride above a peeking panel rather than hiding behind it, and
   buttons no longer stay lit after a tap.
 - Dragging across buttons, labels and dialogs no longer selects their text.
+- The phone's actions follow a panel as it is dragged instead of catching up afterwards.
 
 ## [0.7.1] - 2026-09-21
 
