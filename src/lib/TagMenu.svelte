@@ -40,9 +40,9 @@
           {#each store.allTags as { tag, count } (tag)}
             {@const on = store.tagFilter.includes(tag)}
             <li class:on>
-              <div class="dot-wrap">
+              <div class="swatch-wrap">
                 <button
-                  class="dot"
+                  class="swatch"
                   style="--c:{store.tagColor(tag)}"
                   title={t("tags.color")}
                   aria-label={t("tags.colorOf", { tag })}
@@ -77,12 +77,6 @@
   }
   .icon {
     position: relative;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--btn);
-    height: var(--btn);
-    padding: 0;
   }
   .n {
     position: absolute;
@@ -127,22 +121,6 @@
   }
   li.on {
     background: #ffffff0c;
-  }
-  .dot-wrap {
-    position: relative;
-    display: flex;
-  }
-  .dot {
-    width: 14px;
-    height: 14px;
-    padding: 0;
-    border-radius: 50%;
-    border: none;
-    background: var(--c);
-  }
-  .dot:hover {
-    background: var(--c);
-    box-shadow: 0 0 0 2px var(--color2);
   }
   .name {
     flex: 1;

@@ -243,9 +243,9 @@
           {#each wf.stages as stage, i (i)}
             <li>
               <span class="n">{i + 1}</span>
-              <span class="dot-wrap">
+              <span class="swatch-wrap">
                 <button
-                  class="dot"
+                  class="swatch"
                   style="--c:{stageColor(wf, stage.name)}"
                   title={t("settings.wf.pillColor")}
                   aria-label={t("settings.wf.colorOf", { stage: stage.name })}
@@ -503,22 +503,6 @@
     font-size: 11px;
     color: var(--color-dim);
     text-align: right;
-  }
-  .dot-wrap {
-    position: relative;
-    display: flex;
-  }
-  .dot {
-    width: 14px;
-    height: 14px;
-    padding: 0;
-    border-radius: 50%;
-    border: none;
-    background: var(--c);
-  }
-  .dot:hover {
-    background: var(--c);
-    box-shadow: 0 0 0 2px var(--color2);
   }
   .stage {
     flex: 1;

@@ -576,7 +576,7 @@
       <div class="brand" data-tauri-drag-region={isMobile ? undefined : true}>
         {#if isMobile}
           <!-- The mark is the way back to the project list; there is no menu to hold one. -->
-          <button class="ghost mark-btn" onclick={() => store.close()} aria-label={t("toolbar.projects")}>
+          <button class="ghost icon" onclick={() => store.close()} aria-label={t("toolbar.projects")}>
             <img class="mark" src="/icon.svg" alt="" draggable="false" />
           </button>
         {:else}
@@ -871,14 +871,6 @@
   .toolbar button.on {
     color: var(--accent2);
   }
-  .toolbar button.icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--btn);
-    height: var(--btn);
-    padding: 0;
-  }
   .stats.hide {
     display: none;
   }
@@ -945,12 +937,6 @@
     pointer-events: none;
   }
   .bottombar button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--btn);
-    height: var(--btn);
-    padding: 0;
     pointer-events: auto;
     border-radius: 999px;
     box-shadow: var(--shadow-lg);
@@ -961,15 +947,6 @@
   .bottombar .create {
     width: 56px;
   }
-  .mark-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: var(--btn);
-    height: var(--btn);
-    padding: 0;
-  }
-
   .main {
     flex: 1;
     display: flex;

@@ -124,6 +124,31 @@ button.ghost {
   border-color: transparent;
   color: var(--color-dim);
 }
+/* A colour swatch that opens a picker beside it. */
+.swatch-wrap {
+  position: relative;
+  display: flex;
+}
+button.swatch {
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--c);
+}
+button.swatch:hover {
+  background: var(--c);
+  box-shadow: 0 0 0 2px var(--color2);
+}
+
+/* Square, for a button that is only an icon. */
+button.icon {
+  justify-content: center;
+  width: var(--btn);
+  height: var(--btn);
+  padding: 0;
+}
 /* Things that act on something elsewhere read as links, not as buttons. */
 button.link {
   background: none;
