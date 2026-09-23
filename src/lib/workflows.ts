@@ -1,9 +1,10 @@
+import { t } from "./i18n";
 import type { Workflow } from "./types";
 
 /** The implicit workflow every note starts with. Not stored on disk. */
 export const DEFAULT_WORKFLOW: Workflow = {
   id: "",
-  name: "Todo",
+  name: t("settings.nav.todo"),
   stages: [
     { name: "todo", done: false },
     { name: "done", done: true },
