@@ -198,7 +198,8 @@
   .sub {
     display: flex;
     align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 2px 6px;
     margin-top: 2px;
     font-size: 11px;
     color: var(--color-dim);
@@ -208,6 +209,7 @@
     font-size: 10px;
   }
   .file {
+    flex-basis: 100%;
     font-family: var(--mono);
     color: #555;
     overflow: hidden;

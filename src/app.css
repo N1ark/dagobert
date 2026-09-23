@@ -124,6 +124,13 @@ button.ghost {
   border-color: transparent;
   color: var(--color-dim);
 }
+/* Things that act on something elsewhere read as links, not as buttons. */
+button.link {
+  background: none;
+  border-color: transparent;
+  border-radius: 0;
+  padding: 0;
+}
 /* Hover styling only where there is a pointer to hover with: a touch keeps the
    last tapped button lit until something else is tapped. */
 @media (hover: hover) {
@@ -137,6 +144,12 @@ button.ghost {
   button.ghost:hover {
     color: var(--color2);
     background: #ffffff0a;
+  }
+  button.link:hover {
+    background: none;
+    border-color: transparent;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
   button.danger:hover {
     border-color: var(--red);
@@ -560,16 +573,6 @@ body.mobile .dialog .nav-sep {
 }
 
 /* Dialogs and the PR pane take the whole screen. */
-/* Deleted-when and the filename each get their own line. */
-body.mobile .dialog .sub {
-  flex-wrap: wrap;
-  row-gap: 2px;
-}
-
-body.mobile .dialog .sub .file {
-  flex-basis: 100%;
-}
-
 body.mobile .dialog.bare {
   padding: 0;
   height: 100%;

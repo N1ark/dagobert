@@ -301,7 +301,7 @@
     {#if isMobile}
       <span class="file plain">{note.file}</span>
     {:else}
-      <button class="ghost file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
+      <button class="ghost link file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
     {/if}
     {#if confirmDelete}
       <button class="danger" onclick={() => store.remove(note.id)}>{t("panel.reallyDelete")}</button>
@@ -627,7 +627,6 @@
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
-    padding: 2px 4px;
     font-family: var(--mono);
     font-size: 11px;
     color: #555;

@@ -107,7 +107,7 @@
           <span class="state"><PrIcon key={ref.key} /></span>
           <div class="body">
             <button
-              class="ghost title"
+              class="ghost link title"
               onclick={() => open(pr.url)}
               use:tooltip={(n) => (overflows(n) ? { html: inlineHtml(pr.title) } : null)}
             >
@@ -280,7 +280,6 @@
   .title {
     display: block;
     width: 100%;
-    padding: 0;
     text-align: left;
     color: var(--color2);
     font-size: 12px;
@@ -290,7 +289,6 @@
   @media (hover: hover) {
     .title:hover {
       color: var(--accent2);
-      background: none;
     }
   }
   .t :global(code) {
