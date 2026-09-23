@@ -122,42 +122,17 @@
 </div>
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: #00000088;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
   .dialog {
-    -webkit-user-select: none;
-    user-select: none;
     display: flex;
     flex-direction: column;
     width: 460px;
-    max-width: calc(100vw - 40px);
     max-height: 80vh;
-    background: var(--bg2);
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--border);
-  }
-  h3 {
+  .dialog h3 {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0;
     font-size: 14px;
-    color: var(--color2);
   }
   .body {
     display: flex;

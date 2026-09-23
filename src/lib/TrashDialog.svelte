@@ -100,55 +100,22 @@
 {/if}
 
 <style>
-  .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: #00000088;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .dialog.bare {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    border-radius: 0;
-    box-shadow: none;
-  }
   .dialog {
-    -webkit-user-select: none;
-    user-select: none;
     width: 560px;
-    max-width: calc(100vw - 40px);
     max-height: calc(100vh - 80px);
     display: flex;
     flex-direction: column;
-    background: var(--bg2);
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
   }
-  header,
   footer {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 8px;
     padding: 12px 16px;
-  }
-  header {
-    justify-content: space-between;
-    border-bottom: 1px solid var(--border);
-  }
-  footer {
-    justify-content: flex-end;
     border-top: 1px solid var(--border);
   }
-  h3 {
-    margin: 0;
+  .dialog h3 {
     font-size: 15px;
-    color: var(--color2);
   }
   .count {
     font-weight: 400;

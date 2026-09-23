@@ -244,27 +244,14 @@
 
 <style>
   .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 50;
-    background: #00000088;
-    display: flex;
     align-items: flex-start;
-    justify-content: center;
     padding-top: 15vh;
   }
   .dialog {
-    -webkit-user-select: none;
-    user-select: none;
     width: 560px;
-    max-width: calc(100vw - 40px);
     max-height: 70vh;
     display: flex;
     flex-direction: column;
-    background: var(--bg2);
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
-    overflow: hidden;
     outline: none;
   }
   .field {

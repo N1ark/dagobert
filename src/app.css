@@ -479,6 +479,53 @@ a {
   text-decoration: none;
 }
 
+/* ---- dialogs ------------------------------------------------------------- */
+/* Shared chrome for every modal (settings, trash, clone, git, the palette);
+   each dialog sets its own width and body layout. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #00000088;
+}
+
+.dialog {
+  -webkit-user-select: none;
+  user-select: none;
+  max-width: calc(100vw - 40px);
+  background: var(--bg2);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Full-screen variant, used on a phone and inside the panel. */
+.dialog.bare {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dialog h3 {
+  margin: 0;
+  color: var(--color2);
+}
+
 /* ---- phone layout -------------------------------------------------------- */
 /* Overrides for components whose own rules assume a desktop window. The class
    is set once in main.ts; `isMobile` gates the markup that goes with it. */
