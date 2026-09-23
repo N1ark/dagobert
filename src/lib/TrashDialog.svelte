@@ -8,6 +8,7 @@
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import Trash from "phosphor-svelte/lib/Trash";
   import { t, plural } from "./i18n";
+  import { onEscape } from "./keys";
 
   let { onclose, onrestored, sheet = false }: { onclose: () => void; onrestored: (id: string) => void; sheet?: boolean } = $props();
 
@@ -23,16 +24,9 @@
     await store.restoreNote(file);
     if (store.selectedId) onrestored(store.selectedId);
   }
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onclose();
-    }
-  }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={(e) => onEscape(e, onclose)} />
 
 {#snippet panel()}
   <header>

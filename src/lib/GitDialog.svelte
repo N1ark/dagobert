@@ -7,23 +7,18 @@
   import Check from "phosphor-svelte/lib/Check";
   import GitBranch from "phosphor-svelte/lib/GitBranch";
   import { t } from "./i18n";
+  import { onEscape } from "./keys";
 
   /** "norepo": offer to create a repository; "conflicts": what the last pull merged. */
   let { kind, conflicts = [], onclose }: { kind: "norepo" | "conflicts"; conflicts?: Conflict[]; onclose: () => void } = $props();
 
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onclose();
-    }
-  }
   function jump(id: string) {
     onclose();
     store.jump(id);
   }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={(e) => onEscape(e, onclose)} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>

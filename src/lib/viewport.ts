@@ -1,14 +1,10 @@
+import type { Viewport } from "./types";
+
 /** Half-width of the square everything lives in; small enough for float32 in the grain shader. */
 export const WORLD = 20000;
 
 /** How far past the world edge the camera may look, in screen px, so the border is visible. */
 export const MARGIN = 120;
-
-export interface Viewport {
-  x: number;
-  y: number;
-  zoom: number;
-}
 
 /** The offset (zoom untouched) that keeps the view inside the world plus `MARGIN` screen px. */
 export function clampViewport(vp: Viewport, viewW: number, viewH: number): { x: number; y: number } {

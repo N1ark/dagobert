@@ -5,6 +5,7 @@
   import Lightning from "phosphor-svelte/lib/Lightning";
   import { tooltip } from "./tooltip";
   import { t } from "./i18n";
+  import { onEscape } from "./keys";
 
   /** Swatch popover. `value` is the current colour; `onpick(null)` means "automatic". */
   let {
@@ -25,12 +26,6 @@
 
   function onWindowPointerDown(e: PointerEvent) {
     if (!(e.target as HTMLElement).closest(".color-picker")) onclose();
-  }
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onclose();
-    }
   }
   function pick(c: string | null) {
     onpick(c);
@@ -61,7 +56,7 @@
   }
 </script>
 
-<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} />
+<svelte:window onpointerdown={onWindowPointerDown} onkeydown={(e) => onEscape(e, onclose)} />
 
 <div class="color-picker" role="listbox" aria-label={label}>
   {#each TAG_PALETTE as color (color)}

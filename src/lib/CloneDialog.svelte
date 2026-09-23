@@ -11,6 +11,7 @@
   import GitHubSignIn from "./GitHubSignIn.svelte";
   import InlineMd from "./InlineMd.svelte";
   import { t } from "./i18n";
+  import { onEscape } from "./keys";
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -64,16 +65,9 @@
       cloning = null;
     }
   }
-
-  function onKey(e: KeyboardEvent) {
-    if (e.key === "Escape") {
-      e.stopPropagation();
-      onclose();
-    }
-  }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<svelte:window onkeydown={(e) => onEscape(e, onclose)} />
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 <div class="backdrop" onclick={onclose}>

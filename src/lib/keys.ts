@@ -45,6 +45,13 @@ const NAMED: Record<string, string> = {
   "↓": "arrowdown",
 };
 
+/** Closes a dialog when `e` is Escape, and keeps the key from reaching whatever is underneath. */
+export function onEscape(e: KeyboardEvent, close: () => void) {
+  if (e.key !== "Escape") return;
+  e.stopPropagation();
+  close();
+}
+
 /** Does `e` press the shortcut `hint` (`⌘` accepts Ctrl too, as everywhere in the app)? */
 export function matches(hint: string, e: KeyboardEvent): boolean {
   const key = hint.replace(/[⌘⇧⌥⌃]/g, "").toLowerCase();

@@ -16,6 +16,7 @@
   import { relative } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
+  import { onEscape } from "./keys";
 
   type Section = "workflows" | "tracking" | "github" | "git";
   let {
@@ -86,16 +87,14 @@
     store.removeWorkflow(w.id);
     selectedId = store.workflows[0]?.id ?? null;
   }
-  function onKey(e: KeyboardEvent) {
-    // The no-repo dialog stacked on top takes the Escape.
-    if (e.key === "Escape" && !store.needsRepo) {
-      e.stopPropagation();
-      onclose();
-    }
-  }
 </script>
 
-<svelte:window onkeydown={onKey} />
+<!-- The no-repo dialog stacked on top takes the Escape. -->
+<svelte:window
+  onkeydown={(e) => {
+    if (!store.needsRepo) onEscape(e, onclose);
+  }}
+/>
 
 {#snippet panel()}
   <header>
