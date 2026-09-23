@@ -85,8 +85,10 @@
     active = 0;
   });
 
+  // Without preventScroll WebKit scrolls the page to reveal the field, which on
+  // a phone means dragging the whole shell up behind a dialog that never moved.
   $effect(() => {
-    input?.focus();
+    input?.focus({ preventScroll: true });
   });
 
   function choose(i: number, newWindow = false) {
