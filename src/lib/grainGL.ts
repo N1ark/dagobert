@@ -19,7 +19,7 @@ export const MAX_CURVES = 48;
 /** Upper bound on sand grains per edge; the actual count grows with edge length. */
 export const PER_CURVE = 48;
 
-/** One traveller per ~14 world px of edge, at least 6, at most PER_CURVE (mirrors the shader's old loop bound). */
+/** One traveller per ~14 world px of edge, between 6 and PER_CURVE. */
 export function travellerCount(len: number) {
   return Math.ceil(Math.min(PER_CURVE, Math.max(6, len / 14)));
 }

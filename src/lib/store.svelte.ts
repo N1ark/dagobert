@@ -403,7 +403,6 @@ class Store {
     this.touch(id, { immediate: true, label: "status" });
   }
 
-  /** Move to the next stage, wrapping around at the end. */
   /** Move to the next stage (or previous with `step = -1`), wrapping around. */
   advance(id: string, step = 1) {
     const n = this.byId(id);
@@ -413,7 +412,6 @@ class Store {
     this.setStatus(id, stages[(i + step + stages.length) % stages.length].name);
   }
 
-  /** Switch a note to another workflow, keeping done-ness where possible. */
   /** Raw template for a workflow id (null = built-in Todo) or a tracking issue. */
   templateFor(workflowId: string | null, tracking = false): string {
     if (tracking) return this.trackingTemplate;
@@ -645,10 +643,8 @@ class Store {
     this.save(id, opts.immediate);
   }
 
-  async remove(id: string): Promise<string | undefined> {
-    const n = this.byId(id);
-    if (!n || !this.path) return;
-    const path = this.path;
+  /** Drop a note from the app: cancel its pending save, unselect it, take it out of the graph. */
+  #forget(id: string) {
     const t = this.#saveTimers.get(id);
     if (t) clearTimeout(t);
     this.#saveTimers.delete(id);
@@ -656,6 +652,13 @@ class Store {
     if (this.selectedId === id) this.selectedId = null;
     this.multi = this.multi.filter((x) => x !== id);
     this.notes = this.notes.filter((x) => x.id !== id);
+  }
+
+  async remove(id: string): Promise<string | undefined> {
+    const n = this.byId(id);
+    if (!n || !this.path) return;
+    const path = this.path;
+    this.#forget(id);
     const diff: NoteDiff = { id, before: this.#last.get(id) ?? $state.snapshot(n), after: null };
     this.#record("delete", diff);
     for (const other of this.notes) {
@@ -684,13 +687,7 @@ class Store {
     const n = this.byId(id);
     if (!n || !this.path) return;
     const path = this.path;
-    const t = this.#saveTimers.get(id);
-    if (t) clearTimeout(t);
-    this.#saveTimers.delete(id);
-    this.#deleted.add(id);
-    if (this.selectedId === id) this.selectedId = null;
-    this.multi = this.multi.filter((x) => x !== id);
-    this.notes = this.notes.filter((x) => x.id !== id);
+    this.#forget(id);
     this.#last.delete(id);
     await this.#inflight.get(id);
     try {

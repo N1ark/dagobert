@@ -40,3 +40,22 @@ export function clampNode(x: number, y: number, w: number, h: number): { x: numb
     y: Math.min(WORLD - h, Math.max(-WORLD, y)),
   };
 }
+
+/** Bounding box of `notes` in world coordinates (empty when there are none). */
+export function notesBounds(
+  notes: { id: string; x: number; y: number; width?: number | null }[],
+  widthOf: (n: { width?: number | null }) => number,
+  heightOf: (id: string) => number,
+): { minX: number; minY: number; maxX: number; maxY: number } {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  for (const n of notes) {
+    minX = Math.min(minX, n.x);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + widthOf(n));
+    maxY = Math.max(maxY, n.y + heightOf(n.id));
+  }
+  return { minX, minY, maxX, maxY };
+}

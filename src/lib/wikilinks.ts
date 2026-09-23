@@ -1,3 +1,4 @@
+import { issueUrl } from "./github";
 import { t } from "./i18n";
 import { store } from "./store.svelte";
 import type { Note } from "./types";
@@ -14,11 +15,6 @@ function escapeHtml(s: string) {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/**
- * Replace wikilinks with anchors before markdown parsing. Resolved links get
- * `href="#note-<id>"`; unresolved ones become a marked span. Code spans/fences
- * are left untouched.
- */
 /** `alias#123` for a configured GitHub repo alias. */
 const REPO_REF_RE = /(^|[^\w/[`#])([\w.-]+)#(\d+)\b(?![^[]*\]\()/g;
 
@@ -57,16 +53,11 @@ function renderRepoRefs(md: string): string {
     const repo = store.repos[alias];
     if (!repo || inCode(offset + pre.length)) return m;
     const ref = escapeHtml(`${repo}#${num}`);
-    return `${pre}<a class="ghref" href="https://github.com/${repo}/issues/${num}" title="${ref}" data-ref="${ref}">${alias}#${num}</a>`;
+    return `${pre}<a class="ghref" href="${issueUrl(repo, Number(num))}" title="${ref}" data-ref="${ref}">${alias}#${num}</a>`;
   });
 }
 
-/**
- * Replace wikilinks (and `alias#123` repo refs) with anchors before markdown
- * parsing. Resolved links get `href="#note-<id>"`; unresolved ones become a
- * marked span. Code spans/fences are left untouched. (Links may themselves
- * contain backticks, so we can't just split on code.)
- */
+/** Wikilinks and `alias#123` refs as anchors, before markdown parsing; code spans are left alone. */
 export function renderWikilinks(md: string): string {
   const inCode = codeRanges(md);
   const out = md.replace(WIKI_RE, (m, title: string, offset: number) => {

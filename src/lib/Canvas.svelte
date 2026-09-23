@@ -7,7 +7,7 @@
   import type { Note } from "./types";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
-  import { WORLD, clampViewport, clampNode } from "./viewport";
+  import { WORLD, clampViewport, clampNode, notesBounds } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
   import { t } from "./i18n";
   import { keys, matches as pressed } from "./keys";
@@ -408,16 +408,7 @@
     if (!store.notes.length) return;
     stopGlide();
     const r = container.getBoundingClientRect();
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const n of store.notes) {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + widthOf(n));
-      maxY = Math.max(maxY, n.y + h(n.id));
-    }
+    const { minX, minY, maxX, maxY } = notesBounds(store.notes, widthOf, h);
     const pad = 60;
     const zoom = Math.min(
       MAX_ZOOM,

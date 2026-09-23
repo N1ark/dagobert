@@ -6,6 +6,7 @@
   import { ICON } from "./icons";
   import { minimap, toggleMinimap } from "./minimapState.svelte";
   import { isMobile } from "./backend";
+  import { notesBounds } from "./viewport";
 
   /**
    * Overview of the whole graph with the current viewport drawn on top.
@@ -34,16 +35,7 @@
 
   /** World bounds of all notes plus the viewport, so the view box never leaves the map. */
   const bounds = $derived.by(() => {
-    let minX = Infinity,
-      minY = Infinity,
-      maxX = -Infinity,
-      maxY = -Infinity;
-    for (const n of store.notes) {
-      minX = Math.min(minX, n.x);
-      minY = Math.min(minY, n.y);
-      maxX = Math.max(maxX, n.x + widthOf(n));
-      maxY = Math.max(maxY, n.y + heightOf(n.id));
-    }
+    let { minX, minY, maxX, maxY } = notesBounds(store.notes, widthOf, heightOf);
     const vx0 = -vp.x / vp.zoom,
       vy0 = -vp.y / vp.zoom;
     minX = Math.min(minX, vx0) - PAD;
