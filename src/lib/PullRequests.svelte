@@ -225,8 +225,10 @@
     padding: 4px 8px;
     border-radius: var(--radius);
   }
-  .row:hover {
-    background: #ffffff06;
+  @media (hover: hover) {
+    .row:hover {
+      background: #ffffff06;
+    }
   }
   .state {
     flex: none;
@@ -247,9 +249,11 @@
     font-weight: 500;
     line-height: 1.3;
   }
-  .title:hover {
-    color: var(--accent2);
-    background: none;
+  @media (hover: hover) {
+    .title:hover {
+      color: var(--accent2);
+      background: none;
+    }
   }
   .t :global(code) {
     font-family: var(--mono);

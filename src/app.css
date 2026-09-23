@@ -20,6 +20,9 @@
   --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --radius: 6px;
+  /* The curve UIKit settles sheets on; every panel and action sheet uses it. */
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-sheet: 340ms;
   --toolbar-h: 44px;
   --panel-w: 440px;
   --safe-top: 0px;
@@ -49,6 +52,7 @@ body.mobile {
   --safe-right: env(safe-area-inset-right, 0px);
   -webkit-text-size-adjust: 100%;
   overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -104,10 +108,6 @@ button {
 button > svg {
   flex: none;
 }
-button:hover {
-  background: #242424;
-  border-color: #383838;
-}
 button:disabled {
   opacity: 0.4;
   cursor: default;
@@ -117,21 +117,36 @@ button.primary {
   border-color: var(--accent2);
   color: var(--color2);
 }
-button.primary:hover {
-  background: var(--accent2);
-}
 button.ghost {
   background: transparent;
   border-color: transparent;
   color: var(--color-dim);
 }
-button.ghost:hover {
-  color: var(--color2);
-  background: #ffffff0a;
+/* Hover styling only where there is a pointer to hover with: a touch keeps the
+   last tapped button lit until something else is tapped. */
+@media (hover: hover) {
+  button:hover {
+    background: #242424;
+    border-color: #383838;
+  }
+  button.primary:hover {
+    background: var(--accent2);
+  }
+  button.ghost:hover {
+    color: var(--color2);
+    background: #ffffff0a;
+  }
+  button.danger:hover {
+    border-color: var(--red);
+    color: var(--red);
+  }
 }
-button.danger:hover {
-  border-color: var(--red);
-  color: var(--red);
+/* The press itself is the feedback instead. */
+@media (hover: none) {
+  button:active:not(:disabled) {
+    opacity: 0.5;
+    transition: none;
+  }
 }
 
 input,
@@ -370,6 +385,44 @@ a {
   margin-right: 3px;
 }
 
+/* The grabber every bottom sheet is dragged and dismissed by. */
+.grab {
+  display: block;
+  flex: none;
+  align-self: center;
+  width: 44px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  touch-action: none;
+}
+.grab::before {
+  content: "";
+  display: block;
+  width: 36px;
+  height: 4px;
+  margin: 8px auto;
+  border-radius: 2px;
+  background: var(--border2);
+}
+
+/* Dims whatever a sheet is covering, and takes the tap that dismisses it. */
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-sheet) var(--ease-sheet);
+}
+.scrim.hit {
+  pointer-events: auto;
+}
+.scrim.dragging {
+  transition: none;
+}
+
 /* Instant tooltip (src/lib/tooltip.ts); one shared element on <body>. */
 .tooltip {
   position: fixed;
@@ -406,6 +459,15 @@ a {
 /* ---- phone layout -------------------------------------------------------- */
 /* Overrides for components whose own rules assume a desktop window. The class
    is set once in main.ts; `isMobile` gates the markup that goes with it. */
+
+/* Registered so Sheet.svelte can read it back as a length: an unregistered
+   custom property hands its calc() back unevaluated, and the sheet would snap
+   to a stop a dozen pixels off the one CSS puts it at. */
+@property --sheet-top {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 96px;
+}
 
 body.mobile {
   --toolbar-h: 52px;
@@ -557,7 +619,8 @@ body.mobile .node .grip {
   opacity: 1;
 }
 
-/* The context menu is an action sheet; its inline left/top must give way. */
+/* The context menu is an action sheet; its inline left/top must give way, and it
+   arrives and leaves the way every other sheet does. */
 body.mobile .ctx {
   left: 0 !important;
   top: auto !important;
@@ -570,31 +633,20 @@ body.mobile .ctx {
   padding: 6px 6px calc(var(--safe-bottom) + 10px);
   border-radius: 12px 12px 0 0;
   font-size: 15px;
+  transform: translateY(100%);
+  transition: transform var(--dur-sheet) var(--ease-sheet);
+}
+
+body.mobile .ctx.shown {
+  transform: translateY(0);
+}
+
+body.mobile .ctx.dragging {
+  transition: none;
 }
 
 body.mobile .ctx .item {
   padding: 10px 12px;
-}
-
-body.mobile .ctx .grab {
-  display: block;
-  align-self: center;
-  width: 44px;
-  height: 20px;
-  padding: 0;
-  background: none;
-  border: none;
-  touch-action: none;
-}
-
-body.mobile .ctx .grab::before {
-  content: "";
-  display: block;
-  width: 36px;
-  height: 4px;
-  margin: 8px auto;
-  border-radius: 2px;
-  background: var(--border2);
 }
 
 /* Tucked under the toolbar against the right edge; the toggle is in the bar. */

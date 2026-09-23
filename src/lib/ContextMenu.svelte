@@ -70,37 +70,63 @@
   });
 
   function onWindowPointerDown(e: PointerEvent) {
-    if (!(e.target as HTMLElement).closest(".ctx")) onclose();
+    if (!(e.target as HTMLElement).closest(".ctx")) close();
   }
-  // An action sheet dismisses by being pushed down, like every other sheet here.
+
+  // On a phone this is an action sheet: it slides up on arrival, and leaves the
+  // same way whether it was dismissed, pushed down or acted on.
+  let shown = $state(!isMobile);
+  $effect(() => {
+    const frame = requestAnimationFrame(() => (shown = true));
+    return () => cancelAnimationFrame(frame);
+  });
+
+  let closing = false;
+  function close() {
+    if (!isMobile) return onclose();
+    if (closing) return;
+    closing = true;
+    shown = false;
+    dragY = null;
+    setTimeout(onclose, 340);
+  }
+
   let dragY = $state<number | null>(null);
-  let grabFrom = 0;
+  let grab: { y: number; last: number; at: number; v: number } | null = null;
 
   function onGrabDown(e: PointerEvent) {
-    grabFrom = e.clientY;
+    grab = { y: e.clientY, last: e.clientY, at: e.timeStamp, v: 0 };
     dragY = 0;
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   }
   function onGrabMove(e: PointerEvent) {
-    if (dragY === null) return;
-    dragY = Math.max(0, e.clientY - grabFrom);
+    if (!grab) return;
+    const dt = e.timeStamp - grab.at;
+    if (dt > 0) {
+      grab.v = 0.7 * ((e.clientY - grab.last) / dt) + 0.3 * grab.v;
+      grab.at = e.timeStamp;
+      grab.last = e.clientY;
+    }
+    dragY = Math.max(0, e.clientY - grab.y);
   }
   function onGrabUp() {
-    if (dragY === null) return;
-    const far = dragY > (el?.getBoundingClientRect().height ?? 200) * 0.3;
+    if (!grab) return;
+    const flicked = grab.v > 0.45 && performance.now() - grab.at < 80;
+    const far = (dragY ?? 0) > (el?.getBoundingClientRect().height ?? 200) * 0.3;
+    grab = null;
     dragY = null;
-    if (far) onclose();
+    if (flicked || far) close();
   }
 
   function onKey(e: KeyboardEvent) {
     if (e.key === "Escape") {
       e.stopPropagation();
-      onclose();
+      close();
     }
   }
   function run(fn: () => void) {
     fn();
-    onclose();
+    close();
   }
   function addNewTag() {
     if (!note) return;
@@ -109,10 +135,15 @@
   }
 </script>
 
-<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} onblur={onclose} />
+<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onKey} onblur={close} />
+
+{#if isMobile}
+  <div class="scrim" class:hit={shown} style="opacity:{shown ? 0.4 : 0}"></div>
+{/if}
 
 <div
   class="ctx"
+  class:shown
   class:dragging={dragY !== null}
   bind:this={el}
   style={isMobile && dragY !== null ? `transform: translateY(${dragY}px)` : `left:${pos.left}px; top:${pos.top}px`}
@@ -244,14 +275,13 @@
 </div>
 
 <style>
-  .grab {
-    display: none;
+  .scrim {
+    z-index: 59;
   }
   .ctx.dragging {
     transition: none;
   }
   .ctx {
-    transition: transform 0.18s ease;
     position: fixed;
     z-index: 60;
     min-width: 200px;
@@ -277,12 +307,14 @@
     color: var(--color);
     border-radius: 4px;
   }
-  .item:hover {
-    background: #ffffff10;
-    color: var(--color2);
-  }
-  .item.danger:hover {
-    color: var(--red);
+  @media (hover: hover) {
+    .item:hover {
+      background: #ffffff10;
+      color: var(--color2);
+    }
+    .item.danger:hover {
+      color: var(--red);
+    }
   }
   .item:disabled {
     opacity: 0.4;

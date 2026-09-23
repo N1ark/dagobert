@@ -695,7 +695,8 @@
       {/if}
     </div>
     {#if isMobile}
-      <div class="bottombar">
+      <!-- Rides above a peeking sheet, and gets out of the way of a full one. -->
+      <div class="bottombar" class:raised={!!mobilePanel && !store.sheetFull} class:tucked={!!mobilePanel && store.sheetFull}>
         <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
           ><MagnifyingGlass size={ICON} /></button
         >
@@ -800,11 +801,13 @@
   />
 {/if}
 
-{#if store.error}
-  <div class="toast">{store.error}</div>
-{:else if store.notice}
-  <div class="toast notice">{store.notice}</div>
-{/if}
+<div class="toast-wrap">
+  {#if store.error}
+    <div class="toast">{store.error}</div>
+  {:else if store.notice}
+    <div class="toast notice">{store.notice}</div>
+  {/if}
+</div>
 
 <style>
   .app {
@@ -927,6 +930,19 @@
     display: flex;
     justify-content: space-evenly;
     align-items: center;
+    pointer-events: none;
+    transition:
+      transform var(--dur-sheet) var(--ease-sheet),
+      opacity 0.2s ease;
+  }
+  .bottombar.raised {
+    transform: translateY(calc(-1 * var(--sheet-peek)));
+  }
+  .bottombar.tucked {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  .bottombar.tucked button {
     pointer-events: none;
   }
   .bottombar button {
@@ -1092,15 +1108,27 @@
     padding: 2px 8px;
   }
 
+  /* Centred over everything, and above the phone's floating actions. */
+  .toast-wrap {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(20px + var(--safe-bottom));
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    padding: 0 16px;
+    pointer-events: none;
+  }
+  :global(body.mobile) .toast-wrap {
+    bottom: calc(var(--safe-bottom) + var(--btn) + 24px);
+  }
   .toast.notice {
     border-color: var(--border2);
     color: var(--color);
   }
   .toast {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+    max-width: 100%;
     background: var(--bg3);
     border: 1px solid var(--red);
     color: var(--color2);
@@ -1108,6 +1136,12 @@
     border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
     font-size: 13px;
-    z-index: 100;
+    animation: toast-in 0.24s var(--ease-sheet);
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
   }
 </style>

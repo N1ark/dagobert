@@ -24,36 +24,81 @@
     return () => (cancelAnimationFrame(frame), clearTimeout(timer));
   });
   let y = $state<number | null>(null);
-  let drag: { pointer: number; y: number; from: number; max: number; engaged: boolean; tap: boolean; el: HTMLElement } | null = null;
+  /** The three stops, read once per gesture: full, peek, and gone. */
+  let stops = $state<{ top: number; peek: number; max: number } | null>(null);
+  let drag: {
+    pointer: number;
+    y: number;
+    from: number;
+    engaged: boolean;
+    tap: boolean;
+    el: HTMLElement;
+    at: number;
+    lastY: number;
+    v: number;
+  } | null = null;
+
+  /** Past this, a flick decides the stop rather than where the finger let go. */
+  const FLING = 0.45; // px/ms
+  /** How far the sheet gives above its top stop before it stops moving at all. */
+  const RUBBER = 32;
+
+  /** How dimmed the canvas behind is: nothing at the peek, fully at the top. */
+  const dim = $derived.by(() => {
+    if (entering || leaving) return 0;
+    if (y === null || !stops) return full ? 1 : 0;
+    const span = Math.max(1, stops.peek - stops.top);
+    return Math.max(0, Math.min(1, (stops.peek - y) / span));
+  });
 
   /** Slides out before it's unmounted, so it leaves the way it arrived. */
   export function dismiss() {
     if (leaving) return;
     leaving = true;
-    setTimeout(onclose, 220);
+    y = null;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      onclose();
+    };
+    // Whichever comes first: the slide finishing, or the app never painting it.
+    const timer = setTimeout(finish, 600);
+    el?.addEventListener("transitionend", (e) => (e as TransitionEvent).propertyName === "transform" && finish());
   }
 
   function cssPx(name: string, fallback: number) {
     const v = parseFloat(getComputedStyle(el ?? document.body).getPropertyValue(name));
     return Number.isFinite(v) ? v : fallback;
   }
-  const topStop = () => cssPx("--sheet-top", 96);
-  const peek = () => cssPx("--sheet-peek", 148);
+
+  /** Where the sheet actually is, transition included, so a re-grab never jumps. */
+  function currentY(fallback: number) {
+    if (!el) return fallback;
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return Number.isFinite(m.m42) ? m.m42 : fallback;
+  }
 
   function begin(e: PointerEvent, engaged: boolean) {
-    if (!el) return;
+    if (!el || leaving) return;
     const max = el.getBoundingClientRect().height;
+    stops = { top: cssPx("--sheet-top", 96), peek: max - cssPx("--sheet-peek", 148), max };
+    const from = currentY(full ? stops.top : stops.peek);
     drag = {
       pointer: e.pointerId,
       y: e.clientY,
-      from: full ? topStop() : max - peek(),
-      max,
+      from,
       engaged,
       tap: engaged,
       el: e.currentTarget as HTMLElement,
+      at: e.timeStamp,
+      lastY: e.clientY,
+      v: 0,
     };
+    // Freeze it where it is: a gesture that starts mid-transition picks it up there.
+    y = from;
     if (engaged) {
-      y = drag.from;
       // Capturing before we know it's a drag would steal the click off whatever
       // was tapped, so content waits until the gesture commits.
       drag.el.setPointerCapture(e.pointerId);
@@ -81,25 +126,40 @@
     return null;
   }
 
+  /** Past the top stop the sheet gives a little and then stops: iOS's rubber band. */
+  const resist = (over: number) => (over * RUBBER) / (over + RUBBER);
+
   function onMove(e: PointerEvent) {
-    if (!drag || e.pointerId !== drag.pointer) return;
+    if (!drag || !stops || e.pointerId !== drag.pointer) return;
     const dy = e.clientY - drag.y;
     if (!drag.engaged) {
       // Upwards means they meant to scroll the contents; let go of the gesture.
-      if (dy < -6) return void (drag = null);
+      if (dy < -6) return void ((drag = null), (y = null));
       if (dy < 8) return;
       drag.engaged = true;
+      drag.at = e.timeStamp;
+      drag.lastY = e.clientY;
       drag.el.setPointerCapture(e.pointerId);
     }
-    y = Math.max(topStop(), Math.min(drag.max, drag.from + dy));
+    const dt = e.timeStamp - drag.at;
+    // Smoothed, so one stuttering frame at the end can't decide the whole gesture.
+    if (dt > 0) {
+      drag.v = 0.7 * ((e.clientY - drag.lastY) / dt) + 0.3 * drag.v;
+      drag.at = e.timeStamp;
+      drag.lastY = e.clientY;
+    }
+    const to = drag.from + dy;
+    y = to < stops.top ? stops.top - resist(stops.top - to) : Math.min(stops.max, to);
   }
 
   function onUp(e: PointerEvent) {
-    if (!drag) return;
-    const { max, from } = drag;
-    const at = y ?? from;
+    if (!drag || !stops) return;
+    const { max, top, peek } = stops;
+    const at = y ?? drag.from;
     const tapped = drag.tap && Math.abs(e.clientY - drag.y) < 6;
-    const engaged = drag.engaged;
+    const { engaged } = drag;
+    // A finger that came to rest before lifting was placing the sheet, not throwing it.
+    const v = e.timeStamp - drag.at > 80 ? 0 : drag.v;
     drag = null;
     y = null;
     if (tapped) {
@@ -108,13 +168,22 @@
     }
     // A tap on the contents is theirs, not a gesture on the panel.
     if (!engaged) return;
-    // Settle on whichever stop it was left nearest.
-    const stops = [topStop(), max - peek(), max];
-    const nearest = stops.reduce((a, b) => (Math.abs(b - at) < Math.abs(a - at) ? b : a));
-    if (nearest === max) dismiss();
-    else full = nearest === topStop();
+    const ordered = [top, peek, max];
+    // A flick goes to the next stop the way it was thrown; otherwise settle on
+    // whichever stop it was left nearest.
+    const target =
+      Math.abs(v) > FLING
+        ? v > 0
+          ? (ordered.find((s) => s > at + 1) ?? max)
+          : ([...ordered].reverse().find((s) => s < at - 1) ?? top)
+        : ordered.reduce((a, b) => (Math.abs(b - at) < Math.abs(a - at) ? b : a));
+    if (target === max) dismiss();
+    else full = target === top;
   }
 </script>
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="scrim" class:hit={dim > 0.05} class:dragging={y !== null} style="opacity:{dim * 0.45}" onpointerdown={dismiss}></div>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
@@ -141,6 +210,9 @@
 </div>
 
 <style>
+  .scrim {
+    z-index: 5;
+  }
   .sheet {
     display: flex;
     flex-direction: column;
@@ -157,7 +229,7 @@
     box-shadow: var(--shadow-lg);
     padding-bottom: var(--safe-bottom);
     transform: translateY(calc(100% - var(--sheet-peek)));
-    transition: transform 0.22s ease;
+    transition: transform var(--dur-sheet) var(--ease-sheet);
     will-change: transform;
     overflow: hidden;
   }
@@ -170,25 +242,6 @@
   }
   .sheet.dragging {
     transition: none;
-  }
-  .grab {
-    flex: none;
-    align-self: center;
-    width: 44px;
-    height: 20px;
-    padding: 0;
-    background: none;
-    border: none;
-    touch-action: none;
-  }
-  .grab::before {
-    content: "";
-    display: block;
-    width: 36px;
-    height: 4px;
-    margin: 8px auto;
-    border-radius: 2px;
-    background: var(--border2);
   }
   /* Whatever is inside fills what's left, and starts at the top. */
   .sheet :global(> :not(.grab)) {

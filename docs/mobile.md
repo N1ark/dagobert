@@ -88,6 +88,17 @@ its own mobile treatment. To add one:
    `{#if ... && !isMobile}` — otherwise it renders **twice** on a phone, and the invisible
    copy's backdrop eats every tap.
 
+The sheet settles on the stop a flick throws it at rather than the nearest one, gives a
+little above its top stop and springs back, and dims what it covers with a `.scrim` whose
+opacity follows the drag. It reads its own position out of the live transform, so a
+gesture that starts mid-animation picks the sheet up where it is. `--sheet-top` is
+registered with `@property` because `getComputedStyle` hands an unregistered custom
+property its `calc()` back unevaluated.
+
+The floating actions ride above a peeking sheet (`.bottombar.raised`) and drop away under
+a full one (`.tucked`); the grabber styling and the scrim are shared classes in
+`app.css`, used by `Sheet.svelte` and by the context menu's action sheet alike.
+
 `.dialog.bare` is the no-chrome form (`app.css` also strips the safe-area padding it would
 otherwise inherit from the full-screen dialog rule). Small confirmations that don't fill
 the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.

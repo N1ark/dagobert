@@ -22,6 +22,13 @@ All notable changes to Dagobert are documented here. The format follows
 - The editor keeps clear of the software keyboard, and autocorrect no longer rewrites
   markdown as it is typed.
 
+### Changed
+
+- Panels on a phone settle the way a flick throws them, dim what they cover, and give a
+  little at the top instead of stopping dead.
+- The phone's actions ride above a peeking panel rather than hiding behind it, and
+  buttons no longer stay lit after a tap.
+
 ## [0.7.1] - 2026-09-21
 
 ### Added
