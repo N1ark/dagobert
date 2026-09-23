@@ -6,50 +6,34 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
-### Changed
-
-- Unreachable repos are listed at the bottom of the pull requests panel, under their own
-  separator, instead of replacing the whole list with one error.
-- Git sync and the GitHub API only ever use the signed-in GitHub account: no ssh keys, no
-  credential helper, no `gh` CLI token. An ssh remote is moved onto HTTPS.
-
 ### Added
 
-- A file name in the trash reveals the file, like the one in the note panel.
 - Sign in with GitHub from settings or the welcome screen: you approve a code in your
   browser, and the same sign-in authenticates git over HTTPS. No more pasting tokens.
 - Adding a project picks from a searchable list of your repositories instead of asking
   for a URL.
-- On a phone the actions move to a bottom bar, and search opens from the bottom edge with
-  its results above it.
-- Notes, pull requests and settings all open in the same draggable panel, one at a time.
-- A phone layout: the note panel becomes a bottom sheet, the toolbar collapses to an
-  overflow menu, and projects are cloned from a URL instead of picked from a folder.
-- Touch input on the canvas: pinch to zoom, two-finger pan, long-press for the context
-  menu, hold a note to drag it, and double-tap to create or open one.
-- The editor keeps clear of the software keyboard, and autocorrect no longer rewrites
-  markdown as it is typed.
-
-### Fixed
-
-- A panel on a phone no longer runs off the bottom of the screen: settings with a long
-  workflow scrolls all the way down.
+- A phone layout: panels become draggable bottom sheets, the toolbar collapses to an
+  overflow menu, actions move to a bottom bar, and search opens from the bottom edge.
+- Touch input on the canvas: pinch to zoom, two-finger pan, flick to scroll, long-press
+  for the context menu, hold a note to drag it, and double-tap to create or open one.
+- A file name in the trash reveals the file, like the one in the note panel.
 
 ### Changed
 
-- Pull request titles and file names read as links, not as buttons, and the file name in
-  the trash gets its own line.
-- Closed and not-yet-loaded pull requests get their own pull-request icons.
-- Panels on a phone settle the way a flick throws them, dim what they cover, and give a
-  little at the top instead of stopping dead.
-- Flicking the canvas on a phone keeps it moving, and holding a note lifts it.
-- The phone's actions ride above a peeking panel rather than hiding behind it, and
-  buttons no longer stay lit after a tap.
+- Notes, pull requests and settings all open in the same panel, one at a time.
+- Unreachable repos are listed at the bottom of the pull requests panel, under their own
+  separator, instead of replacing the whole list with one error.
+- Git sync and the GitHub API only ever use the signed-in GitHub account: no ssh keys, no
+  credential helper, no `gh` CLI token. An ssh remote is moved onto HTTPS.
+- Pull request titles and file names read as links, not as buttons, and closed and
+  not-yet-loaded pull requests get their own icons.
 - Dragging across buttons, labels and dialogs no longer selects their text.
-- The phone's actions follow a panel as it is dragged instead of catching up afterwards.
-- Opening search on a phone no longer shifts the whole screen, and the palette can't be
-  dragged around.
-- Search slides up with the keyboard on a phone instead of appearing on top of it.
+
+### Fixed
+
+- The editor and search keep clear of the software keyboard, and autocorrect no longer
+  rewrites markdown as it is typed.
+- The mention picker follows the caret in a newly added block, as it does in every other.
 
 ## [0.7.1] - 2026-09-21
 
