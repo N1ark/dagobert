@@ -605,7 +605,7 @@ body.mobile .dialog footer.keys {
    results stay above the thumb, and there is backdrop left to tap to dismiss. */
 body.mobile .backdrop.palette {
   align-items: flex-end;
-  padding: 0 var(--safe-right) max(var(--kb, 0px), var(--safe-bottom)) var(--safe-left);
+  padding: 0 var(--safe-right) var(--kb, 0px) var(--safe-left);
   /* The padding is what the keyboard moves, so it carries the rise. */
   background: transparent;
   transition:
@@ -619,7 +619,9 @@ body.mobile .backdrop.palette.shown {
 
 body.mobile .backdrop.palette .dialog {
   transform: translateY(100%);
-  transition: transform var(--dur-sheet) var(--ease-sheet);
+  transition:
+    transform var(--dur-sheet) var(--ease-sheet),
+    padding-bottom var(--dur-sheet) var(--ease-sheet);
 }
 
 body.mobile .backdrop.palette.shown .dialog {
@@ -638,7 +640,9 @@ body.mobile .backdrop.palette .dialog {
   flex-direction: column-reverse;
   border-radius: 12px 12px 0 0;
   padding-top: 0;
-  padding-bottom: 0;
+  /* Flush with the bottom edge: the home indicator's inset is the palette's own
+     colour, not a strip of canvas the keyboard was covering. */
+  padding-bottom: max(0px, var(--safe-bottom) - var(--kb, 0px));
 }
 
 /* Hover-only affordances have nowhere to hover: keep them visible. */
