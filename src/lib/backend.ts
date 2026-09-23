@@ -326,10 +326,10 @@ export const backend = {
     return true;
   },
 
-  /** Show the note's file in Finder / Explorer. */
-  async revealNote(path: string, file: string) {
+  /** Show the note's file in Finder / Explorer; trashed notes live in `trash/`. */
+  async revealNote(path: string, file: string, dir: "notes" | "trash" = "notes") {
     if (!inTauri || isMobile) return;
-    await revealItemInDir(`${path}/notes/${file}`);
+    await revealItemInDir(`${path}/${dir}/${file}`);
   },
 
   // ---- GitHub sign-in --------------------------------------------------------

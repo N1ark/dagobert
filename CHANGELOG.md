@@ -15,6 +15,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
+- A file name in the trash reveals the file, like the one in the note panel.
 - Sign in with GitHub from settings or the welcome screen: you approve a code in your
   browser, and the same sign-in authenticates git over HTTPS. No more pasting tokens.
 - Adding a project picks from a searchable list of your repositories instead of asking

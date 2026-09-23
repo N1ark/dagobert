@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { store } from "./store.svelte";
+  import { isMobile } from "./backend";
   import { relative, absolute } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import X from "phosphor-svelte/lib/X";
@@ -60,7 +61,11 @@
                 <span title={n.deleted ? absolute(n.deleted) : ""}
                   >{t("trash.deleted", { when: n.deleted ? relative(n.deleted) : t("app.dash") })}</span
                 >
-                <span class="file">{n.file}</span>
+                {#if isMobile}
+                  <span class="file">{n.file}</span>
+                {:else}
+                  <button class="ghost link file" title={t("panel.reveal")} onclick={() => store.revealTrashed(n.file)}>{n.file}</button>
+                {/if}
               </div>
             </div>
             <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> {t("trash.restore")}</button>
@@ -210,11 +215,17 @@
   }
   .file {
     flex-basis: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
     font-family: var(--mono);
+    font-size: 11px;
     color: #555;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .file:hover {
+    color: var(--accent2);
   }
   .sm {
     font-size: 12px;

@@ -941,6 +941,11 @@ class Store {
     backend.revealNote(this.path, n.file).catch((e) => this.fail(e));
   }
 
+  revealTrashed(file: string) {
+    if (!this.path) return;
+    backend.revealNote(this.path, file, "trash").catch((e) => this.fail(e));
+  }
+
   /**
    * Mobile stand-in for the file watcher: re-read the project and route it
    * through `applyExternal`, which protects saves that are still in flight
