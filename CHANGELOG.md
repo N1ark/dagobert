@@ -24,6 +24,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Closed and not-yet-loaded pull requests get their own pull-request icons.
 - Panels on a phone settle the way a flick throws them, dim what they cover, and give a
   little at the top instead of stopping dead.
 - Flicking the canvas on a phone keeps it moving, and holding a note lifts it.

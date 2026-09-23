@@ -1,16 +1,16 @@
 <script lang="ts">
   // State icon for a PR or issue; pass `item`, or a `prCache` `key` to read it live
-  // (a grey question mark while the key is still unknown, so nothing shifts on refresh).
+  // (a grey question-marked PR while the key is still unknown, so nothing shifts on refresh).
   import type { IssueRef } from "./github";
   import { prCache, stateLabel } from "./prs.svelte";
   import { tooltip } from "./tooltip";
   import { t } from "./i18n";
   import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
   import GitMerge from "phosphor-svelte/lib/GitMerge";
-  import XCircle from "phosphor-svelte/lib/XCircle";
   import Circle from "phosphor-svelte/lib/Circle";
   import CheckCircle from "phosphor-svelte/lib/CheckCircle";
-  import Question from "phosphor-svelte/lib/Question";
+  import GitPullRequestClosed from "./GitPullRequestClosed.svelte";
+  import GitPullRequestUnknown from "./GitPullRequestUnknown.svelte";
 
   let { item, key, size = 13, detail = false }: { item?: IssueRef | null; key?: string; size?: number; detail?: boolean } = $props();
 
@@ -24,12 +24,12 @@
   <span class="pr-icon {ref.state}" class:draft={ref.draft} use:tooltip={label}>
     {#if !ref.isPr}
       {#if ref.state === "closed"}<CheckCircle {size} />{:else}<Circle {size} />{/if}
-    {:else if ref.state === "merged"}<GitMerge {size} />{:else if ref.state === "closed"}<XCircle {size} />{:else}<GitPullRequest
+    {:else if ref.state === "merged"}<GitMerge {size} />{:else if ref.state === "closed"}<GitPullRequestClosed
         {size}
-      />{/if}
+      />{:else}<GitPullRequest {size} />{/if}
   </span>
 {:else if unknown}
-  <span class="pr-icon unknown" use:tooltip={t("prs.loading")}><Question {size} /></span>
+  <span class="pr-icon unknown" use:tooltip={t("prs.loading")}><GitPullRequestUnknown {size} /></span>
 {/if}
 
 <style>
