@@ -7,6 +7,9 @@ const host = process.env.TAURI_DEV_HOST;
 export default defineConfig(async () => ({
   plugins: [svelte()],
 
+  // Everything ships on disk with the app, so a big single chunk is fine.
+  build: { chunkSizeWarningLimit: 1000 },
+
   // Vite options tailored for Tauri development
   clearScreen: false,
   server: {
