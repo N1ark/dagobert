@@ -1,7 +1,4 @@
-//! Resolves the conflicts a pull leaves behind so the repository is never left
-//! mid-merge. Notes are merged by rule (see `CLAUDE.md`): the side with the
-//! later `modified` wins the frontmatter, tags and deps are merged three-way, and the
-//! body is three-way merged, keeping git's conflict markers when it can't be.
+//! Resolves the conflicts a pull leaves, by the rules in docs/storage-and-sync.md.
 
 use crate::git::{self, Result};
 use crate::store::{self, Note};
@@ -49,8 +46,7 @@ fn side(bytes: &Blob, file: &str) -> Side {
     }
 }
 
-/// Three-way list merge: ours first, then theirs' additions; an item one side
-/// removed (it was in the ancestor) stays removed.
+/// Three-way list merge: ours, then theirs' additions; what either side removed stays removed.
 fn merge_list(anc: &[String], a: &[String], b: &[String]) -> Vec<String> {
     let removed = |x: &String| anc.contains(x) && (!a.contains(x) || !b.contains(x));
     let mut out: Vec<String> = a.iter().filter(|x| !removed(x)).cloned().collect();
@@ -62,8 +58,7 @@ fn merge_list(anc: &[String], a: &[String], b: &[String]) -> Vec<String> {
     out
 }
 
-/// Merged frontmatter, whether ours won, and the deps added on one side only
-/// (each with the `modified` of the side that has it, for the cycle check).
+/// Merged frontmatter, whether ours won, and the one-sided deps with their stamps.
 fn merge_frontmatter(
     ours: &Note,
     theirs: &Note,
@@ -279,8 +274,7 @@ struct Ctx<'a> {
     /// Project root relative to the work tree.
     prefix: PathBuf,
     root: &'a Path,
-    /// Every note in the merge base, by id (a rename on both sides leaves the
-    /// conflicted paths without an ancestor).
+    /// Every note in the merge base, by id; a rename on both sides leaves no ancestor.
     base: HashMap<String, Note>,
     report: Vec<Conflict>,
     /// (dependent id, dep id, stamp of the side that has the edge).
@@ -352,8 +346,7 @@ impl Ctx<'_> {
         out
     }
 
-    /// Merges two versions of one note and writes the result at the winner's
-    /// file name, dropping the loser's file when it differs.
+    /// Merges two versions of a note at the winner's file name, dropping the loser's.
     fn merge_pair(
         &mut self,
         index: &mut git2::Index,
@@ -457,8 +450,7 @@ impl Ctx<'_> {
         Ok(())
     }
 
-    /// Two files with the same id (a note renamed on both sides slips past git
-    /// as a delete plus two adds) are merged into one.
+    /// Two files with one note's id, as a rename on both sides leaves, are merged into one.
     fn dedupe(
         &mut self,
         index: &mut git2::Index,
@@ -503,8 +495,7 @@ impl Ctx<'_> {
         Ok(())
     }
 
-    /// Rule 3: of the edges added since the merge base (on either side, whether
-    /// or not git saw a conflict), newest first, keep those that don't close a cycle.
+    /// Rule 3: of the edges added since the merge base, newest first, keep the acyclic ones.
     fn break_cycles(&mut self, index: &mut git2::Index) -> Result<()> {
         let mut notes: HashMap<String, Note> = store::read_notes(&store::notes_dir(self.root))?
             .into_iter()
@@ -514,8 +505,7 @@ impl Ctx<'_> {
             .iter()
             .map(|(k, n)| (k.clone(), n.deps.clone()))
             .collect();
-        // A merged note's stamp is the later side's; `merge_pair` knows which
-        // side actually added each edge.
+        // A merged note carries the later stamp, so ask `merge_pair` who added each edge.
         let stamps: HashMap<(&str, &str), &str> = self
             .candidates
             .iter()
@@ -580,9 +570,7 @@ impl Ctx<'_> {
     }
 }
 
-/// Completes the merge left by `git::pull` (`PullOutcome::Merging`): resolves
-/// every conflict, folds files that share a note id (a rename on both sides
-/// slips past git as two adds), commits with `message`, and lists the notes touched.
+/// Finishes the merge `git::pull` left: resolve, fold, commit, and list the notes touched.
 pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
     let mut repo = git::open(root)?.ok_or("not a repository")?;
     if repo.state() != git2::RepositoryState::Merge {
@@ -680,8 +668,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
             Kind::Other => foreign.push(path.to_string_lossy().to_string()),
         }
     }
-    // Conflicts in files that aren't ours are the user's to resolve with git;
-    // the merge stays in progress and every cycle reports it until then.
+    // A conflict outside our files is the user's; the merge stays in progress until they fix it.
     if !foreign.is_empty() {
         foreign.sort();
         return Err(format!(
@@ -711,8 +698,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         ctx.stage(&mut index, Path::new(".gitignore"), &merged)?;
     }
 
-    // Rule 6. Git can also line-merge two edits "cleanly" into invalid JSON, in
-    // which case the file is rebuilt from both sides' versions.
+    // Rule 6; a clean line-merge can still make invalid JSON, so rebuild from both sides.
     let meta_rel = Path::new("dagobert.json");
     let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
     let on_disk = fs::read(root.join(meta_rel)).ok();
@@ -744,8 +730,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
     Ok(report)
 }
 
-/// Stages a conflicted file as it sits in the work tree (libgit2 already wrote
-/// markers into it); the user sorts it out with git.
+/// Stages a conflicted file with the markers libgit2 wrote, for the user to sort out.
 fn keep_worktree(index: &mut git2::Index, path: &Path) -> Result<()> {
     match index.add_path(path) {
         Ok(()) => Ok(()),
@@ -1053,8 +1038,7 @@ mod tests {
                 note("d", "D", "m1", &[]),
             ],
         );
-        // Both rename (two adds, no conflicted path), only a edits the body,
-        // only b removes a tag and the dep.
+        // Both rename, only a edits the body, only b removes a tag and the dep.
         edit(&a, "x", |n| {
             n.title = "From a".into();
             n.body = "edited on a".into();

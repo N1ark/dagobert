@@ -1,8 +1,4 @@
-/**
- * Keyboard shortcuts, in display form (`⇧⌘K`). Strings in the locale never spell
- * them out; they take a placeholder filled from here. `menu.ts` turns them into
- * accelerators, `matches` checks a `KeyboardEvent` against one.
- */
+/** Keyboard shortcuts in display form (`⇧⌘K`); locale strings take a placeholder, never these. */
 export const keys = {
   "new-note": "⌘N",
   "open-folder": "⌘O",

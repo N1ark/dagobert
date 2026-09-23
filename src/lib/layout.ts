@@ -1,7 +1,4 @@
-/**
- * Layered ("Sugiyama-lite") layout for the DAG: dependencies on the left,
- * dependents to the right, matching the edge direction on the canvas.
- */
+/** Layered layout for the DAG: dependencies left, dependents right, as the edges are drawn. */
 
 export interface LayoutNode {
   id: string;

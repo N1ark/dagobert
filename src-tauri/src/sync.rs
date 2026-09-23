@@ -1,7 +1,4 @@
-//! The git sync cycle and its lifecycle: `sync` = commit if dirty → pull →
-//! resolve → push, serialised by a process-wide lock so the timer, ⌘S and quit
-//! never overlap. The timer is a plain thread that emits `git-tick`; the
-//! frontend answers by flushing its debounced saves and calling `git_sync`.
+//! The git sync cycle and its lifecycle, under one lock (see docs/storage-and-sync.md).
 
 use crate::git::{self, GitStatus, PullOutcome};
 use crate::merge::{self, Conflict};
@@ -16,9 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 pub const TIMEOUT: Duration = Duration::from_secs(60);
 pub const QUIT_TIMEOUT: Duration = Duration::from_secs(10);
 #[cfg(desktop)]
-/// The quit goes through regardless once this has elapsed (connecting and
-/// authenticating aren't covered by `QUIT_TIMEOUT`, nor is a frontend that
-/// never answers).
+/// The quit goes through regardless once this has elapsed, whatever is still waiting.
 pub const QUIT_DEADLINE: Duration = Duration::from_secs(20);
 
 #[derive(Default)]
@@ -55,8 +50,7 @@ pub fn cycle(root: &Path, token: Option<&str>, stamp: &str, timeout: Duration) -
         let save = format!("dagobert auto-save {stamp}");
         r.committed = git::commit_if_dirty(root, &save)?;
         let pulled = if git::fetch(root, token, Some(timeout))? {
-            // A note saved while fetching would otherwise be skipped by the
-            // checkout and silently overwrite the remote's version.
+            // A note saved while fetching would be skipped by the checkout and bury the remote's.
             r.committed |= git::commit_if_dirty(root, &save)?;
             git::merge_fetched(root, &save)?
         } else {
@@ -115,10 +109,7 @@ pub fn configure(app: AppHandle, state: &GitState, enabled: bool, interval_min: 
     });
 }
 
-/// Whether a close/exit should be held back for a final sync. The first call
-/// with tracking on answers `true` and emits `git-quit` (carrying `reason`);
-/// the frontend syncs and then calls `git_quit`, whose `finish_quit` lets the
-/// close/exit it triggers through.
+/// Whether a close/exit waits for a final sync; the first call emits `git-quit` and holds it.
 #[cfg(desktop)]
 pub fn intercept_quit(app: &AppHandle, state: &GitState, reason: &str) -> bool {
     if !state.enabled.load(Ordering::SeqCst) || state.finished.load(Ordering::SeqCst) {
@@ -197,8 +188,7 @@ mod tests {
         assert!(cycle(&b, None, "t", TIMEOUT).error.is_none());
         write_note(&a, "a.md", "a", "A", "v2 from a");
         assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
-        // b saves while the fetch is in flight: a plain fast-forward would keep
-        // b's text and the next commit would bury a's v2.
+        // b saves mid-fetch: a fast-forward would keep b's text and bury a's v2.
         assert!(git::fetch(&b, None, Some(TIMEOUT)).unwrap());
         write_note(&b, "a.md", "a", "A", "v2 from b");
         assert!(git::commit_if_dirty(&b, "late save").unwrap());
@@ -220,8 +210,7 @@ mod tests {
         assert!(cycle(&b, None, "t", TIMEOUT).error.is_none());
         write_note(&a, "a.md", "a", "A", "v2 from a");
         assert!(cycle(&a, None, "t", TIMEOUT).error.is_none());
-        // b (a standalone window) saves after the second commit, right before
-        // the fast-forward checkout would have skipped the file.
+        // b saves after the second commit, just before the checkout would have skipped the file.
         assert!(git::fetch(&b, None, Some(TIMEOUT)).unwrap());
         assert!(!git::commit_if_dirty(&b, "nothing").unwrap());
         write_note(&b, "a.md", "a", "A", "v2 from b");

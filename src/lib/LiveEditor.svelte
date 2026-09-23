@@ -14,10 +14,7 @@
   import { keys } from "./keys";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict } from "./blocks";
 
-  /**
-   * Obsidian-style live preview: the body is shown rendered, block by block.
-   * The block holding the cursor is swapped for a textarea with its raw markdown.
-   */
+  /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
   let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
 
   let container = $state<HTMLDivElement | null>(null);
@@ -200,16 +197,14 @@
     const el = textarea!;
     draft = el.value;
     autosize();
-    // A blank line inside the draft splits it into several blocks; keep the
-    // caret in the right one.
+    // A blank line splits the draft in two; follow the caret into the right block.
     const parts = splitBlocks(draft);
     if (parts.length > 1) {
       const { index, offset } = locate(draft, el.selectionStart);
       activate(active! + index, offset);
       return;
     }
-    // Live-sync so the card preview and search see edits. An empty draft is
-    // not synced (it can't be represented in markdown) until we leave it.
+    // Sync as we type so cards and search see the edit; an empty draft has no markdown to sync.
     if (draft.trim() !== "") {
       const caret = el.selectionStart;
       setBody(joinBlocks(withDraft()));
@@ -321,8 +316,7 @@
       return;
     }
     mention = null;
-    // Once open, the picker stays anchored so the query may contain spaces;
-    // it closes on Escape, a pick, a newline, or the caret leaving the query.
+    // An open picker stays anchored (so the query may hold spaces) until the caret leaves it.
     if (issue) {
       const from = issue.start + issue.alias.length + 1;
       const typed = el.value.slice(from, caret);

@@ -1,14 +1,4 @@
-/**
- * WebGL renderer behind Grain.svelte: the background grain, halo, dot grid and edge
- * travellers. Pure WebGL1 + typed arrays, no Svelte, so it can be driven by a
- * benchmark/regression page as well as by the component.
- *
- * Two passes per frame:
- *  1. travellers: one small quad per sand grain riding an edge, drawn into an
- *     offscreen RGBA8 texture the size of the canvas with MAX blending. Cost is
- *     proportional to the number of grains, not to the screen area they may cover.
- *  2. main (grain.frag): full-screen; samples that texture once per fragment.
- */
+/** WebGL1 renderer behind Grain.svelte, free of Svelte so a bench page can drive it too. */
 import commonSrc from "./grain.glsl?raw";
 import mainFragSrc from "./grain.frag?raw";
 import travVertSrc from "./travellers.vert?raw";

@@ -1,8 +1,4 @@
-/**
- * GitHub App sign-in. The code is approved in the user's own browser; nothing
- * is typed into the app and no token is ever pasted. The resulting session
- * authenticates both the REST API and git over HTTPS.
- */
+/** GitHub App sign-in: a code approved in the browser, for both the REST API and git. */
 import { backend } from "./backend";
 import { secrets, type Session } from "./secrets";
 import { t } from "./i18n";

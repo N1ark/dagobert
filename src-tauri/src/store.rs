@@ -1,9 +1,4 @@
-//! On-disk project format.
-//!
-//! A project is a folder. Each note is `notes/<slug>.md` with a YAML
-//! frontmatter block holding metadata, followed by the markdown body.
-//! Shared settings live in `dagobert.json` at the project root; per-machine
-//! state (the viewport) in `dagobert.local.json` next to it.
+//! On-disk project format: a folder of `notes/<slug>.md` (see docs/storage-and-sync.md).
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
@@ -361,8 +356,7 @@ pub fn open(root: &Path) -> Result<Project, String> {
     })
 }
 
-/// Writes a note to disk, renaming its file if the title changed.
-/// Returns the note with its (possibly new) `file` set.
+/// Writes a note, renaming its file if the title changed, and returns it with `file` set.
 pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
     let dir = notes_dir(root);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -394,9 +388,7 @@ pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
     Ok(note)
 }
 
-/// Soft-deletes a note by moving it into `trash/`, stamping `deleted`.
-/// Never overwrites: a clashing name in the trash gets a unique suffix.
-/// Returns the note as it now sits in the trash.
+/// Moves a note into `trash/` with a `deleted` stamp, suffixing a name already taken there.
 pub fn delete_note(root: &Path, file: &str, deleted_at: &str) -> Result<Option<Note>, String> {
     let src = notes_dir(root).join(file);
     if !src.exists() {
@@ -493,8 +485,7 @@ fn try_read_meta(root: &Path) -> Result<Option<Meta>, String> {
     }
 }
 
-/// Refuses to write over a file it can't parse, so a damaged `dagobert.json`
-/// is never silently replaced by defaults.
+/// Refuses to write over a `dagobert.json` it can't parse, rather than replace it with defaults.
 pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     let mut meta = try_read_meta(root)?.unwrap_or_default();
     if let Some(t) = patch.tag_colors {

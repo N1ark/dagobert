@@ -1,11 +1,5 @@
 <script lang="ts">
-  /**
-   * WebGL background: a discreet, animated film grain that lives around the
-   * edges of the frame and haloes the selected nodes, plus sand grains riding
-   * the selected node's edges. Purely decorative; pointer-events are off and it
-   * degrades to nothing without WebGL. Rendering lives in grainGL.ts; this
-   * component owns the props, the fade-in bookkeeping and the frame loop.
-   */
+  /** Decorative WebGL film grain and node haloes; drawing lives in grainGL.ts (docs/canvas.md). */
   import { onMount } from "svelte";
   import { createGrain, MAX_CURVES, MAX_RECTS, type GrainFrame, type GrainRenderer } from "./grainGL";
 
@@ -93,9 +87,7 @@
 
   function loop(t: number) {
     raf = requestAnimationFrame(loop);
-    // The input effect below draws synchronously whenever the camera or selection
-    // changes; while panning that happens every frame, and drawing again here would
-    // double the GPU work (a full-screen pass at device resolution) for no visible gain.
+    // The effect below already drew this frame; a second full-screen pass buys nothing.
     if (performance.now() - drawnAt < 6) return;
     render(t);
   }
@@ -169,11 +161,7 @@
     renderer.render(bufW, bufH, frame);
   }
 
-  // Under reduced motion the texture is still; re-render only when inputs change.
-  // Draw right away when the camera/selection changes: this effect runs in the same
-  // microtask that patches the DOM, so the canvas and the nodes land in the same paint.
-  // Waiting for the next rAF can put the halo a frame behind the node while dragging
-  // (WebKit doesn't align pointer events to rAF), which reads as the halo trailing.
+  // Draw here rather than on the next rAF, so the halo lands in the same paint as the node.
   $effect(() => {
     void rects;
     void curves;
@@ -199,8 +187,7 @@
     canvas.addEventListener("webglcontextlost", lost);
     canvas.addEventListener("webglcontextrestored", restored);
 
-    // Resize the buffer as soon as layout changes (before paint) and draw
-    // immediately, so the old frame is never shown stretched.
+    // Resize and draw before paint, so the old frame is never shown stretched.
     const ro = new ResizeObserver((entries) => {
       const e = entries[0];
       const box = e.devicePixelContentBoxSize?.[0];

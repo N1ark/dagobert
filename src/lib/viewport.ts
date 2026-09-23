@@ -1,9 +1,4 @@
-/**
- * World bounds. Everything (nodes and the camera) lives inside the square
- * [-WORLD, WORLD]²: far enough for any real graph, close enough to the origin that
- * float32 in the grain shader keeps sub-pixel precision (the per-cell hash wraps at
- * 8192 anyway). Pan/zoom code clamps to it; `Canvas` draws the border.
- */
+/** Half-width of the square everything lives in; small enough for float32 in the grain shader. */
 export const WORLD = 20000;
 
 /** How far past the world edge the camera may look, in screen px, so the border is visible. */
@@ -15,12 +10,7 @@ export interface Viewport {
   zoom: number;
 }
 
-/**
- * Keep the visible world rectangle inside the world bounds plus `MARGIN` screen px on
- * each side (so the border is on screen when you hit the limit). Returns the clamped
- * offset (zoom untouched); when the view is wider than the world on an axis, the
- * world is centred on that axis. `viewW`/`viewH` are the canvas size in screen px.
- */
+/** The offset (zoom untouched) that keeps the view inside the world plus `MARGIN` screen px. */
 export function clampViewport(vp: Viewport, viewW: number, viewH: number): { x: number; y: number } {
   const z = vp.zoom;
   const axis = (v: number, size: number) => {

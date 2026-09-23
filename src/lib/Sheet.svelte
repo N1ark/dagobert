@@ -2,13 +2,7 @@
   import type { Snippet } from "svelte";
   import { t } from "./i18n";
 
-  /**
-   * The one panel a phone shows at a time: a note, the pull requests or the
-   * settings. Always full height and slid down by a transform, so dragging it
-   * moves it on the compositor rather than re-laying out its contents. It stops
-   * short of the top bar so the thumb and the panel's own header stay clear of
-   * the status bar.
-   */
+  /** The one panel a phone shows at a time, slid down by a transform so dragging stays on the GPU. */
   let { full = $bindable(false), onclose, children }: { full?: boolean; onclose: () => void; children: Snippet } = $props();
 
   let el = $state<HTMLDivElement | null>(null);
@@ -16,9 +10,7 @@
   let entering = $state(true);
   let leaving = $state(false);
   $effect(() => {
-    // A frame later, so the browser paints the off-screen position first. The
-    // timeout is the safety net: frames don't run while the app is backgrounded,
-    // and the panel must not be stuck off-screen when it comes back.
+    // A frame later, so the off-screen position is painted first; the timer covers a lost frame.
     const frame = requestAnimationFrame(() => (entering = false));
     const timer = setTimeout(() => (entering = false), 100);
     return () => (cancelAnimationFrame(frame), clearTimeout(timer));
@@ -119,18 +111,14 @@
     // Freeze it where it is: a gesture that starts mid-transition picks it up there.
     y = from;
     if (engaged) {
-      // Capturing before we know it's a drag would steal the click off whatever
-      // was tapped, so content waits until the gesture commits.
+      // Content waits for the gesture to commit: capturing early steals the tap.
       drag.el.setPointerCapture(e.pointerId);
     }
   }
 
   const onDown = (e: PointerEvent) => begin(e, true);
 
-  /**
-   * Anywhere that isn't a control drags the panel too, but only downwards and
-   * only from the top of its scroll, so reading the contents still scrolls.
-   */
+  /** Anything but a control drags the panel, but only from the top of its scroll. */
   function onBodyDown(e: PointerEvent) {
     const target = e.target as HTMLElement;
     if (target.closest("button, a, input, textarea, select, [contenteditable], .grab")) return;
@@ -189,8 +177,7 @@
     // A tap on the contents is theirs, not a gesture on the panel.
     if (!engaged) return;
     const ordered = [top, peek, max];
-    // A flick goes to the next stop the way it was thrown; otherwise settle on
-    // whichever stop it was left nearest.
+    // A flick carries to the next stop the way it was thrown; a slow drag settles on the nearest.
     const target =
       Math.abs(v) > FLING
         ? v > 0

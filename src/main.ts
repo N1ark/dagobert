@@ -5,9 +5,7 @@ import { backend, inTauri, isMobile } from "./lib/backend";
 
 document.body.classList.toggle("mobile", isMobile);
 
-// The keyboard's height comes from UIKit, because WKWebView never tells the web
-// layer about it. `--kb` is how much of the screen it covers; the shell shrinks
-// by that much, so nothing has to be scrolled out of its way.
+// `--kb` is how much of the screen the keyboard covers; WKWebView only knows via UIKit.
 if (isMobile) {
   const setKb = (px: number) => document.documentElement.style.setProperty("--kb", `${Math.max(0, Math.round(px))}px`);
   backend.onKeyboard(setKb);

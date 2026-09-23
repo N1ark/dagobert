@@ -26,7 +26,7 @@
   let picking = $state<string | null>(null);
   let editingWorkflows = $state(false);
   let adding = $state<string | null>(null);
-  // Panel is re-keyed per note, so the initial value is exactly what we want.
+  // The panel is re-keyed per note, so the initial value is the right one.
   // svelte-ignore state_referenced_locally
   let titleBefore = note.title;
 
@@ -40,8 +40,7 @@
   const progress = $derived(note.tracking ? store.progress(note) : null);
   let titleEl = $state<HTMLInputElement | null>(null);
 
-  // Longest titles first: flex-wrap packs greedily, so first-fit-decreasing
-  // ends up with the fewest rows.
+  // Longest first: flex-wrap packs greedily, so first-fit-decreasing needs the fewest rows.
   const packed = (notes: Note[]) => [...notes].sort((a, b) => b.title.length - a.title.length || a.title.localeCompare(b.title));
   const deps = $derived(packed(store.dependencies(note.id)));
   const dependents = $derived(packed(store.dependents(note.id)));

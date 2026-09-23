@@ -1,5 +1,4 @@
-/** Whether the minimap is showing. Shared because the toggle lives in the
- *  toolbar on mobile, while the map itself is drawn inside the canvas. */
+/** Whether the minimap is showing; shared, because on mobile the toggle sits in the toolbar. */
 const KEY = "dagobert.minimap";
 
 export const minimap = $state({ open: localStorage.getItem(KEY) !== "0" });

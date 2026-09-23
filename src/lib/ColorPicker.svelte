@@ -39,9 +39,7 @@
   /** Swatch this panel session added to the palette, so tuning replaces it rather than piling up entries. */
   let added: string | null = null;
 
-  /** The native colour input fires `input` while dragging and `change` per click (WebKit fires both for
-   *  every selection), so neither closes the popover; the colour is applied live and the popover stays
-   *  open until the user dismisses it. */
+  /** Applied live: WebKit fires both `input` and `change` per selection, so neither can close the popover. */
   function preview() {
     onpick(input.value);
   }

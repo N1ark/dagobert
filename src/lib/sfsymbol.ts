@@ -1,11 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { Image } from "@tauri-apps/api/image";
 
-/**
- * SF Symbols for native menu items. Rust renders the symbol to PNG (black on
- * transparent); we centre it on a square canvas and tint it for the current
- * appearance, since a menu image is not a template image once it's RGBA.
- */
+/** SF Symbols for native menu items: Rust renders the PNG, we centre and tint it. */
 const cache = new Map<string, Promise<Image | null>>();
 
 export function sfSymbolImage(names: string[], dark: boolean, size = 36): Promise<Image | null> {

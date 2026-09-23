@@ -1,8 +1,4 @@
-//! Managed application state, shared by every target.
-//!
-//! [`Recent`] tracks paths the app itself wrote so the desktop file watcher
-//! doesn't echo our own saves back; the commands mark them on every target so
-//! the bookkeeping stays in one place.
+//! Managed state: [`Recent`] holds paths we just wrote, so the watcher doesn't echo our saves.
 
 use std::collections::HashMap;
 #[cfg(any(desktop, test))]
@@ -37,8 +33,7 @@ impl Recent {
         }
     }
 
-    /// True when `path` was written within the suppression window.
-    /// Expired entries are forgotten.
+    /// True when `path` was written within the suppression window; expired entries are dropped.
     #[cfg(desktop)]
     pub fn is_recent(&self, path: &Path) -> bool {
         self.is_recent_at(path, Instant::now())

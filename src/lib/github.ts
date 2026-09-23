@@ -30,12 +30,7 @@ function rateLimited(res: Response) {
   return res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0";
 }
 
-/**
- * Repos the signed-in token can't reach, so we go straight to an anonymous read
- * next time. Learned rather than looked up: an installation list would have to
- * page through every repo of an "all repositories" install and would go stale
- * the moment the app is installed somewhere new.
- */
+/** Repos the token can't reach, learned as we go, so the next read skips straight to anonymous. */
 const readAnonymously = new Set<string>();
 let scopeOf: string | null = null;
 
@@ -52,9 +47,7 @@ async function scopedToken(repo?: string): Promise<string | null> {
 async function api<T>(path: string, repo?: string): Promise<T> {
   const tok = await scopedToken(repo);
   let res = await send(path, tok);
-  // A GitHub App token only reaches repositories the app is installed on, and
-  // answers 404/403 for the rest. Public data needs no token at all, so drop it
-  // and retry — that keeps aliases working for any public repo.
+  // An app token 404s on repos it isn't installed on; public data needs no token, so retry without.
   if (tok && !res.ok && (res.status === 404 || (res.status === 403 && !rateLimited(res)))) {
     const anon = await send(path, null);
     if (anon.ok) {
@@ -90,11 +83,7 @@ async function pages<T>(path: string, pick: (body: never) => T[]): Promise<T[]> 
   return out;
 }
 
-/**
- * The repositories the app can reach, alphabetically. This is the one place an
- * installation list is worth fetching: the user is picking from it, so it has
- * to be complete and current.
- */
+/** The repositories the app can reach, alphabetically; the one place worth a full listing. */
 export async function listRepos(): Promise<RepoRef[]> {
   const installs = await pages<{ id: number }>("/user/installations", (b: { installations: { id: number }[] }) => b.installations);
   const repos: RepoRef[] = [];
@@ -161,10 +150,7 @@ export function invalidate() {
   cache.clear();
 }
 
-/**
- * One issue/PR by number. Served from the repo's recent list when it's there,
- * otherwise fetched (and cached) on its own. Null when it doesn't exist.
- */
+/** One issue/PR by number, from the recent list or fetched on its own; null when missing. */
 export async function issue(repo: string, number: number): Promise<IssueRef | null> {
   const recent = await recentIssues(repo);
   const hit = recent.find((r) => r.number === number);
@@ -189,11 +175,7 @@ function matches(ref: IssueRef, q: string): boolean {
   return ref.title.toLowerCase().includes(ql) || String(ref.number).startsWith(ql);
 }
 
-/**
- * Issues + PRs of `repo` matching `query`, newest first. Substring-filters the
- * recent list locally (GitHub's search only matches whole words), and merges in
- * server search results for older items.
- */
+/** Issues + PRs matching `query`, newest first: a local substring pass plus GitHub's search. */
 export async function searchIssues(repo: string, query: string): Promise<IssueRef[]> {
   const q = query.trim();
   const recent = await recentIssues(repo);

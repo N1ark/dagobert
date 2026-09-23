@@ -82,8 +82,7 @@
   // Remembered where it's a sidebar; a phone opens with nothing over the canvas.
   let showPRs = $state(!isMobile && localStorage.getItem(PRS_KEY) === "1");
   let prsW = $state(Number(localStorage.getItem(PRS_W_KEY)) || 300);
-  /** Shift the viewport as the canvas's left edge moves so the graph stays put on
-   *  screen (the pane reads as an overlay). Canvas keeps the background still itself. */
+  /** Shift the viewport with the canvas's left edge so the graph stays put on screen. */
   function absorb(dx: number) {
     if (!store.path || !dx) return;
     store.viewport.x -= dx;
@@ -151,8 +150,7 @@
   /** Which pane the palette shows. */
   let paletteMode = $state<"notes" | "commands">("notes");
 
-  /** Run an action at most once per keystroke: the menu accelerator and the
-   *  window keydown handler can both fire for the same key. */
+  /** Once per keystroke: the menu accelerator and the window handler both fire for a key. */
   const lastRun = new Map<string, number>();
   function once(id: string, fn: () => void) {
     const now = Date.now();
@@ -232,8 +230,7 @@
   });
 
   function jump(id: string) {
-    // The panel switch comes first: anything below it could throw and leave the
-    // note hidden behind whichever panel was open.
+    // First, so nothing below can throw and leave the note behind an open panel.
     if (isMobile) {
       showPRs = false;
       showTrash = false;
@@ -482,8 +479,7 @@
     if (n) jump(n.id);
   }
 
-  // Rebuild the native menu only when what it shows changes (main window only),
-  // or when the system appearance flips (icon tint).
+  // Rebuild the native menu only when what it shows, or the appearance, changes.
   let menuSig = "";
   let appearance = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
   onMount(() => {

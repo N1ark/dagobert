@@ -37,11 +37,7 @@ export function menuSignature(actions: Action[]): string {
     .join("\n");
 }
 
-/**
- * Replace the app menu with one built from the palette actions, grouped by
- * `action.menu`. The Edit menu keeps the native clipboard items so text
- * editing keeps working in the webview.
- */
+/** Rebuild the app menu from the palette actions, grouped by `action.menu`. */
 export async function setAppMenu(actions: Action[]) {
   if (!inTauri || isMobile) return;
   const groups = new Map<string, Action[]>();

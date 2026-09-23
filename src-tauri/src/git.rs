@@ -1,8 +1,4 @@
-//! Git primitives for project tracking: commit, pull, push and status, all via
-//! libgit2 so the app needs neither a git binary nor a system OpenSSL.
-//!
-//! Only Dagobert's own paths (`notes/`, `trash/`, `dagobert.json`, `.gitignore`)
-//! are ever staged; the project may sit inside a larger repository.
+//! Git primitives via libgit2; only Dagobert's own paths are ever staged.
 
 use git2::{
     build::{CheckoutBuilder, TreeUpdateBuilder},
@@ -40,8 +36,7 @@ pub enum PullOutcome {
     NoRemote,
     UpToDate,
     FastForward,
-    /// A merge is in progress (`MERGE_HEAD` is set, the index may hold
-    /// conflicts); `merge::resolve` finishes it.
+    /// A merge is in progress; `merge::resolve` finishes it.
     Merging,
 }
 
@@ -51,9 +46,7 @@ fn err(e: git2::Error) -> String {
     e.message().to_string()
 }
 
-/// The repository containing `root`, or `None` when it isn't inside a work tree.
-/// The search walks up (a project may live inside a larger repository) but never
-/// past the home directory, so a dotfiles repo at `~` is never adopted.
+/// The repository containing `root`; the search walks up, but never as far as `~`.
 pub fn open(root: &Path) -> Result<Option<Repository>> {
     let home = std::env::var_os("HOME").map(PathBuf::from);
     let ceiling = home
@@ -95,8 +88,7 @@ pub fn init(root: &Path) -> Result<()> {
     ensure_ignore(root)
 }
 
-/// The folder name a clone of `url` gets: its last path segment, without
-/// `.git` and with anything but word characters, `-` and `.` dropped.
+/// The folder name a clone of `url` gets: its last segment, without `.git` and sanitised.
 pub fn project_name(url: &str) -> String {
     let last = url
         .trim_end_matches('/')
@@ -116,8 +108,7 @@ pub fn project_name(url: &str) -> String {
     }
 }
 
-/// Clones `url` into `dest` and writes the commit identity into the new
-/// repository (a phone has no `~/.gitconfig` to fall back on).
+/// Clones `url` into `dest`, writing the identity in: a phone has no `~/.gitconfig`.
 pub fn clone(url: &str, dest: &Path, token: Option<&str>, name: &str, email: &str) -> Result<()> {
     if dest.exists() {
         return Err("A project with that name is already here.".into());
@@ -207,8 +198,7 @@ fn current_branch(repo: &Repository) -> Result<Option<String>> {
     }
 }
 
-/// The branch on `origin` that `branch` tracks (its upstream when that lives on
-/// `origin`, else its own name). Pull, push and ahead/behind all use this.
+/// The branch on `origin` that `branch` tracks: its upstream there, else its own name.
 fn remote_branch(repo: &Repository, branch: &str) -> String {
     repo.find_branch(branch, git2::BranchType::Local)
         .ok()
@@ -226,8 +216,7 @@ fn remote_ref(repo: &Repository, branch: &str) -> Option<Oid> {
         .and_then(|r| r.target())
 }
 
-/// Checks the folder is inside a repository (`Err("no-repo")` otherwise) and
-/// that the repository doesn't ignore it, then writes the `.gitignore` entries.
+/// Checks the folder is in a repository that doesn't ignore it, then writes `.gitignore`.
 pub fn enable(root: &Path) -> Result<()> {
     let repo = open(root)?.ok_or("no-repo")?;
     let mut probes = specs(&repo, root)?;
@@ -286,8 +275,7 @@ fn signature(repo: &Repository) -> Result<Signature<'static>> {
         .map_err(err)
 }
 
-/// Stages Dagobert's paths and commits them if anything changed. Other staged
-/// changes in the repository are left alone.
+/// Stages Dagobert's paths and commits them if anything changed, leaving other staging alone.
 pub fn commit_if_dirty(root: &Path, message: &str) -> Result<bool> {
     let repo = require(root)?;
     if repo.state() != RepositoryState::Clean {
@@ -341,8 +329,7 @@ pub fn commit_if_dirty(root: &Path, message: &str) -> Result<bool> {
     Ok(true)
 }
 
-/// What `callbacks` offers on a given attempt, kept pure so it can be tested
-/// without a network remote.
+/// What `callbacks` offers on a given attempt, kept pure so it can be tested offline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CredChoice {
     Username,
@@ -350,8 +337,7 @@ enum CredChoice {
     None,
 }
 
-/// The signed-in token over HTTPS is the only credential, on every platform:
-/// no ssh-agent, no key files, no credential helper. Never prompts.
+/// The signed-in token over HTTPS is the only credential anywhere, and never a prompt.
 fn pick_cred(token: bool, allowed: CredentialType, attempt: usize) -> CredChoice {
     if allowed == CredentialType::USERNAME {
         return CredChoice::Username;
@@ -384,8 +370,7 @@ fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCall
             )),
         }
     });
-    // Aborts a fetch past the deadline; a push's upload can't be interrupted
-    // through git2 (its progress callback has no return value).
+    // Aborts a fetch past the deadline; git2 gives no way to interrupt a push.
     if let Some(d) = deadline {
         cb.transfer_progress(move |_| Instant::now() < d);
         cb.sideband_progress(move |_| Instant::now() < d);
@@ -401,24 +386,21 @@ fn transfer_err(what: &str, deadline: Option<Instant>, e: git2::Error) -> String
     }
 }
 
-/// Safe checkout that skips (rather than fails on) files it would clobber; the
-/// skipped files stay as local modifications and ride along in the next commit.
+/// Safe checkout that skips files it would clobber, leaving them for the next commit.
 fn checkout() -> CheckoutBuilder<'static> {
     let mut cb = CheckoutBuilder::new();
     cb.safe().allow_conflicts(true);
     cb
 }
 
-/// Safe checkout that fails (`ErrorCode::Conflict`, before touching anything)
-/// when a local modification is in the way.
+/// Safe checkout that fails, before touching anything, when a local change is in the way.
 fn strict_checkout() -> CheckoutBuilder<'static> {
     let mut cb = CheckoutBuilder::new();
     cb.safe();
     cb
 }
 
-/// The HTTPS form of an ssh remote (`git@host:owner/repo`, `ssh://git@host/owner/repo`),
-/// `None` when the url already speaks a protocol the token can authenticate.
+/// The HTTPS form of an ssh remote; `None` when the token can already authenticate the url.
 fn https_url(url: &str) -> Option<String> {
     let rest = match url.strip_prefix("ssh://") {
         Some(r) => r.to_string(),
@@ -479,10 +461,7 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
     merge_fetched(root, "dagobert auto-save")
 }
 
-/// Merges the fetched remote branch in. Commit first: a local modification
-/// to a file the merge touches makes libgit2 refuse. A file saved after that
-/// (a standalone window) and in the way of a fast-forward is committed with
-/// `save` and merged instead, never left as a silent local modification.
+/// Merges the fetched branch in, committing first: libgit2 refuses over a local modification.
 pub fn merge_fetched(root: &Path, save: &str) -> Result<PullOutcome> {
     let repo = require(root)?;
     if repo.state() != RepositoryState::Clean {
@@ -527,12 +506,10 @@ pub fn merge_fetched(root: &Path, save: &str) -> Result<PullOutcome> {
             Err(e) => return Err(err(e)),
         }
     }
-    // No rename detection: a note moved to trash/ must conflict with an edit,
-    // not merge into the trashed copy; `merge::resolve` pairs files by id.
+    // No rename detection: a note moved to trash/ must conflict with an edit, not follow it.
     let mut mo = MergeOptions::new();
     mo.find_renames(false);
-    // libgit2 refuses to merge over any staged change (anywhere in the
-    // repository) or an unstaged change to a file the merge touches.
+    // libgit2 refuses to merge over a staged change anywhere in the repository.
     repo.merge(&[&theirs], Some(&mut mo), Some(&mut checkout()))
         .map_err(|e| {
             if e.message().contains("would be overwritten by merge") {

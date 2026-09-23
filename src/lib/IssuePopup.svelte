@@ -34,8 +34,7 @@
       .catch(() => {});
   });
 
-  // Debounced fetch as the query changes; ignore stale responses. Previous
-  // results stay on screen (filtered locally) so typing never feels blocked.
+  // Debounced fetch; stale responses are dropped and old results stay on screen meanwhile.
   let seq = 0;
   $effect(() => {
     const q = query;

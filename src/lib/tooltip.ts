@@ -1,10 +1,4 @@
-/**
- * Instant tooltip action: `use:tooltip={"Automatic"}`. Native `title` tooltips take a
- * second to appear, which is useless for icon-only controls; this one shows on
- * pointerenter/focus with no delay. A single fixed-position element is shared and
- * appended to `document.body` so it escapes `overflow: hidden` and stacking contexts.
- * Placed above the element (below when there's no room), clamped to the viewport.
- */
+/** Instant tooltip action: `use:tooltip={"Automatic"}`, unlike `title`, which waits a second. */
 import type { Action } from "svelte/action";
 
 let el: HTMLDivElement | null = null;

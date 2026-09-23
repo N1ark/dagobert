@@ -1,9 +1,4 @@
-/**
- * Every user-facing string, keyed by screen. `{name}` placeholders are filled by
- * `t()`; `.one` / `.other` pairs are chosen by `plural()` (which also fills `{n}`).
- * Keys marked "markdown" are rendered through `InlineMd` (bold, code, links).
- * Keyboard shortcuts are never spelled out here: they come from `keys.ts`.
- */
+/** Every user-facing string, keyed by screen; see docs/ui.md for placeholders and plurals. */
 export default {
   "app.name": "Dagobert",
   "app.untitled": "Untitled",

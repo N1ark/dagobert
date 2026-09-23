@@ -1,9 +1,4 @@
-//! Watches the open project folder so external edits show up in the app
-//! (desktop only; mobile re-reads the project after a pull instead).
-//!
-//! Events are emitted as `project-changed` to every window. Files the app
-//! itself wrote in the last second are suppressed via [`Recent`] so we don't
-//! echo our own saves back.
+//! Watches the project folder and emits `project-changed`; desktop only, and [`Recent`] is skipped.
 
 use crate::state::AppState;
 use crate::store::{self, Note};
@@ -86,8 +81,7 @@ pub fn start(app: AppHandle, state: &AppState, root: PathBuf) -> Result<(), Stri
         }
     };
     let mut debouncer = new_debouncer(DEBOUNCE, handler).map_err(|e| e.to_string())?;
-    // Notes live under notes/; dagobert.json sits at the root. Watching the
-    // root recursively covers both (other paths are filtered in `classify`).
+    // The root recursively covers notes/ and dagobert.json both; `classify` filters the rest.
     debouncer
         .watcher()
         .watch(&root, RecursiveMode::Recursive)

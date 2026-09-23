@@ -1,8 +1,4 @@
-/**
- * Thin wrapper over the Tauri commands. When the page is opened in a plain
- * browser (e.g. `npm run dev` for UI work) it falls back to an in-memory
- * project so the UI stays usable without the Rust side.
- */
+/** Thin wrapper over the Tauri commands, with an in-memory project for `npm run dev`. */
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
@@ -15,11 +11,7 @@ import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, 
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
-/**
- * Phone-shaped: a coarse pointer on a narrow screen. Deliberately not the OS —
- * it needs no plugin and works the same in the browser dev loop. An iPad lands
- * on the desktop side, which is out of scope rather than broken.
- */
+/** Phone-shaped: a coarse pointer on a narrow screen, so the browser dev loop sees the same thing. */
 export const isMobile =
   (matchMedia("(pointer: coarse)").matches && innerWidth < 700) ||
   // `npm run dev` + `?mobile` forces it, for layout work without a device.
@@ -307,8 +299,7 @@ export const backend = {
     };
   },
 
-  /** Open (or focus) a window showing just one note. */
-  /** Returns false when there are no windows to open into (mobile uses the sheet). */
+  /** Open (or focus) a window for one note; false when there are none to open (mobile). */
   async openNoteWindow(path: string, id: string, title: string): Promise<boolean> {
     if (isMobile) return false;
     const url = `index.html?note=${encodeURIComponent(id)}&path=${encodeURIComponent(path)}`;

@@ -75,8 +75,7 @@
     if (!(e.target as HTMLElement).closest(".ctx")) close();
   }
 
-  // On a phone this is an action sheet: it slides up on arrival, and leaves the
-  // same way whether it was dismissed, pushed down or acted on.
+  // On a phone this is an action sheet: it slides up on arrival and back down however it goes.
   let shown = $state(!isMobile);
   $effect(() => {
     const frame = requestAnimationFrame(() => (shown = true));

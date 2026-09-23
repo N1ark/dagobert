@@ -29,10 +29,7 @@
     enabled?: boolean;
   }
 
-  /**
-   * ⌘K quick switcher (fuzzy note titles, `#tag` narrows) or, with
-   * `mode="commands"`, the ⇧⌘K command palette over the `actions` prop.
-   */
+  /** The ⌘K note switcher, or with `mode="commands"` the ⇧⌘K command palette. */
   let {
     actions,
     onjump,
@@ -85,8 +82,7 @@
     active = 0;
   });
 
-  // Without preventScroll WebKit scrolls the page to reveal the field, which on
-  // a phone means dragging the whole shell up behind a dialog that never moved.
+  // Without preventScroll WebKit scrolls the shell up to reveal a field that never moved.
   $effect(() => {
     input?.focus({ preventScroll: true });
   });

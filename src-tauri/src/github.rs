@@ -1,15 +1,9 @@
-//! GitHub App sign-in via the OAuth device flow.
-//!
-//! The user approves a short code in their own browser; the app never sees a
-//! password and no token is ever typed in. The endpoints send no CORS headers,
-//! so the calls have to happen here rather than in the webview. The resulting
-//! token is handed to the frontend and never written to disk by Rust.
+//! GitHub App sign-in via the device flow; it lives here because the endpoints send no CORS headers.
 
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// The Dagobert GitHub App (app id 5035388). A client id is public; there is no
-/// secret in the device flow.
+/// The Dagobert GitHub App (app id 5035388); a client id is public, and the device flow has no secret.
 const CLIENT_ID: &str = "Iv23litv6NiawS3zubnE";
 const DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
 const TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
@@ -25,8 +19,7 @@ pub struct DeviceStart {
     pub interval: u64,
 }
 
-/// A token set as the frontend stores it. `refresh_token` and `expires_in` are
-/// absent when the app is configured with non-expiring user tokens.
+/// A token set as the frontend stores it; the refresh fields are absent for non-expiring tokens.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Token {
     pub access_token: String,
@@ -36,8 +29,7 @@ pub struct Token {
     pub expires_in: Option<u64>,
 }
 
-/// Either a token, or why it isn't ready yet. `pending` and `slow_down` are the
-/// normal course of a poll, not failures.
+/// Either a token or why it isn't ready; `pending` and `slow_down` are the normal course.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "state", rename_all = "kebab-case")]
 pub enum Poll {
@@ -122,8 +114,7 @@ pub fn refresh(refresh_token: &str) -> Result<Token, String> {
     }
 }
 
-/// Maps GitHub's reply onto [`Poll`]. Kept separate so it can be tested without
-/// a network round trip.
+/// Maps GitHub's reply onto [`Poll`], kept separate so it can be tested offline.
 fn classify(raw: Raw) -> Result<Poll, String> {
     if let Some(err) = raw.error.as_deref() {
         return match err {

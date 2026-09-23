@@ -17,11 +17,7 @@ function nameOf(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "";
 }
 
-/**
- * How a project is remembered. Desktop stores the absolute path; mobile stores
- * the name, because the app container's path carries a UUID that changes on
- * reinstall. A stored path on mobile is migrated by taking its name.
- */
+/** How a project is remembered: an absolute path, or just the name on mobile (see docs/mobile.md). */
 function projectRef(path: string): string {
   return isMobile ? nameOf(path) : path;
 }
@@ -302,20 +298,13 @@ class Store {
     return this.#syncing;
   }
 
-  /**
-   * Mobile foreground: the OS froze the tick thread while we were away, so
-   * re-arm it and run the sync that actually keeps the phone up to date.
-   */
+  /** Mobile foreground: the tick thread was frozen while we were away, so re-arm and sync. */
   resume() {
     this.#configureGit();
     void this.syncNow(false);
   }
 
-  /**
-   * Mobile background. Best-effort only: iOS suspends JS within a second or so,
-   * and neither the flush nor the push is synchronous. Nothing is lost — the
-   * commit happens on the next foreground.
-   */
+  /** Mobile background. Best-effort: iOS suspends JS shortly, and the next foreground commits. */
   async suspend() {
     await this.flushAndWait();
     await this.syncNow(false);
@@ -667,8 +656,7 @@ class Store {
         this.touch(other.id, { immediate: true, silent: true, label: "delete" });
       }
     }
-    // A write may still be creating/renaming the file; let it finish so we
-    // know the real filename before moving it to the trash.
+    // Let a write in progress finish, so we know the real filename to trash.
     await this.#inflight.get(id);
     try {
       if (n.file) {
@@ -877,9 +865,7 @@ class Store {
       const local = this.byId(incoming.id);
       const disk = this.#disk.get(incoming.id);
       this.#disk.set(incoming.id, incoming.body);
-      // Our own pending or in-flight save wins over the disk version (a rename is
-      // still adopted), unless a pull changed the body meanwhile: then the
-      // remote's text is kept next to ours as a conflict rather than dropped.
+      // Our unsaved text wins, except over a body a pull changed: that is kept as a conflict.
       if (local && (this.#saveTimers.has(local.id) || this.#inflight.has(local.id))) {
         local.file = incoming.file;
         if (disk === undefined || incoming.body === disk) return;
@@ -943,11 +929,7 @@ class Store {
     backend.revealNote(this.path, file, "trash").catch((e) => this.fail(e));
   }
 
-  /**
-   * Mobile stand-in for the file watcher: re-read the project and route it
-   * through `applyExternal`, which protects saves that are still in flight
-   * (`store.open` would clear the undo history, the selection and the viewport).
-   */
+  /** Mobile stand-in for the file watcher; unlike `open` it keeps in-flight saves and undo. */
   async reloadFromDisk() {
     const path = this.path;
     if (!path) return;

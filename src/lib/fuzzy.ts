@@ -9,11 +9,7 @@ export interface Match {
 
 const NO_MATCH: Match = { score: 0, indices: [] };
 
-/**
- * Subsequence match of `query` in `text`, case-insensitive.
- * Ranking: exact prefix > word-start prefix > contiguous substring > subsequence,
- * with a bonus for matches landing on word starts and a penalty for gaps.
- */
+/** Case-insensitive subsequence match, ranked prefix > word start > substring > subsequence. */
 export function fuzzyMatch(query: string, text: string): Match {
   const q = query.toLowerCase();
   const t = text.toLowerCase();

@@ -38,8 +38,7 @@
   const custom = $derived(note.workflow !== null && !note.tracking);
   const progress = $derived(note.tracking ? store.progress(note) : null);
   const conflict = $derived(store.hasConflict(note));
-  // First non-empty line of the body, with block-level markers stripped so it
-  // renders as inline markdown (bold, code, links…).
+  // First non-empty body line, block markers stripped so it renders as inline markdown.
   const preview = $derived(
     note.body
       .split("\n")

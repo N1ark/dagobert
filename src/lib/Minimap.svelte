@@ -8,10 +8,7 @@
   import { isMobile } from "./backend";
   import { notesBounds } from "./viewport";
 
-  /**
-   * Overview of the whole graph with the current viewport drawn on top.
-   * Click or drag on it to pan.
-   */
+  /** Overview of the whole graph with the viewport drawn on top; click or drag to pan. */
   let {
     widthOf,
     heightOf,

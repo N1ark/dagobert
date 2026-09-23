@@ -12,8 +12,7 @@
 
   let { source }: { source: string } = $props();
 
-  // marked emits task checkboxes as `disabled`, which swallows clicks; the
-  // live editor toggles them, so re-enable.
+  // marked disables task checkboxes, which swallows the clicks the editor toggles them with.
   const html = $derived(
     DOMPurify.sanitize(marked.parse(renderWikilinks(source), { gfm: true, async: false }) as string).replace(
       /(<input\b[^>]*?)\s+disabled(?:=""|='')?(?=[\s>/])/g,

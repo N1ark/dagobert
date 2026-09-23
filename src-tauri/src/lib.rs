@@ -17,9 +17,7 @@ use store::{Local, Meta, MetaPatch, Note, Project};
 use sync::SyncReport;
 use tauri::{AppHandle, Manager, State};
 
-/// A project inside the app's own data directory. Mobile has no folder picker,
-/// so projects are cloned there and referred to by name (the container path
-/// carries a UUID that changes on reinstall).
+/// A project in the app's own data directory, named rather than pathed (see docs/mobile.md).
 #[derive(Debug, Clone, Serialize)]
 struct ProjectRef {
     name: String,
@@ -64,8 +62,7 @@ fn project_path(app: AppHandle, name: String) -> Result<Option<String>, String> 
     Ok(dir.is_dir().then(|| dir.to_string_lossy().into()))
 }
 
-/// Clones `url` into the app's data directory. `name` / `email` become the
-/// clone's commit identity; the token is used for this clone only.
+/// Clones `url` into the app's data directory with `name` / `email` as its commit identity.
 #[tauri::command]
 async fn clone_project(
     app: AppHandle,
@@ -91,8 +88,7 @@ fn open_project(path: String) -> Result<Project, String> {
 #[tauri::command]
 fn save_note(state: State<AppState>, path: String, note: Note) -> Result<Note, String> {
     let root = Path::new(&path);
-    // Mark both the old and the (possibly renamed) new file so the watcher
-    // ignores this write.
+    // Mark the old and the renamed file both, so the watcher ignores this write.
     if !note.file.is_empty() {
         state.recent.mark(store::notes_dir(root).join(&note.file));
     }
@@ -200,9 +196,7 @@ fn git_configure(app: AppHandle, state: State<AppState>, enabled: bool, interval
     sync::configure(app, &state.git, enabled, interval_min);
 }
 
-/// The full cycle: commit if dirty → pull → resolve → push. `stamp` is the
-/// local time the frontend puts in commit messages. The frontend has flushed
-/// its saves, so `Recent` is cleared: files the pull rewrites must echo.
+/// The full cycle: commit if dirty → pull → resolve → push, with saves already flushed.
 #[tauri::command]
 async fn git_sync(
     state: State<'_, AppState>,
@@ -217,9 +211,7 @@ async fn git_sync(
     .await
 }
 
-/// The final sync before the window closes or the app exits (`reason`), with a
-/// short timeout; failures are logged, not shown. No `path` (nothing to sync)
-/// just lets the quit through.
+/// The last sync before a close or exit, on a short timeout; failures are logged, not shown.
 #[tauri::command]
 async fn git_quit(
     app: AppHandle,

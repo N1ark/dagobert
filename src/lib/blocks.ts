@@ -6,12 +6,7 @@ const CONFLICT_END = /^>{7} /;
 /** Any git conflict marker line. */
 export const MARKER_RE = /^(<{7} |={7}$|>{7} )/;
 
-/**
- * Blocks are separated by blank lines, except inside fenced code and git
- * conflict regions (`<<<<<<<` … `>>>>>>>`), where blank lines are kept. A
- * region is part of the paragraph around it, so resolving one never adds
- * paragraph breaks. Runs of blank lines collapse to one on re-join.
- */
+/** Blank lines split blocks, except inside fenced code and git conflict regions. */
 export function splitBlocks(text: string): string[] {
   const out: string[] = [];
   let cur: string[] = [];
@@ -137,8 +132,7 @@ export function resolveConflict(block: string, keep: "mine" | "theirs" | "both")
   let middle: string;
   if (keep === "mine") middle = mine;
   else if (keep === "theirs") middle = theirs;
-  // Separate paragraphs when the region stands alone, so a list on one side
-  // doesn't swallow the other; inside a paragraph, keep it one paragraph.
+  // A standalone region becomes two paragraphs, so one side's list can't swallow the other.
   else middle = [mine, theirs].filter((s) => s.trim()).join(before.length || after.length ? "\n" : "\n\n");
   return [...before, ...(middle ? [middle] : []), ...after].join("\n");
 }

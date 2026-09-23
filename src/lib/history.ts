@@ -1,10 +1,6 @@
 import type { Note } from "./types";
 
-/**
- * Undo history as a list of entries; each entry is a set of per-note diffs.
- * `before === null` means the note didn't exist, `after === null` means it was
- * deleted (with `trashFile` naming where it went so it can be restored).
- */
+/** One note's change; a null side means it didn't exist, `trashFile` says where a deletion went. */
 export interface NoteDiff {
   id: string;
   before: Note | null;

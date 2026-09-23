@@ -1,6 +1,5 @@
 <script lang="ts">
-  // State icon for a PR or issue; pass `item`, or a `prCache` `key` to read it live
-  // (a grey question-marked PR while the key is still unknown, so nothing shifts on refresh).
+  // State icon for a PR or issue: pass `item`, or a `prCache` `key` to read it live.
   import type { IssueRef } from "./github";
   import { prCache, stateLabel } from "./prs.svelte";
   import { tooltip } from "./tooltip";

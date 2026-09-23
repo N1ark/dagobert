@@ -61,11 +61,7 @@
   /** Latest pointer of a one-finger pan, applied once per frame (see `flushGesture`). */
   let panAt: { x: number; y: number } | null = null;
   let gestureRaf = 0;
-  /**
-   * A touch waiting to become something else. On a node, holding arms the drag
-   * (a plain drag pans the canvas instead, so the graph scrolls); lifting
-   * without moving opens the context menu, which is what a right-click does.
-   */
+  /** A touch waiting to become something else: a hold arms a drag, a lift opens the menu. */
   let hold: { timer: number; x: number; y: number; id: string | null; armed: boolean } | null = null;
   let lastTap: { at: number; x: number; y: number } | null = null;
   /** The node a long press has picked up, which draws it lifted off the canvas. */
@@ -113,8 +109,7 @@
   function stepGlide(now: number) {
     glideRaf = 0;
     if (!glide) return;
-    // The viewport clamp can refuse the last frame's move; there is nothing to
-    // coast into in that direction then.
+    // The clamp refused the last frame's move: nothing left to coast into that way.
     if (Math.abs(vp.x - glide.x) > 0.5) glide.vx = 0;
     if (Math.abs(vp.y - glide.y) > 0.5) glide.vy = 0;
     const dt = Math.min(48, now - glide.at);
@@ -134,8 +129,7 @@
 
   const vp = $derived(store.viewport);
 
-  // Every writer (wheel, pan, minimap, fitAll, restore) goes through the same clamp so the
-  // camera can never leave the world square. Pre-effect: the clamped value is what renders.
+  // Every writer clamps here, pre-effect, so the camera can never leave the world square.
   $effect.pre(() => {
     if (!viewW || !viewH) return;
     const c = clampViewport(vp, viewW, viewH);
@@ -227,13 +221,7 @@
     const dx = handle(a, b);
     return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x - 5} ${b.y}`;
   }
-  /**
-   * Arrowhead at the end of an edge: a plain triangle path, not an SVG `<marker>`.
-   * WebKit re-renders markers from scratch on every paint, and with a few hundred
-   * edges on screen (zoomed out) that alone dropped panning to ~25 fps; plain paths
-   * are essentially free. The curve always arrives horizontally (its last handle is
-   * `(b.x - dx, b.y)`), so the head always points +x.
-   */
+  /** Arrowhead as a plain triangle, never an SVG `<marker>` (docs/canvas.md); always points +x. */
   function head(b: { x: number; y: number }) {
     return `M ${b.x - 7} ${b.y - 3.5} L ${b.x} ${b.y} L ${b.x - 7} ${b.y + 3.5} z`;
   }
@@ -420,10 +408,7 @@
     store.saveViewport();
   }
 
-  /**
-   * Auto-layout. With a multi-selection, only that subgraph is tidied,
-   * anchored at its current top-left; otherwise everything is.
-   */
+  /** Auto-layout: a multi-selection tidies only that subgraph, anchored where it sits. */
   export function tidy() {
     const subset = store.multi.length > 1 ? store.notes.filter((n) => store.multi.includes(n.id)) : store.notes;
     if (!subset.length) return;
@@ -551,12 +536,7 @@
     return { dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
   }
 
-  /**
-   * Pointer-driven viewport changes are applied once per animation frame, for
-   * the same reason `applyWheel` exists: WebKit re-flushes style and hit-tests
-   * the world after each one, and a finger reports far faster than the display
-   * refreshes.
-   */
+  /** Coalesced to one viewport write per frame, for the same reason as `applyWheel`. */
   function scheduleGesture() {
     gestureRaf ||= requestAnimationFrame(flushGesture);
   }
@@ -716,8 +696,7 @@
       }
       const moved = Math.hypot(e.clientX - pan.startX, e.clientY - pan.startY) > 3;
       if (moved) {
-        // A flick keeps going: a canvas that stops dead under the finger reads
-        // as broken on a phone. A mouse drag has no such expectation.
+        // Only a finger coasts; a canvas that stops dead under it reads as broken.
         const v = pan.touch ? flickVelocity() : null;
         if (v && Math.hypot(v.x, v.y) > 0.15) {
           glide = { vx: v.x, vy: v.y, at: performance.now(), x: vp.x, y: vp.y };
@@ -765,11 +744,7 @@
     activateAt(e.clientX, e.clientY, e.target as HTMLElement);
   }
 
-  /**
-   * A tap that lands within `TAP_SLOP` of the last one, soon enough, is a
-   * double-tap: WebKit's own `dblclick` is unreliable under pointer capture
-   * with `touch-action: none`.
-   */
+  /** Our own double-tap: WebKit's `dblclick` is unreliable under pointer capture. */
   function onTap(e: PointerEvent): boolean {
     const now = Date.now();
     const prev = lastTap;
@@ -785,8 +760,7 @@
   }
 
   function activateAt(x: number, y: number, fallback: HTMLElement | null) {
-    // Pointer capture (set on pointerdown) makes the browser target the
-    // container, not what's under the cursor — hit-test by position instead.
+    // Pointer capture targets the container, not what's under the cursor: hit-test by position.
     const target = (document.elementFromPoint(x, y) ?? fallback) as HTMLElement;
     const id = nodeIdAt(target);
     if (id) {
@@ -800,14 +774,7 @@
     createAt(w.x - NODE_W / 2, w.y - 20);
   }
 
-  /**
-   * Wheel input is coalesced and applied once per animation frame. A trackpad fires
-   * wheel events far more often than the display refreshes, and WebKit flushes style
-   * and re-hit-tests the world after each one (it refreshes hover state on wheel
-   * input); applying the viewport per event made every one of those flushes real work,
-   * which halved the frame rate when zoomed out. Queued events replay in order, so the
-   * zoom-about-cursor maths is unchanged.
-   */
+  /** Wheel input applied once per frame, in order (docs/canvas.md); WebKit flushes per event. */
   let wheelQueue: { dx: number; dy: number; zoom: boolean; cx: number; cy: number }[] = [];
   let wheelRaf = 0;
 
@@ -907,18 +874,10 @@
     }
   }
 
-  /**
-   * iOS Safari zooms the whole page on a pinch unless the gesture is claimed.
-   * Mobile only: macOS WebKit is the same engine, and a trackpad pinch arrives
-   * as these very events, so swallowing them there kills zooming instead.
-   */
+  /** Claim the pinch so iOS doesn't zoom the page; mobile only, or a trackpad loses zoom. */
   const stopGesture = (e: Event) => e.preventDefault();
 
-  /**
-   * A pointer can end somewhere that never reaches our handler (capture moved,
-   * the gesture was taken over, the app was backgrounded). Left in `touches` it
-   * reads as a finger still down, and the next one starts a phantom pinch.
-   */
+  /** A pointer whose end never reached us would read as a finger still down. */
   function forgetPointer(e: PointerEvent) {
     if (!touches.delete(e.pointerId)) return;
     if (touches.size < 2 && pinch) {
@@ -970,24 +929,14 @@
     return out;
   });
 
-  /**
-   * Background parallax: the dot grid and the sand sit "behind" the nodes. A layer at
-   * depth P under perspective is the foreground camera scaled by P about an anchor:
-   * screen = A + P · (foreground screen − A). It pans and zooms at P× the foreground,
-   * and zooming converges towards A + P·(cursor − A), so A is the view centre to keep
-   * that convergence natural. Moving A (sidebar/window resize) would translate the
-   * background by (1 − P)·ΔA even though the viewport didn't change, so `comp`
-   * accumulates the opposite shift on every resize to keep the background still.
-   */
+  /** Background parallax at depth P about the view centre: screen = A + P·(foreground − A). */
   const PARALLAX = 0.7;
   let comp = $state({ x: 0, y: 0 });
   let lastCentre: { x: number; y: number } | null = null;
   let lastOrigin: { x: number; y: number } | null = null;
   $effect(() => {
     const c = { x: viewW / 2, y: viewH / 2 };
-    // Where the canvas sits in the window: when a sidebar pushes it sideways, App
-    // shifts the viewport the other way so the nodes stay put, which moves the
-    // background by (1 − P)·Δorigin; cancel that too.
+    // A sidebar moving the canvas shifts the background by (1 − P)·Δorigin; cancel that.
     const r = container?.getBoundingClientRect();
     const o = r ? { x: r.left, y: r.top } : { x: 0, y: 0 };
     // Only real resizes count: the first layout (0 → size) must not shift the anchor.
@@ -1005,11 +954,7 @@
     zoom: PARALLAX * vp.zoom,
   });
 
-  /**
-   * Dot grid look: a single 32px lattice (dots at 16 + 32k, in the parallax camera).
-   * Dots are 1.3 screen px at zoom ≥ 1 and shrink to 50% (and dim a little) at MIN_ZOOM,
-   * so a zoomed-out canvas doesn't turn into a grey wash. Same in the shader and in CSS.
-   */
+  /** The 32px dot lattice; dots shrink and dim when zoomed out so it isn't a grey wash. */
   const grid = $derived.by(() => {
     const t = Math.min(1, Math.max(0, (vp.zoom - MIN_ZOOM) / (1 - MIN_ZOOM)));
     return { radius: 1.3 * (0.5 + 0.5 * t), alpha: 0.6 + 0.4 * t };
@@ -1025,14 +970,7 @@
     return `left:${x}px; top:${y}px; width:${w}px; height:${h}px; --dot:${grid.radius / bg.zoom}px; opacity:${grid.alpha}`;
   });
 
-  /**
-   * The world's edge, as screen-space pieces clamped to the view: shade bands over the
-   * area outside the world square and a dashed rim along its border. These used to be
-   * two world-sized SVG shapes inside `.world`, but WebKit repaints a shape that large
-   * for every tile it rasterises, whatever the shape is made of, and that alone cost a
-   * third of the frame budget while panning fast or zooming. Bands the size of the
-   * viewport are a handful of rect fills.
-   */
+  /** The world's edge as screen-space bands, never world-sized shapes (docs/canvas.md). */
   const worldEdge = $derived.by(() => {
     const l = vp.x - WORLD * vp.zoom;
     const t = vp.y - WORLD * vp.zoom;

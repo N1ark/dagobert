@@ -1,8 +1,4 @@
-/**
- * The GitHub sign-in, as stored between launches. One token serves both the API
- * and git over HTTPS. `localStorage` today; the interface exists so a keychain
- * plugin can replace the backing without touching anything else.
- */
+/** The GitHub sign-in as stored between launches; one token serves the API and git over HTTPS. */
 const KEY = "dagobert.session";
 
 /** A signed-in GitHub session. `refresh` and `expires` are null when the app issues non-expiring tokens. */

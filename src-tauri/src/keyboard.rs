@@ -1,10 +1,4 @@
-//! The software keyboard's height, straight from UIKit.
-//!
-//! WKWebView doesn't report the keyboard through `visualViewport`, so the web
-//! layer has no way to know how much of the screen is covered. UIKit does: the
-//! keyboard notifications carry its frame, whose height in points is the same
-//! unit as a CSS pixel. It is emitted as `keyboard` and the frontend puts it
-//! in `--kb`.
+//! The software keyboard's height from UIKit, emitted as `keyboard`: WKWebView never reports it.
 
 use block2::RcBlock;
 use objc2::runtime::AnyObject;
@@ -48,8 +42,7 @@ fn observe(name: &'static NSString, app: AppHandle, height: fn(&NSNotification) 
 }
 
 pub fn watch(app: AppHandle) {
-    // Hide fires after the frame change that accompanies it, so it has the last
-    // word: a dismissing keyboard still reports its full height on the way out.
+    // Hide fires after the frame change, and has the last word: a dismissal reports full height.
     observe(
         unsafe { UIKeyboardWillChangeFrameNotification },
         app.clone(),

@@ -1,7 +1,6 @@
 //! SF Symbols rendered to PNG for native menu icons (macOS only).
 
-/// PNG bytes of the SF Symbol `name` at `point_size`, black on transparent.
-/// `None` when the symbol doesn't exist on this macOS version.
+/// PNG bytes of the SF Symbol `name`, black on transparent; `None` when it doesn't exist here.
 #[cfg(target_os = "macos")]
 pub fn sf_symbol_png(name: &str, point_size: f64) -> Option<Vec<u8>> {
     use objc2_app_kit::{

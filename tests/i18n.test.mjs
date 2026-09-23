@@ -35,6 +35,5 @@ for (const k of keys) {
   assert.ok(ok, `unused string: ${k}`);
 }
 
-// Shortcuts never live in the catalogue; they are substituted from keys.ts
-// (plain arrows are allowed: `{from} → {to}`, `todo → done`, ahead↑ behind↓).
+// Shortcuts never live in the catalogue; they come from keys.ts (plain arrows are fine).
 for (const [k, v] of Object.entries(en)) assert.ok(!/[⌘⇧⌥⌃↩⇥]|\b(Esc|Enter|Tab)\b/.test(v), `shortcut spelled out in ${k}`);
