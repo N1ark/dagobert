@@ -79,7 +79,8 @@
   // Left sidebar listing the GitHub PRs referenced across notes.
   const PRS_KEY = "dagobert.prs";
   const PRS_W_KEY = "dagobert.prsWidth";
-  let showPRs = $state(localStorage.getItem(PRS_KEY) === "1");
+  // Remembered where it's a sidebar; a phone opens with nothing over the canvas.
+  let showPRs = $state(!isMobile && localStorage.getItem(PRS_KEY) === "1");
   let prsW = $state(Number(localStorage.getItem(PRS_W_KEY)) || 300);
   /** Shift the viewport as the canvas's left edge moves so the graph stays put on
    *  screen (the pane reads as an overlay). Canvas keeps the background still itself. */
@@ -90,10 +91,13 @@
   }
   function togglePRs() {
     showPRs = !showPRs;
-    if (isMobile && showPRs) store.sheetFull = true;
+    // A phone opens it as a sheet: nothing to push aside, and nothing to remember.
+    if (isMobile) {
+      if (showPRs) store.sheetFull = true;
+      return;
+    }
     localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
-    // On mobile the pane covers the canvas instead of pushing it.
-    if (!isMobile) absorb(showPRs ? prsW : -prsW);
+    absorb(showPRs ? prsW : -prsW);
   }
   let prsResizing = $state<{ startX: number; w: number } | null>(null);
   function onPrsResizeDown(e: PointerEvent) {
