@@ -42,7 +42,7 @@ note with a pending save keeps the note and lets the save recreate the file; a n
 
 ## Git primitives (`git.rs`)
 
-Over `git2` (vendored libgit2/libssh2/OpenSSL, no git binary).
+Over `git2` (vendored libgit2/OpenSSL, no git binary; HTTPS only, no libssh2).
 
 - `open`: discovers upward but never past `~` (a dotfiles repo is never adopted). The
   project may sit inside a larger repo: only `notes/`, `trash/`, `dagobert.json` and
@@ -65,8 +65,10 @@ Over `git2` (vendored libgit2/libssh2/OpenSSL, no git binary).
 - `push` (sets the upstream). `remote_branch` picks the branch on `origin` the local one
   tracks (its upstream when it lives there, else its own name); pull, push and
   ahead/behind all use it.
-- Detached HEAD is refused everywhere. Credentials (`callbacks`): ssh-agent, then
-  `~/.ssh/id_*`, then the credential helper; never prompts. `timeout` aborts a fetch via
+- Detached HEAD is refused everywhere. Credentials (`callbacks`): the signed-in GitHub
+  token over HTTPS and nothing else — no ssh-agent, no key files, no credential helper,
+  never a prompt. `ensure_https` moves an ssh `origin` onto its HTTPS url before a fetch
+  or push, so an older project keeps syncing. `timeout` aborts a fetch via
   `transfer_progress` (a push's upload can't be interrupted through git2); an error past
   the deadline reads "timed out". Tests use temp repos sharing a bare remote (`tests::pair`).
 

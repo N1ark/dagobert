@@ -3,8 +3,8 @@
 Read this when touching `github.ts`, `prs.svelte.ts`, `PullRequests.svelte`,
 `PrIcon.svelte`, `prIcons.svelte.ts` or `IssuePopup.svelte`.
 
-- `github.ts` — REST client (`searchIssues`, 60 s cache; token from the signed-in
-  session, else `gh auth token` via the `github_cli_token` command).
+- `github.ts` — REST client (`searchIssues`, 60 s cache; the token is the signed-in
+  session's, else nothing — reads fall back to anonymous).
 - `auth.svelte.ts` + `github.rs` — sign-in through the GitHub App **device flow**: the app
   shows a short code, the browser takes the approval, the token comes back. Nothing is
   typed in and no token is made by hand. The endpoints send no CORS headers, so the calls

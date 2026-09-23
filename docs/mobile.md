@@ -21,14 +21,14 @@ broken.
 
 - `state.rs` holds `Recent` and `AppState` and is compiled everywhere. `watch.rs` is
   `#[cfg(desktop)]`, because `notify` is declared only for the desktop targets.
-- `watch_project` / `unwatch_project` / `github_cli_token` are commands on **every**
-  target with no-op bodies on mobile: `generate_handler!` won't take `cfg` on its
-  entries, and a no-op also means `backend.ts` needs no branch.
+- `watch_project` / `unwatch_project` are commands on **every** target with no-op bodies
+  on mobile: `generate_handler!` won't take `cfg` on its entries, and a no-op also means
+  `backend.ts` needs no branch.
 - Quit interception (`on_window_event`, `ExitRequested`, `sync::intercept_quit`) is
   desktop-only; `git_quit` and `sync::finish_quit` still compile everywhere, and nothing
   emits `git-quit` on mobile, so the frontend listener is inert.
-- `git2` drops the `ssh` feature for `aarch64-apple-ios` (HTTPS only), which also drops
-  libssh2 from the cross-compile. Desktop keeps it for existing ssh remotes.
+- `git2` is built without the `ssh` feature on every target (HTTPS only), so libssh2 is
+  never in the build.
 - `capabilities/default.json` is `"platforms": ["macOS", "windows", "linux"]` — without
   that, a capability with no `platforms` applies to every target and `mobile.json` would
   add permissions rather than replace them. `mobile.json` keeps `core:default` (the event
@@ -47,9 +47,8 @@ into the new repository, since there is no `~/.gitconfig` to fall back on.
 path carries a UUID that changes on reinstall); `openRef` resolves it through
 `project_path`. Desktop keeps absolute paths.
 
-Credentials: `pick_cred` decides what `callbacks` offers on each attempt — the token
-first for `USER_PASS_PLAINTEXT`, then the credential helper; ssh-agent and key files are
-unchanged and a token never displaces them. The token is threaded from the frontend
+Credentials: `pick_cred` offers the signed-in token for `USER_PASS_PLAINTEXT` and
+nothing else — the desktop works the same way. The token is threaded from the frontend
 through `git_sync` / `git_quit` → `sync::cycle` → `git::fetch` / `git::push` and is never
 written to disk by Rust. `secrets.ts` is the one place it and the GitHub API token live
 (`localStorage` for now; a keychain plugin would replace the backing there alone).

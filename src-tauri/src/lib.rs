@@ -280,32 +280,6 @@ async fn github_refresh(refresh_token: String) -> Result<github::Token, String> 
         .map_err(|e| e.to_string())?
 }
 
-/// Token from the GitHub CLI (`gh auth token`), if the user is logged in there.
-/// Always `None` on mobile: there is no `gh`, and iOS forbids spawning it.
-#[tauri::command]
-#[cfg(desktop)]
-fn github_cli_token() -> Option<String> {
-    let out = std::process::Command::new("gh")
-        .args(["auth", "token"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let t = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    if t.is_empty() {
-        None
-    } else {
-        Some(t)
-    }
-}
-
-#[tauri::command]
-#[cfg(mobile)]
-fn github_cli_token() -> Option<String> {
-    None
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -331,7 +305,6 @@ pub fn run() {
             read_meta,
             save_meta,
             save_local,
-            github_cli_token,
             github_signin_start,
             github_signin_poll,
             github_refresh,

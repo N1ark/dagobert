@@ -347,38 +347,17 @@ pub fn commit_if_dirty(root: &Path, message: &str) -> Result<bool> {
 enum CredChoice {
     Username,
     Token,
-    SshAgent,
-    SshKey(usize),
-    Helper,
-    Default,
     None,
 }
 
-/// Credentials tried in order: the token (HTTPS only, when we have one),
-/// ssh-agent, `~/.ssh/id_*` keys, the credential helper (osxkeychain, gh, …),
-/// then libgit2's default. Never prompts.
-fn pick_cred(token: bool, allowed: CredentialType, attempt: usize, keys: usize) -> CredChoice {
+/// The signed-in token over HTTPS is the only credential, on every platform:
+/// no ssh-agent, no key files, no credential helper. Never prompts.
+fn pick_cred(token: bool, allowed: CredentialType, attempt: usize) -> CredChoice {
     if allowed == CredentialType::USERNAME {
         return CredChoice::Username;
     }
-    if allowed.contains(CredentialType::SSH_KEY) {
-        return match attempt {
-            0 => CredChoice::SshAgent,
-            n if n - 1 < keys => CredChoice::SshKey(n - 1),
-            _ => CredChoice::None,
-        };
-    }
-    if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
-        if token && attempt == 0 {
-            return CredChoice::Token;
-        }
-        if attempt == usize::from(token) {
-            return CredChoice::Helper;
-        }
-        return CredChoice::None;
-    }
-    if allowed.contains(CredentialType::DEFAULT) && attempt == 0 {
-        return CredChoice::Default;
+    if token && attempt == 0 && allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
+        return CredChoice::Token;
     }
     CredChoice::None
 }
@@ -386,29 +365,23 @@ fn pick_cred(token: bool, allowed: CredentialType, attempt: usize, keys: usize) 
 fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCallbacks<'a> {
     let mut cb = RemoteCallbacks::new();
     let attempt = Cell::new(0usize);
-    cb.credentials(move |url, username, allowed| {
-        let user = username.unwrap_or("git");
-        let keys = ssh_keys();
-        let choice = pick_cred(token.is_some(), allowed, attempt.get(), keys.len());
+    cb.credentials(move |_url, username, allowed| {
+        let choice = pick_cred(token.is_some(), allowed, attempt.get());
         if choice != CredChoice::Username {
             attempt.set(attempt.get() + 1);
         }
         match choice {
-            CredChoice::Username => Cred::username(user),
-            // GitHub, GitLab and Bitbucket all accept a PAT as the password.
+            CredChoice::Username => Cred::username(username.unwrap_or("git")),
+            // GitHub, GitLab and Bitbucket all accept a token as the password.
             CredChoice::Token => Cred::userpass_plaintext(
                 username
                     .filter(|u| !u.is_empty())
                     .unwrap_or("x-access-token"),
                 token.as_deref().unwrap_or_default(),
             ),
-            CredChoice::SshAgent => Cred::ssh_key_from_agent(user),
-            CredChoice::SshKey(i) => Cred::ssh_key(user, None, &keys[i], None),
-            CredChoice::Helper => {
-                Cred::credential_helper(&git2::Config::open_default()?, url, username)
-            }
-            CredChoice::Default => Cred::default(),
-            CredChoice::None => Err(git2::Error::from_str("no usable credentials")),
+            CredChoice::None => Err(git2::Error::from_str(
+                "no usable credentials — sign in to GitHub",
+            )),
         }
     });
     // Aborts a fetch past the deadline; a push's upload can't be interrupted
@@ -428,18 +401,6 @@ fn transfer_err(what: &str, deadline: Option<Instant>, e: git2::Error) -> String
     }
 }
 
-fn ssh_keys() -> Vec<PathBuf> {
-    let home = match std::env::var_os("HOME") {
-        Some(h) => PathBuf::from(h).join(".ssh"),
-        None => return vec![],
-    };
-    ["id_ed25519", "id_rsa", "id_ecdsa"]
-        .iter()
-        .map(|n| home.join(n))
-        .filter(|p| p.exists())
-        .collect()
-}
-
 /// Safe checkout that skips (rather than fails on) files it would clobber; the
 /// skipped files stay as local modifications and ride along in the next commit.
 fn checkout() -> CheckoutBuilder<'static> {
@@ -456,6 +417,35 @@ fn strict_checkout() -> CheckoutBuilder<'static> {
     cb
 }
 
+/// The HTTPS form of an ssh remote (`git@host:owner/repo`, `ssh://git@host/owner/repo`),
+/// `None` when the url already speaks a protocol the token can authenticate.
+fn https_url(url: &str) -> Option<String> {
+    let rest = match url.strip_prefix("ssh://") {
+        Some(r) => r.to_string(),
+        None if url.contains("://") => return None,
+        None => url.replacen(':', "/", 1),
+    };
+    let rest = rest.rsplit_once('@').map(|(_, r)| r).unwrap_or(&rest);
+    let (host, path) = rest.split_once('/')?;
+    let host = host.split_once(':').map(|(h, _)| h).unwrap_or(host);
+    if host.is_empty() || path.is_empty() {
+        return None;
+    }
+    Some(format!("https://{host}/{path}"))
+}
+
+/// Moves an ssh `origin` onto HTTPS, the only protocol the sign-in can serve.
+fn ensure_https(repo: &Repository) -> Result<()> {
+    let url = match repo.find_remote(REMOTE) {
+        Ok(r) => r.url().map(str::to_string),
+        Err(_) => None,
+    };
+    if let Some(https) = url.as_deref().and_then(https_url) {
+        repo.remote_set_url(REMOTE, &https).map_err(err)?;
+    }
+    Ok(())
+}
+
 fn deadline(timeout: Option<Duration>) -> Option<Instant> {
     timeout.map(|t| Instant::now() + t)
 }
@@ -466,6 +456,7 @@ pub fn fetch(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Res
     if current_branch(&repo)?.is_none() {
         return Ok(false);
     }
+    ensure_https(&repo)?;
     let mut remote = match repo.find_remote(REMOTE) {
         Ok(r) => r,
         Err(_) => return Ok(false),
@@ -598,6 +589,7 @@ pub fn push(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Resu
     if repo.head().is_err() {
         return Ok(());
     }
+    ensure_https(&repo)?;
     let mut remote = repo
         .find_remote(REMOTE)
         .map_err(|_| "no remote named origin".to_string())?;
@@ -737,22 +729,29 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn credentials_try_the_token_first_then_the_helper() {
+    fn ssh_remotes_move_onto_https() {
+        assert_eq!(
+            https_url("git@github.com:n1ark/notes.git").as_deref(),
+            Some("https://github.com/n1ark/notes.git")
+        );
+        assert_eq!(
+            https_url("ssh://git@github.com/n1ark/notes").as_deref(),
+            Some("https://github.com/n1ark/notes")
+        );
+        assert_eq!(https_url("https://github.com/n1ark/notes.git"), None);
+        assert_eq!(https_url("/a/local/repo"), None);
+    }
+
+    #[test]
+    fn the_token_is_the_only_credential() {
         use CredChoice::*;
         let https = CredentialType::USER_PASS_PLAINTEXT;
-        assert_eq!(pick_cred(true, https, 0, 0), Token);
-        assert_eq!(pick_cred(true, https, 1, 0), Helper);
-        assert_eq!(pick_cred(true, https, 2, 0), None);
-        assert_eq!(pick_cred(false, https, 0, 0), Helper);
-        assert_eq!(pick_cred(false, https, 1, 0), None);
-        // A token never displaces the ssh path.
-        let ssh = CredentialType::SSH_KEY;
-        assert_eq!(pick_cred(true, ssh, 0, 2), SshAgent);
-        assert_eq!(pick_cred(true, ssh, 1, 2), SshKey(0));
-        assert_eq!(pick_cred(true, ssh, 2, 2), SshKey(1));
-        assert_eq!(pick_cred(true, ssh, 3, 2), None);
-        assert_eq!(pick_cred(true, CredentialType::USERNAME, 7, 0), Username);
-        assert_eq!(pick_cred(true, CredentialType::DEFAULT, 0, 0), Default);
+        assert_eq!(pick_cred(true, https, 0), Token);
+        assert_eq!(pick_cred(true, https, 1), None);
+        assert_eq!(pick_cred(false, https, 0), None);
+        assert_eq!(pick_cred(true, CredentialType::SSH_KEY, 0), None);
+        assert_eq!(pick_cred(true, CredentialType::DEFAULT, 0), None);
+        assert_eq!(pick_cred(true, CredentialType::USERNAME, 7), Username);
     }
 
     #[test]

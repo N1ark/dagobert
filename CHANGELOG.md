@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Git sync and the GitHub API only ever use the signed-in GitHub account: no ssh keys, no
+  credential helper, no `gh` CLI token. An ssh remote is moved onto HTTPS.
+
 ### Added
 
 - Sign in with GitHub from settings or the welcome screen: you approve a code in your

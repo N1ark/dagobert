@@ -1,5 +1,4 @@
 import { t } from "./i18n";
-import { backend } from "./backend";
 import { auth } from "./auth.svelte";
 
 /** An issue or pull request as shown in the picker. */
@@ -15,14 +14,9 @@ export interface IssueRef {
   comments: number;
 }
 
-let cliToken: string | null | undefined;
-
-/** The signed-in session's token, else the gh CLI's; null when neither exists. */
+/** The signed-in session's token; null when nobody is signed in. */
 export async function token(): Promise<string | null> {
-  const signed = await auth.token();
-  if (signed) return signed;
-  if (cliToken === undefined) cliToken = (await backend.githubCliToken().catch(() => null)) || null;
-  return cliToken;
+  return auth.token();
 }
 
 function send(path: string, tok: string | null) {

@@ -366,12 +366,6 @@ export const backend = {
     else await openUrl(url);
   },
 
-  /** Token from `gh auth token`, if the GitHub CLI is logged in. */
-  async githubCliToken(): Promise<string | null> {
-    if (!inTauri) return null;
-    return (await invoke<string | null>("github_cli_token")) ?? null;
-  },
-
   setWindowTitle(title: string) {
     if (isMobile) return;
     if (inTauri)

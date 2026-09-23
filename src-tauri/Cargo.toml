@@ -21,13 +21,11 @@ serde_json = "1"
 serde_yaml = "0.9"
 ureq = { version = "3.4.2", features = ["json"] }
 
-# iOS has no ssh-agent and no key files, so HTTPS + a token is the only path —
-# dropping the `ssh` feature also drops libssh2 from the cross-compile.
-[target.'cfg(not(target_os = "ios"))'.dependencies]
-git2 = { version = "0.20", features = ["vendored-libgit2", "vendored-openssl", "ssh"] }
+# HTTPS + the signed-in token is the only path on every platform, so libssh2
+# is dropped everywhere.
+git2 = { version = "0.20", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
-git2 = { version = "0.20", default-features = false, features = ["https", "vendored-libgit2", "vendored-openssl"] }
 # Reading the software keyboard's height, which the webview never learns.
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSDictionary", "NSNotification", "NSString", "NSValue", "NSGeometry"] }
