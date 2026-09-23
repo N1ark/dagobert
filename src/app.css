@@ -36,10 +36,11 @@
 }
 
 body.mobile {
-  /* Nothing here is a document: a long press should act, not select text.
-     Deliberately not `position: fixed` — that also takes away the scroll iOS
-     performs to lift a focused field above the keyboard, which is the only
-     keyboard avoidance we get when the visual viewport reports nothing. */
+  /* Nothing here is a document: a long press should act, not select text, and
+     pinning it stops WKWebView scrolling the whole shell to lift a focused
+     field above the keyboard — `--kb` already shrinks it out of the way. */
+  position: fixed;
+  inset: 0;
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;

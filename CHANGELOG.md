@@ -31,6 +31,8 @@ All notable changes to Dagobert are documented here. The format follows
   buttons no longer stay lit after a tap.
 - Dragging across buttons, labels and dialogs no longer selects their text.
 - The phone's actions follow a panel as it is dragged instead of catching up afterwards.
+- Opening search on a phone no longer shifts the whole screen, and the palette can't be
+  dragged around.
 
 ## [0.7.1] - 2026-09-21
 

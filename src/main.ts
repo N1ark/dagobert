@@ -15,8 +15,6 @@ if (isMobile) {
   const sync = () => document.body.classList.toggle("typing", typing());
   document.addEventListener("focusin", sync);
   document.addEventListener("focusout", () => setTimeout(sync, 50));
-  // Nothing here is a scrolling document; the keyboard is accounted for above.
-  window.addEventListener("scroll", () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0), { passive: true });
 }
 
 // In the browser dev loop there is no UIKit, but the visual viewport does shrink.
