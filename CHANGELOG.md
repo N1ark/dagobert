@@ -8,6 +8,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Unreachable repos are listed at the bottom of the pull requests panel, under their own
+  separator, instead of replacing the whole list with one error.
 - Git sync and the GitHub API only ever use the signed-in GitHub account: no ssh keys, no
   credential helper, no `gh` CLI token. An ssh remote is moved onto HTTPS.
 

@@ -13,6 +13,7 @@
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
   import ChatCircle from "phosphor-svelte/lib/ChatCircle";
   import EyeSlash from "phosphor-svelte/lib/EyeSlash";
+  import WarningCircle from "phosphor-svelte/lib/WarningCircle";
 
   let { onclose, onjump, sheet = false }: { onclose: () => void; onjump: (id: string) => void; sheet?: boolean } = $props();
 
@@ -51,7 +52,16 @@
     return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
   });
   const hiddenCount = $derived(hideClosed ? Object.values(details).filter((d) => d && d.state !== "open").length : 0);
-  const firstError = $derived(Object.values(errors)[0] ?? null);
+  /** References that couldn't be read, grouped per repo and listed under the working ones. */
+  const failed = $derived.by(() => {
+    const by = new Map<string, { ref: Linked; message: string }[]>();
+    for (const ref of refs) {
+      const message = errors[ref.key];
+      if (!message) continue;
+      (by.get(ref.repo) ?? by.set(ref.repo, []).get(ref.repo)!).push({ ref, message });
+    }
+    return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
+  });
   const noRepos = $derived(!Object.keys(store.repos).length);
 
   function open(url: string) {
@@ -83,11 +93,9 @@
   <div class="list">
     {#if noRepos}
       <p class="empty"><InlineMd source={t("prs.noRepos")} /></p>
-    {:else if firstError}
-      <p class="empty err">{firstError}</p>
     {:else if !refs.length}
       <p class="empty"><InlineMd source={t("prs.noRefs")} /></p>
-    {:else if !rows.length && !pending}
+    {:else if !rows.length && !pending && !failed.length}
       <p class="empty">
         {#if hiddenCount}{plural("prs.allClosed", hiddenCount)}{:else}{t("prs.none")}{/if}
       </p>
@@ -111,6 +119,25 @@
               <span use:tooltip={absolute(pr.updated)}>{relative(pr.updated)}</span>
               {#if pr.comments}<span class="comments"><ChatCircle size={11} /> {pr.comments}</span>{/if}
             </div>
+            <div class="notes">
+              {#each ref.notes as n (n.id)}
+                <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
+                  <InlineMd source={n.title} fallback={t("app.untitled")} />
+                </button>
+              {/each}
+            </div>
+          </div>
+        </div>
+      {/each}
+    {/each}
+    {#each failed as { repo, items } (repo)}
+      <div class="divider fail"><span>{repo}</span></div>
+      {#each items as { ref, message } (ref.key)}
+        <div class="row">
+          <span class="state fail"><WarningCircle size={15} /></span>
+          <div class="body">
+            <p class="msg">{message}</p>
+            <div class="meta"><span class="ref">{ref.alias}#{ref.number}</span></div>
             <div class="notes">
               {#each ref.notes as n (n.id)}
                 <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
@@ -196,9 +223,6 @@
     font-size: 12px;
     line-height: 1.5;
   }
-  .empty.err {
-    color: var(--red);
-  }
   .empty :global(code) {
     font-family: var(--mono);
     font-size: 11px;
@@ -221,6 +245,9 @@
   .divider:first-child {
     margin-top: 2px;
   }
+  .divider.fail {
+    color: var(--red);
+  }
   .row {
     display: flex;
     gap: 7px;
@@ -236,6 +263,15 @@
     flex: none;
     display: inline-flex;
     margin-top: 2px;
+  }
+  .state.fail {
+    color: var(--red);
+  }
+  .msg {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.3;
+    color: var(--color2);
   }
   .body {
     flex: 1;

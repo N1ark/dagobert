@@ -234,7 +234,7 @@ export default {
   "prs.state.detail": "{state} · {title}",
   "github.rateLimit": "GitHub rate limit hit — add a token in settings.",
   "github.tokenRejected": "GitHub token rejected.",
-  "github.notFound": "Repo not found (private? add a token).",
+  "github.notFound": "Repo not found. You may have to give the Dagobert GitHub app access to it.",
   "github.status": "GitHub {status}",
 
   // Minimap & progress ring
