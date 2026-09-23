@@ -29,6 +29,11 @@ All notable changes to Dagobert are documented here. The format follows
 - The editor keeps clear of the software keyboard, and autocorrect no longer rewrites
   markdown as it is typed.
 
+### Fixed
+
+- A panel on a phone no longer runs off the bottom of the screen: settings with a long
+  workflow scrolls all the way down.
+
 ### Changed
 
 - Pull request titles and file names read as links, not as buttons, and the file name in

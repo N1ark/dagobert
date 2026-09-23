@@ -247,7 +247,9 @@
     border-top: 1px solid var(--border2);
     border-radius: 12px 12px 0 0;
     box-shadow: var(--shadow-lg);
-    padding-bottom: var(--safe-bottom);
+    /* The sheet is a whole viewport tall and slid down, so its last
+       `--sheet-top` pixels sit below the screen even at the top stop. */
+    padding-bottom: calc(var(--safe-bottom) + var(--sheet-top));
     transform: translateY(calc(100% - var(--sheet-peek)));
     transition: transform var(--dur-sheet) var(--ease-sheet);
     will-change: transform;
