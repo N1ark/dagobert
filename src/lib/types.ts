@@ -133,4 +133,7 @@ export interface Token {
   expires_in: number | null;
 }
 
+/** A refresh renews the sign-in or ends it; a failure to reach GitHub throws instead. */
+export type Refreshed = { state: "token"; token: Token } | { state: "rejected"; reason: string };
+
 export type DevicePoll = { state: "pending" } | { state: "slow-down"; interval: number } | { state: "token"; token: Token };

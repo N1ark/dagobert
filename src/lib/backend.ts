@@ -7,7 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
-import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, SyncReport, Token } from "./types";
+import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -335,8 +335,8 @@ export const backend = {
     return invoke<DevicePoll>("github_signin_poll", { deviceCode });
   },
 
-  async githubRefresh(refreshToken: string): Promise<Token> {
-    return invoke<Token>("github_refresh", { refreshToken });
+  async githubRefresh(refreshToken: string): Promise<Refreshed> {
+    return invoke<Refreshed>("github_refresh", { refreshToken });
   },
 
   /** Software keyboard height in CSS pixels, from UIKit. Returns an unsubscribe. */

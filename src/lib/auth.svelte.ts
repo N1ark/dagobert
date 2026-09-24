@@ -95,9 +95,16 @@ class Auth {
     if (who) this.#save({ ...base, login: who.login, name: who.name || who.login, email: who.email });
   }
 
+  /** Adopts whatever another window last stored, since each window holds its own copy. */
+  #reload() {
+    const stored = secrets.session();
+    if (stored?.access !== this.session?.access) this.session = stored;
+    return this.session;
+  }
+
   /** A usable access token, refreshed if it is about to expire. Null when signed out. */
   async token(): Promise<string | null> {
-    const s = this.session;
+    const s = this.#reload();
     if (!s) return null;
     if (!s.expires || Date.now() < s.expires - EARLY) return s.access;
     if (!s.refresh) {
@@ -107,11 +114,16 @@ class Auth {
     }
     this.#refreshing ??= (async () => {
       try {
-        const token = await backend.githubRefresh(s.refresh!);
-        await this.#adopt(token);
+        const res = await backend.githubRefresh(s.refresh!);
+        if (res.state === "token") {
+          await this.#adopt(res.token);
+          return this.session?.access ?? null;
+        }
+        // GitHub rotates on every use, so a refusal may just mean another window got there first.
+        if (this.#reload()?.refresh === s.refresh) this.#save(null);
         return this.session?.access ?? null;
       } catch {
-        this.#save(null);
+        // GitHub was unreachable: keep the sign-in and let the next cycle retry.
         return null;
       } finally {
         this.#refreshing = null;

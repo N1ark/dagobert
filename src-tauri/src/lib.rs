@@ -266,7 +266,7 @@ async fn github_signin_poll(device_code: String) -> Result<github::Poll, String>
 
 /// Exchanges a refresh token for a fresh one (apps with expiring user tokens).
 #[tauri::command]
-async fn github_refresh(refresh_token: String) -> Result<github::Token, String> {
+async fn github_refresh(refresh_token: String) -> Result<github::Refreshed, String> {
     tauri::async_runtime::spawn_blocking(move || github::refresh(&refresh_token))
         .await
         .map_err(|e| e.to_string())?

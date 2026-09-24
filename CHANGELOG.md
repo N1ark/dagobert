@@ -31,6 +31,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Fixed
 
+- Losing the network no longer signs you out of GitHub.
 - The editor and search keep clear of the software keyboard, and autocorrect no longer
   rewrites markdown as it is typed.
 - The mention picker follows the caret in a newly added block, as it does in every other.

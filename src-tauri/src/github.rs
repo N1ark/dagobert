@@ -43,6 +43,17 @@ pub enum Poll {
     },
 }
 
+/// The errors that mean the refresh token itself is finished; every other failure is transient.
+const DEAD: [&str; 2] = ["bad_refresh_token", "bad_verification_code"];
+
+/// A refresh either renews the sign-in or ends it; a transport failure is neither and stays an `Err`.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "state", rename_all = "kebab-case")]
+pub enum Refreshed {
+    Token { token: Token },
+    Rejected { reason: String },
+}
+
 #[derive(Deserialize)]
 struct Raw {
     error: Option<String>,
@@ -98,7 +109,7 @@ pub fn poll(device_code: &str) -> Result<Poll, String> {
 }
 
 /// Trades a refresh token for a fresh one, when the app expires user tokens.
-pub fn refresh(refresh_token: &str) -> Result<Token, String> {
+pub fn refresh(refresh_token: &str) -> Result<Refreshed, String> {
     let client_id = configured()?;
     let raw: Raw = post(
         TOKEN_URL,
@@ -108,10 +119,28 @@ pub fn refresh(refresh_token: &str) -> Result<Token, String> {
             ("grant_type", "refresh_token"),
         ],
     )?;
-    match classify(raw)? {
-        Poll::Token { token } => Ok(token),
-        _ => Err("GitHub declined to refresh the sign-in.".into()),
+    classify_refresh(raw)
+}
+
+/// Only a grant GitHub calls dead ends the sign-in; anything else is worth retrying.
+fn classify_refresh(raw: Raw) -> Result<Refreshed, String> {
+    if let Some(err) = raw.error.as_deref() {
+        if DEAD.contains(&err) {
+            let reason = raw.error_description.unwrap_or_else(|| err.to_string());
+            return Ok(Refreshed::Rejected { reason });
+        }
+        return Err(raw.error_description.unwrap_or_else(|| err.to_string()));
     }
+    let Some(access_token) = raw.access_token else {
+        return Err("GitHub sent no token.".into());
+    };
+    Ok(Refreshed::Token {
+        token: Token {
+            access_token,
+            refresh_token: raw.refresh_token,
+            expires_in: raw.expires_in,
+        },
+    })
 }
 
 /// Maps GitHub's reply onto [`Poll`], kept separate so it can be tested offline.
@@ -169,6 +198,24 @@ mod tests {
         assert!(classify(raw(Some("access_denied"), None)).is_err());
         assert!(classify(raw(Some("expired_token"), None)).is_err());
         assert!(classify(raw(None, None)).is_err(), "no error, no token");
+    }
+
+    #[test]
+    fn only_a_dead_grant_ends_the_sign_in() {
+        assert!(matches!(
+            classify_refresh(raw(Some("bad_refresh_token"), None)).unwrap(),
+            Refreshed::Rejected { .. }
+        ));
+        // A hiccup at GitHub's end must leave the refresh token alone.
+        assert!(classify_refresh(raw(Some("slow_down"), None)).is_err());
+        assert!(
+            classify_refresh(raw(None, None)).is_err(),
+            "no error, no token"
+        );
+        assert!(matches!(
+            classify_refresh(raw(None, Some("ghu_x"))).unwrap(),
+            Refreshed::Token { .. }
+        ));
     }
 
     #[test]
