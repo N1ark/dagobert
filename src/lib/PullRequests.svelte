@@ -45,23 +45,16 @@
     out.sort((a, b) => b.pr.updated.localeCompare(a.pr.updated));
     return out;
   });
-  /** Rows grouped per repo (`owner/name`), repos alphabetical, newest PR first inside. */
-  const groups = $derived.by(() => {
-    const by = new Map<string, Row[]>();
-    for (const r of rows) (by.get(r.ref.repo) ?? by.set(r.ref.repo, []).get(r.ref.repo)!).push(r);
+  /** Grouped per repo (`owner/name`), repos alphabetical, order kept inside. */
+  function byRepo<T extends { ref: Linked }>(list: T[]) {
+    const by = new Map<string, T[]>();
+    for (const x of list) (by.get(x.ref.repo) ?? by.set(x.ref.repo, []).get(x.ref.repo)!).push(x);
     return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
-  });
+  }
+  const groups = $derived(byRepo(rows));
   const hiddenCount = $derived(hideClosed ? Object.values(details).filter((d) => d?.isPr && d.state !== "open").length : 0);
-  /** References that couldn't be read, grouped per repo and listed under the working ones. */
-  const failed = $derived.by(() => {
-    const by = new Map<string, { ref: Linked; message: string }[]>();
-    for (const ref of refs) {
-      const message = errors[ref.key];
-      if (!message) continue;
-      (by.get(ref.repo) ?? by.set(ref.repo, []).get(ref.repo)!).push({ ref, message });
-    }
-    return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
-  });
+  /** References that couldn't be read, listed under the working ones. */
+  const failed = $derived(byRepo(refs.filter((ref) => errors[ref.key]).map((ref) => ({ ref, message: errors[ref.key] }))));
   const noRepos = $derived(!Object.keys(store.repos).length);
 
   function open(url: string) {

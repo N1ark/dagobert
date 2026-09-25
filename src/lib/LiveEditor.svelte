@@ -245,6 +245,11 @@
     const next = pasteLink({ text: el.value, start: el.selectionStart, end: el.selectionEnd }, pasted);
     if (!next) return;
     e.preventDefault();
+    apply(el, next);
+  }
+
+  /** Put an edit's text and selection into the textarea as if it had been typed. */
+  function apply(el: HTMLTextAreaElement, next: { text: string; start: number; end: number }) {
     el.value = next.text;
     el.setSelectionRange(next.start, next.end);
     onInput().then(() => textarea?.setSelectionRange(next.start, next.end));
@@ -256,24 +261,14 @@
 
   function onKey(e: KeyboardEvent) {
     const el = e.target as HTMLTextAreaElement;
-    if (mention) {
+    // At most one popup is open; it takes the keys it knows, and Escape closes it.
+    if (mention || issue) {
       if (e.key === "Escape") {
         e.preventDefault();
-        mention = null;
+        mention = issue = null;
         return;
       }
-      if (mentionPopup?.handleKey(e)) {
-        e.preventDefault();
-        return;
-      }
-    }
-    if (issue) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        issue = null;
-        return;
-      }
-      if (issuePopup?.handleKey(e)) {
+      if ((mention ? mentionPopup : issuePopup)?.handleKey(e)) {
         e.preventDefault();
         return;
       }
@@ -310,9 +305,7 @@
     const next = command(e, { text: el.value, start: el.selectionStart, end: el.selectionEnd });
     if (next) {
       e.preventDefault();
-      el.value = next.text;
-      el.setSelectionRange(next.start, next.end);
-      onInput().then(() => textarea?.setSelectionRange(next.start, next.end));
+      apply(el, next);
     }
   }
 
@@ -354,15 +347,13 @@
     issue = { start, alias: g[2], repo, query: g[3], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
   }
 
-  /** Replace `alias#query` with `alias#123`. */
-  function insertIssue(ref: IssueRef) {
+  /** Replace what was typed from `start` up to the caret by `insert`. */
+  function replaceTyped(start: number, insert: string) {
     const el = textarea;
-    if (!el || !issue) return;
-    const end = el.selectionStart;
-    const insert = `${issue.alias}#${ref.number} `;
-    el.value = el.value.slice(0, issue.start) + insert + el.value.slice(end);
-    const pos = issue.start + insert.length;
-    issue = null;
+    if (!el) return;
+    el.value = el.value.slice(0, start) + insert + el.value.slice(el.selectionStart);
+    const pos = start + insert.length;
+    mention = issue = null;
     el.setSelectionRange(pos, pos);
     onInput();
     requestAnimationFrame(() => {
@@ -371,31 +362,18 @@
     });
   }
 
+  /** Replace `alias#query` with `alias#123`. */
+  function insertIssue(ref: IssueRef) {
+    if (issue) replaceTyped(issue.start, `${issue.alias}#${ref.number} `);
+  }
+
   function insertLink(title: string) {
-    const el = textarea;
-    if (!el || !mention) return;
-    const end = el.selectionStart;
-    const insert = `[[${title}]] `;
-    el.value = el.value.slice(0, mention.start) + insert + el.value.slice(end);
-    const pos = mention.start + insert.length;
-    mention = null;
-    el.setSelectionRange(pos, pos);
-    onInput();
-    requestAnimationFrame(() => {
-      el.focus();
-      el.setSelectionRange(pos, pos);
-    });
+    if (mention) replaceTyped(mention.start, `[[${title}]] `);
   }
 
   function createAndLink(title: string) {
     oncreatelink(title);
     insertLink(title);
-  }
-
-  /** Public: start editing at the end (used when a note is brand new). */
-  export function focusEnd() {
-    if (blocks.length) activate(blocks.length - 1, "end");
-    else appendBlock();
   }
 </script>
 

@@ -21,6 +21,8 @@
   let cloning = $state<string | null>(null);
   let error = $state<string | null>(null);
 
+  const message = (e: unknown) => (typeof e === "string" ? e : ((e as Error)?.message ?? String(e)));
+
   async function load() {
     if (!auth.signedIn) return;
     loading = true;
@@ -28,7 +30,7 @@
     try {
       repos = await listRepos();
     } catch (e) {
-      error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
+      error = message(e);
     } finally {
       loading = false;
     }
@@ -60,7 +62,7 @@
       // A phone only ever syncs; a clone that arrived untracked still tracks.
       if (!store.gitEnabled) await store.enableGit();
     } catch (e) {
-      error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
+      error = message(e);
     } finally {
       cloning = null;
     }

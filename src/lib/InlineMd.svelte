@@ -1,36 +1,18 @@
 <script lang="ts">
-  import { openUrl } from "@tauri-apps/plugin-opener";
-  import { wikilinkTarget } from "./wikilinks";
   import { inlineHtml } from "./inline";
-  import { store } from "./store.svelte";
+  import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
 
   /** Renders a single line of markdown (bold, code, links…) with no block wrapper. */
   let { source, fallback = "" }: { source: string; fallback?: string } = $props();
 
   const html = $derived(inlineHtml(source));
-
-  function onClick(e: MouseEvent) {
-    const id = wikilinkTarget(e.target as HTMLElement);
-    if (id) {
-      e.preventDefault();
-      e.stopPropagation();
-      store.jump(id);
-      return;
-    }
-    const a = (e.target as HTMLElement).closest("a");
-    if (!a) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const href = a.getAttribute("href");
-    if (href && /^(https?:|mailto:)/.test(href)) openUrl(href).catch(console.error);
-  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
 {#if html}
   <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
-  <span class="inline-md" use:prIcons={() => html} onclick={onClick}>{@html html}</span>
+  <span class="inline-md" use:prIcons={() => html} onclick={(e) => onLinkClick(e, true)}>{@html html}</span>
 {:else}
   <span class="inline-md fallback">{fallback}</span>
 {/if}

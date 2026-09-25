@@ -33,7 +33,6 @@
   let canvas: HTMLCanvasElement;
   let renderer: GrainRenderer | null = null;
   let raf = 0;
-  let frozen = 0;
   let reduced = false;
   let dirty = false;
   let bufW = 1;
@@ -98,7 +97,7 @@
     // Reduced motion: a still texture that only re-renders when inputs change.
     if (reduced) {
       if (!dirty) return;
-      t = frozen;
+      t = 0;
     }
     dirty = false;
     const s = dpr();

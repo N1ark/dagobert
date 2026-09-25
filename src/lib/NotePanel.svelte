@@ -45,8 +45,30 @@
   const packed = (notes: Note[]) => [...notes].sort((a, b) => b.title.length - a.title.length || a.title.localeCompare(b.title));
   const deps = $derived(packed(store.dependencies(note.id)));
   const dependents = $derived(packed(store.dependents(note.id)));
-  const depIds = $derived(new Set(note.deps));
-  const dependentIds = $derived(new Set(dependents.map((d) => d.id)));
+
+  /** The two chip lists, what this note depends on and what depends on it. */
+  const linkGroups = $derived([
+    {
+      key: "deps",
+      label: t(note.tracking ? "panel.deps.tracks" : "panel.deps"),
+      items: deps,
+      exclude: new Set([note.id, ...note.deps]),
+      filter: (n: Note) => !store.wouldCycle(note.id, n.id),
+      placeholder: t(note.tracking ? "panel.deps.track" : "panel.deps.add"),
+      add: (id: string) => store.addDependency(note.id, id),
+      remove: (id: string) => store.removeDependency(note.id, id),
+    },
+    {
+      key: "dependents",
+      label: t("panel.dependents"),
+      items: dependents,
+      exclude: new Set([note.id, ...dependents.map((d) => d.id)]),
+      filter: (n: Note) => !store.wouldCycle(n.id, note.id),
+      placeholder: t("panel.dependents.add"),
+      add: (id: string) => store.addDependency(id, note.id),
+      remove: (id: string) => store.removeDependency(id, note.id),
+    },
+  ]);
 
   // Fresh, untitled notes: jump straight to the title field.
   $effect(() => {
@@ -246,7 +268,7 @@
       </div>
 
       <section class="links">
-        {#each [{ label: t(note.tracking ? "panel.deps.tracks" : "panel.deps"), items: deps, exclude: new Set( [note.id, ...depIds] ), filter: (n: Note) => !store.wouldCycle(note.id, n.id), placeholder: t(note.tracking ? "panel.deps.track" : "panel.deps.add"), add: (id: string) => store.addDependency(note.id, id), remove: (id: string) => store.removeDependency(note.id, id), key: "deps" }, { label: t("panel.dependents"), items: dependents, exclude: new Set( [note.id, ...dependentIds] ), filter: (n: Note) => !store.wouldCycle(n.id, note.id), placeholder: t("panel.dependents.add"), add: (id: string) => store.addDependency(id, note.id), remove: (id: string) => store.removeDependency(id, note.id), key: "dependents" }] as g (g.key)}
+        {#each linkGroups as g (g.key)}
           <div class="group">
             <span class="label">{g.label} <span class="count">{g.items.length}</span></span>
             <div class="chips">

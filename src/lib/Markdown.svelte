@@ -1,9 +1,8 @@
 <script lang="ts">
   import { marked } from "marked";
   import DOMPurify from "dompurify";
-  import { openUrl } from "@tauri-apps/plugin-opener";
-  import { renderWikilinks, wikilinkTarget } from "./wikilinks";
-  import { store } from "./store.svelte";
+  import { renderWikilinks } from "./wikilinks";
+  import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
   import { highlightExtension } from "./highlight";
   import { t } from "./i18n";
@@ -19,25 +18,11 @@
       "$1",
     ),
   );
-
-  function onClick(e: MouseEvent) {
-    const id = wikilinkTarget(e.target as HTMLElement);
-    if (id) {
-      e.preventDefault();
-      store.jump(id);
-      return;
-    }
-    const a = (e.target as HTMLElement).closest("a");
-    if (!a) return;
-    e.preventDefault();
-    const href = a.getAttribute("href");
-    if (href && /^(https?:|mailto:)/.test(href)) openUrl(href).catch(console.error);
-  }
 </script>
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="markdown" use:prIcons={() => html} onclick={onClick}>
+<div class="markdown" use:prIcons={() => html} onclick={(e) => onLinkClick(e)}>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}
