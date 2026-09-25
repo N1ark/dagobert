@@ -2,6 +2,7 @@
 import { backend } from "./backend";
 import { secrets, type Session } from "./secrets";
 import { t } from "./i18n";
+import type { Token } from "./types";
 
 /** Refresh this long before expiry, so a sync never starts on a dead token. */
 const EARLY = 60_000;
@@ -14,7 +15,7 @@ async function whoami(token: string) {
   if (!res.ok) throw new Error(`GitHub ${res.status}`);
   const u = (await res.json()) as { login: string; name: string | null; email: string | null };
   // Users with a private email get the noreply address git will accept.
-  return { login: u.login, name: u.name ?? u.login, email: u.email ?? `${u.login}@users.noreply.github.com` };
+  return { login: u.login, name: u.name || u.login, email: u.email ?? `${u.login}@users.noreply.github.com` };
 }
 
 class Auth {
@@ -81,7 +82,7 @@ class Auth {
   }
 
   /** Stores a fresh token and the identity commits are attributed to. */
-  async #adopt(token: { access_token: string; refresh_token: string | null; expires_in: number | null }) {
+  async #adopt(token: Token) {
     const base: Session = {
       access: token.access_token,
       refresh: token.refresh_token,
@@ -92,7 +93,7 @@ class Auth {
     };
     this.#save(base);
     const who = await whoami(base.access).catch(() => null);
-    if (who) this.#save({ ...base, login: who.login, name: who.name || who.login, email: who.email });
+    if (who) this.#save({ ...base, ...who });
   }
 
   /** Adopts whatever another window last stored, since each window holds its own copy. */

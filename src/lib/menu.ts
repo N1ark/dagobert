@@ -4,6 +4,8 @@ import { inTauri, isMobile } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
 import { t, type Key } from "./i18n";
 
+const NAMED: Record<string, string> = { "↩": "Enter", "⌫": "Backspace", "⎋": "Escape" };
+
 /** "⇧⌘Z" → "CmdOrCtrl+Shift+Z" (Tauri accelerator syntax). */
 export function accelerator(hint?: string): string | undefined {
   if (!hint) return undefined;
@@ -13,8 +15,7 @@ export function accelerator(hint?: string): string | undefined {
   if (hint.includes("⌥")) parts.push("Alt");
   if (hint.includes("⌃")) parts.push("Ctrl");
   const key = hint.replace(/[⌘⇧⌥⌃]/g, "");
-  const named: Record<string, string> = { "↩": "Enter", "⌫": "Backspace", "⎋": "Escape" };
-  parts.push(named[key] ?? key.toUpperCase());
+  parts.push(NAMED[key] ?? key.toUpperCase());
   return parts.join("+");
 }
 

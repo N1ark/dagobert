@@ -51,11 +51,14 @@ export const tooltip: Action<HTMLElement, Source> = (node, text) => {
     if (t) show(node, t);
   };
   const leave = () => hide(node);
-  node.addEventListener("pointerenter", enter);
-  node.addEventListener("pointerleave", leave);
-  node.addEventListener("pointerdown", leave);
-  node.addEventListener("focus", enter);
-  node.addEventListener("blur", leave);
+  const listeners = [
+    ["pointerenter", enter],
+    ["pointerleave", leave],
+    ["pointerdown", leave],
+    ["focus", enter],
+    ["blur", leave],
+  ] as const;
+  for (const [type, fn] of listeners) node.addEventListener(type, fn);
   return {
     update(next) {
       current = next;
@@ -67,11 +70,7 @@ export const tooltip: Action<HTMLElement, Source> = (node, text) => {
     },
     destroy() {
       hide(node);
-      node.removeEventListener("pointerenter", enter);
-      node.removeEventListener("pointerleave", leave);
-      node.removeEventListener("pointerdown", leave);
-      node.removeEventListener("focus", enter);
-      node.removeEventListener("blur", leave);
+      for (const [type, fn] of listeners) node.removeEventListener(type, fn);
     },
   };
 };

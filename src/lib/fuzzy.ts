@@ -18,8 +18,9 @@ export function fuzzyMatch(query: string, text: string): Match {
 
   if (t.startsWith(q)) return { score: 1000 - t.length * 0.01, indices: range(0, q.length) };
 
+  const wordAt = wordStarts(t);
   // Word-start prefix: "sch" matches "Design the Schema".
-  for (const start of wordStarts(t)) {
+  for (const start of wordAt) {
     if (t.startsWith(q, start)) return { score: 800 - start * 0.1, indices: range(start, start + q.length) };
   }
 
@@ -27,7 +28,7 @@ export function fuzzyMatch(query: string, text: string): Match {
   if (sub >= 0) return { score: 600 - sub * 0.1, indices: range(sub, sub + q.length) };
 
   // Greedy subsequence, preferring word starts for each character.
-  const starts = new Set(wordStarts(t));
+  const starts = new Set(wordAt);
   const indices: number[] = [];
   let pos = 0;
   let score = 300;
