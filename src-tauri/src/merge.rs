@@ -5,7 +5,7 @@ use crate::store::{self, Note, META_FILE, NOTES_DIR, TRASH_DIR};
 use git2::{IndexEntry, MergeFileOptions, Repository};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -16,11 +16,6 @@ pub struct Conflict {
     pub file: String,
     /// The body still holds `<<<<<<<` markers the user has to clean up.
     pub body_conflict: bool,
-}
-
-/// One side of a conflicted note, parsed.
-struct Side {
-    note: Option<Note>,
 }
 
 type Blob = Option<Vec<u8>>;
@@ -34,13 +29,9 @@ fn blob(repo: &Repository, e: &Option<IndexEntry>) -> Result<Blob> {
     }
 }
 
-fn side(bytes: &Blob, file: &str) -> Side {
-    Side {
-        note: bytes
-            .as_ref()
-            .and_then(|b| String::from_utf8(b.clone()).ok())
-            .and_then(|t| store::parse_note(&t, file).ok()),
-    }
+/// The note in a blob, if it's there and parses.
+fn parse(bytes: Option<&[u8]>, file: &str) -> Option<Note> {
+    store::parse_note(std::str::from_utf8(bytes?).ok()?, file).ok()
 }
 
 /// Three-way list merge: ours, then theirs' additions; what either side removed stays removed.
@@ -169,49 +160,30 @@ fn merge_meta(ours: &Value, theirs: &Value) -> Value {
             out.insert(key.into(), Value::Object(m));
         }
     }
-    let mut palette: Vec<Value> = o
-        .get("palette")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    for v in t
-        .get("palette")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        if !palette.contains(v) {
-            palette.push(v.clone());
+    let array = |m: &Map<String, Value>, key: &str| {
+        m.get(key)
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()
+    };
+    let mut palette = array(o, "palette");
+    for v in array(t, "palette") {
+        if !palette.contains(&v) {
+            palette.push(v);
         }
     }
-    if !palette.is_empty() {
-        out.insert("palette".into(), Value::Array(palette));
-    }
-    let mut workflows: Vec<Value> = o
-        .get("workflows")
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let ids: HashSet<String> = workflows
-        .iter()
-        .filter_map(|w| w.get("id").and_then(Value::as_str).map(str::to_string))
-        .collect();
-    for w in t
-        .get("workflows")
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-    {
-        if !w
-            .get("id")
-            .and_then(Value::as_str)
-            .is_some_and(|id| ids.contains(id))
-        {
-            workflows.push(w.clone());
+    let id = |w: &Value| w.get("id").and_then(Value::as_str).map(str::to_string);
+    let mut workflows = array(o, "workflows");
+    let ids: HashSet<String> = workflows.iter().filter_map(id).collect();
+    workflows.extend(
+        array(t, "workflows")
+            .into_iter()
+            .filter(|w| !id(w).is_some_and(|i| ids.contains(&i))),
+    );
+    for (key, list) in [("palette", palette), ("workflows", workflows)] {
+        if !list.is_empty() {
+            out.insert(key.into(), Value::Array(list));
         }
-    }
-    if !workflows.is_empty() {
-        out.insert("workflows".into(), Value::Array(workflows));
     }
     for (k, v) in t {
         out.entry(k.clone()).or_insert_with(|| v.clone());
@@ -250,13 +222,11 @@ fn classify(rel: &Path) -> Kind {
     Kind::Other
 }
 
-/// One note as one side of the merge saw it: its file name and content.
-type Versions = HashMap<String, (String, Note)>;
-
+/// One directory's conflicted notes as each side saw them, by id.
 #[derive(Default)]
 struct Sides {
-    ours: Versions,
-    theirs: Versions,
+    ours: HashMap<String, Note>,
+    theirs: HashMap<String, Note>,
     ancestor: HashMap<String, Note>,
     /// Every conflicted path in this directory (file names).
     paths: Vec<String>,
@@ -309,17 +279,18 @@ impl Ctx<'_> {
     }
 
     fn note_in(&self, tree: Option<&git2::Tree>, dir: &str, file: &str) -> Option<Note> {
-        let bytes = self.blob_in(tree, &Path::new(dir).join(file))?;
-        let text = String::from_utf8(bytes).ok()?;
-        store::parse_note(&text, file).ok()
+        parse(
+            self.blob_in(tree, &Path::new(dir).join(file)).as_deref(),
+            file,
+        )
     }
 
     /// Every note under `notes/` and `trash/` in `tree`, by id (`notes/` wins).
     fn notes_in(&self, tree: Option<&git2::Tree>) -> HashMap<String, Note> {
         let mut out = HashMap::new();
+        let Some(tree) = tree else { return out };
         for dir in NOTE_DIRS.iter().rev() {
-            let Some(t) = tree else { break };
-            let Ok(entry) = t.get_path(&self.prefix.join(dir)) else {
+            let Ok(entry) = tree.get_path(&self.prefix.join(dir)) else {
                 continue;
             };
             let Ok(sub) = entry.to_object(self.repo).and_then(|o| o.peel_to_tree()) else {
@@ -329,7 +300,8 @@ impl Ctx<'_> {
                 let Some(file) = e.name().filter(|n| n.ends_with(".md")) else {
                     continue;
                 };
-                if let Some(n) = self.note_in(tree, dir, file) {
+                let blob = self.repo.find_blob(e.id()).ok();
+                if let Some(n) = parse(blob.as_ref().map(|b| b.content()), file) {
                     out.insert(n.id.clone(), n);
                 }
             }
@@ -406,11 +378,11 @@ impl Ctx<'_> {
             let anc = s.ancestor.get(id).or_else(|| self.base.get(id)).cloned();
             let report = dir == NOTES_DIR && (anc.is_some() || s.broken.contains(id));
             match (s.ours.get(id), s.theirs.get(id)) {
-                (Some((_, o)), Some((_, t))) => {
+                (Some(o), Some(t)) => {
                     let m = self.merge_pair(index, dir, o, t, anc.as_ref())?;
                     written.insert(m.file);
                 }
-                (Some((_, o)), None) => {
+                (Some(o), None) => {
                     // Theirs deleted (or never had) it; ours stays.
                     self.write_note(index, dir, o)?;
                     written.insert(o.file.clone());
@@ -418,7 +390,7 @@ impl Ctx<'_> {
                         self.report(o, false);
                     }
                 }
-                (None, Some((_, t))) => {
+                (None, Some(t)) => {
                     let mut t = t.clone();
                     // Their new file may clash with a different note of ours.
                     if written.contains(&t.file) {
@@ -448,28 +420,11 @@ impl Ctx<'_> {
         dir: &str,
         head: Option<&git2::Tree>,
     ) -> Result<()> {
-        let path = self.root.join(dir);
-        if !path.exists() {
-            return Ok(());
+        let mut by_id: BTreeMap<String, Vec<Note>> = BTreeMap::new();
+        for n in store::read_all_notes(&self.root.join(dir))? {
+            by_id.entry(n.id.clone()).or_default().push(n);
         }
-        let mut by_id: HashMap<String, Vec<Note>> = HashMap::new();
-        let mut names: Vec<String> = fs::read_dir(&path)
-            .map_err(|e| e.to_string())?
-            .filter_map(|e| e.ok())
-            .map(|e| e.file_name().to_string_lossy().to_string())
-            .filter(|f| f.ends_with(".md"))
-            .collect();
-        names.sort();
-        for file in names {
-            let text = fs::read_to_string(path.join(&file)).map_err(|e| e.to_string())?;
-            if let Ok(n) = store::parse_note(&text, &file) {
-                by_id.entry(n.id.clone()).or_default().push(n);
-            }
-        }
-        let mut ids: Vec<String> = by_id.keys().cloned().collect();
-        ids.sort();
-        for id in ids {
-            let mut group = by_id.remove(&id).unwrap();
+        for (id, mut group) in by_id {
             if group.len() < 2 {
                 continue;
             }
@@ -487,11 +442,9 @@ impl Ctx<'_> {
     }
 
     /// Rule 3: of the edges added since the merge base, newest first, keep the acyclic ones.
-    fn break_cycles(&mut self, index: &mut git2::Index) -> Result<()> {
-        let mut notes: HashMap<String, Note> = store::read_notes(&store::notes_dir(self.root))?
-            .into_iter()
-            .map(|n| (n.id.clone(), n))
-            .collect();
+    fn break_cycles(&mut self, index: &mut git2::Index, live: Vec<Note>) -> Result<()> {
+        let mut notes: HashMap<String, Note> =
+            live.into_iter().map(|n| (n.id.clone(), n)).collect();
         let original: HashMap<String, Vec<String>> = notes
             .iter()
             .map(|(k, n)| (k.clone(), n.deps.clone()))
@@ -529,31 +482,25 @@ impl Ctx<'_> {
                 n.deps.push(dep);
             }
         }
-        let mut changed: Vec<String> = dropped.iter().map(|(id, _)| id.clone()).collect();
-        changed.sort();
-        changed.dedup();
+        let changed: BTreeSet<&String> = dropped.iter().map(|(id, _)| id).collect();
         for id in changed {
-            if let Some(n) = notes.get_mut(&id) {
-                n.deps = original[&id]
+            if let Some(n) = notes.get_mut(id) {
+                n.deps = original[id]
                     .iter()
                     .filter(|d| !dropped.contains(&(id.clone(), (*d).clone())))
                     .cloned()
                     .collect();
-                let note = n.clone();
-                self.write_note(index, NOTES_DIR, &note)?;
+                self.write_note(index, NOTES_DIR, n)?;
             }
         }
         Ok(())
     }
 
     /// A note alive in `notes/` loses any copy of itself in `trash/`.
-    fn drop_trash_copies(&self, index: &mut git2::Index) -> Result<()> {
-        let live: HashSet<String> = store::read_notes(&store::notes_dir(self.root))?
-            .into_iter()
-            .map(|n| n.id)
-            .collect();
+    fn drop_trash_copies(&self, index: &mut git2::Index, live: &[Note]) -> Result<()> {
+        let live: HashSet<&str> = live.iter().map(|n| n.id.as_str()).collect();
         for t in store::read_notes(&store::trash_dir(self.root))? {
-            if live.contains(&t.id) {
+            if live.contains(t.id.as_str()) {
                 self.unstage(index, &Path::new(TRASH_DIR).join(&t.file))?;
             }
         }
@@ -607,7 +554,10 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         match kind {
             Kind::Note { dir, file } => {
                 let (ours, theirs) = (blob(&repo, &c.our)?, blob(&repo, &c.their)?);
-                let (o, t) = (side(&ours, &file).note, side(&theirs, &file).note);
+                let (o, t) = (
+                    parse(ours.as_deref(), &file),
+                    parse(theirs.as_deref(), &file),
+                );
                 let s = sides.entry(dir).or_default();
                 // A file neither side can parse is left as git merged it.
                 if o.is_none() && t.is_none() {
@@ -615,7 +565,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
                     continue;
                 }
                 s.paths.push(file.clone());
-                if let Some(n) = side(&blob(&repo, &c.ancestor)?, &file).note {
+                if let Some(n) = parse(blob(&repo, &c.ancestor)?.as_deref(), &file) {
                     s.ancestor.insert(n.id.clone(), n);
                 }
                 for (n, other, other_blob) in [(&o, &t, &theirs), (&t, &o, &ours)] {
@@ -627,10 +577,10 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
                     }
                 }
                 if let Some(n) = o {
-                    s.ours.insert(n.id.clone(), (file.clone(), n));
+                    s.ours.insert(n.id.clone(), n);
                 }
                 if let Some(n) = t {
-                    s.theirs.insert(n.id.clone(), (file.clone(), n));
+                    s.theirs.insert(n.id.clone(), n);
                 }
             }
             Kind::Meta => {
@@ -661,8 +611,9 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
     for dir in NOTE_DIRS {
         ctx.dedupe(&mut index, dir, head_tree.as_ref())?;
     }
-    ctx.drop_trash_copies(&mut index)?;
-    ctx.break_cycles(&mut index)?;
+    let live = store::read_notes(&store::notes_dir(root))?;
+    ctx.drop_trash_copies(&mut index, &live)?;
+    ctx.break_cycles(&mut index, live)?;
 
     if let Some((ours, theirs)) = ignore {
         let text = |b: Blob| b.map(|b| String::from_utf8_lossy(&b).to_string());
@@ -676,11 +627,11 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
 
     // Rule 6; a clean line-merge can still make invalid JSON, so rebuild from both sides.
     let meta_rel = Path::new(META_FILE);
-    let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
+    let json = |b: Blob| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
     let on_disk = fs::read(root.join(meta_rel)).ok();
     let meta = match meta {
         Some(m) => Some(m),
-        None if on_disk.is_some() && parse(on_disk).is_none() => Some((
+        None if on_disk.is_some() && json(on_disk).is_none() => Some((
             ctx.blob_in(head_tree.as_ref(), meta_rel),
             ctx.blob_in(their_tree.as_ref(), meta_rel),
             ctx.blob_in(base_tree.as_ref(), meta_rel),
@@ -688,10 +639,10 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         None => None,
     };
     if let Some((ours, theirs, ancestor)) = meta {
-        let merged = match (parse(ours), parse(theirs)) {
+        let merged = match (json(ours), json(theirs)) {
             (Some(o), Some(t)) => Some(merge_meta(&o, &t)),
             (Some(v), None) | (None, Some(v)) => Some(v),
-            (None, None) => parse(ancestor),
+            (None, None) => json(ancestor),
         };
         match merged {
             Some(v) => ctx.stage(&mut index, meta_rel, &meta_text(&v)?)?,
@@ -715,18 +666,18 @@ fn keep_worktree(index: &mut git2::Index, path: &Path) -> Result<()> {
 }
 
 /// Can `from` reach `to` by following `deps`?
-fn reaches(notes: &HashMap<String, Note>, from: &str, to: &str) -> bool {
-    let mut stack = vec![from.to_string()];
+fn reaches<'a>(notes: &'a HashMap<String, Note>, from: &'a str, to: &str) -> bool {
+    let mut stack = vec![from];
     let mut seen = HashSet::new();
     while let Some(cur) = stack.pop() {
         if cur == to {
             return true;
         }
-        if !seen.insert(cur.clone()) {
+        if !seen.insert(cur) {
             continue;
         }
-        if let Some(n) = notes.get(&cur) {
-            stack.extend(n.deps.iter().cloned());
+        if let Some(n) = notes.get(cur) {
+            stack.extend(n.deps.iter().map(String::as_str));
         }
     }
     false

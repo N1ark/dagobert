@@ -200,10 +200,9 @@ pub fn trash_dir(root: &Path) -> PathBuf {
     root.join(TRASH_DIR)
 }
 
-/// Reads every note in a directory, skipping unparsable files and duplicate ids.
-pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
+/// Every note in a directory by file name, skipping unparsable files; ids may repeat.
+pub fn read_all_notes(dir: &Path) -> Result<Vec<Note>, String> {
     let mut notes = Vec::new();
-    let mut seen = HashSet::new();
     if !dir.exists() {
         return Ok(notes);
     }
@@ -216,11 +215,25 @@ pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
         let file = entry.file_name().to_string_lossy().to_string();
         let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         match parse_note(&text, &file) {
-            Ok(n) if seen.insert(n.id.clone()) => notes.push(n),
-            Ok(n) => eprintln!("skipping {file}: duplicate id {}", n.id),
+            Ok(n) => notes.push(n),
             Err(e) => eprintln!("skipping {e}"),
         }
     }
+    notes.sort_by(|a, b| a.file.cmp(&b.file));
+    Ok(notes)
+}
+
+/// Reads every note in a directory, skipping unparsable files and duplicate ids.
+pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
+    let mut seen = HashSet::new();
+    let mut notes = read_all_notes(dir)?;
+    notes.retain(|n| {
+        let fresh = seen.insert(n.id.clone());
+        if !fresh {
+            eprintln!("skipping {}: duplicate id {}", n.file, n.id);
+        }
+        fresh
+    });
     Ok(notes)
 }
 
