@@ -204,19 +204,30 @@ pub fn note_path(root: &Path, file: &str) -> PathBuf {
     notes_dir(root).join(file)
 }
 
+/// Every `.md` file in a directory; none when it doesn't exist.
+fn md_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if path.extension().and_then(|e| e.to_str()) == Some("md") {
+            files.push(path);
+        }
+    }
+    Ok(files)
+}
+
 /// Every note in a directory by file name, skipping unparsable files; ids may repeat.
 pub fn read_all_notes(dir: &Path) -> Result<Vec<Note>, String> {
     let mut notes = Vec::new();
-    if !dir.exists() {
-        return Ok(notes);
-    }
-    for entry in fs::read_dir(dir).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("md") {
-            continue;
-        }
-        let file = entry.file_name().to_string_lossy().to_string();
+    for path in md_files(dir)? {
+        let file = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
         let text = fs::read_to_string(&path).map_err(|e| e.to_string())?;
         match parse_note(&text, &file) {
             Ok(n) => notes.push(n),
@@ -457,9 +468,7 @@ pub fn purge_trash(root: &Path, file: Option<&str>) -> Result<(), String> {
     let trash = trash_dir(root);
     match file {
         Some(f) => remove_file(&trash.join(f)),
-        None => read_notes(&trash)?
-            .iter()
-            .try_for_each(|n| remove_file(&trash.join(&n.file))),
+        None => md_files(&trash)?.iter().try_for_each(|p| remove_file(p)),
     }
 }
 
@@ -682,8 +691,9 @@ mod tests {
 
         purge_trash(&dir, Some("dup.md")).unwrap();
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
+        fs::write(trash_dir(&dir).join("broken.md"), "not a note").unwrap();
         purge_trash(&dir, None).unwrap();
-        assert!(list_trash(&dir).unwrap().is_empty());
+        assert_eq!(fs::read_dir(trash_dir(&dir)).unwrap().count(), 0);
         fs::remove_dir_all(&dir).unwrap();
     }
 
