@@ -1,7 +1,7 @@
 import { t } from "./i18n";
 import { store } from "./store.svelte";
 import { repoRefs, type RepoRef } from "./wikilinks";
-import { issue, invalidate, type IssueRef } from "./github";
+import { issue, invalidate, prKey, type IssueRef } from "./github";
 
 /** A referenced item and the notes that mention it. */
 export interface Linked extends RepoRef {
@@ -18,10 +18,6 @@ export const prCache = $state({
   /** Whether a fetch is in flight. */
   pending: false,
 });
-
-export function prKey(repo: string, number: number): string {
-  return `${repo}#${number}`;
-}
 
 const refs = $derived.by((): Linked[] => {
   const by = new Map<string, Linked>();

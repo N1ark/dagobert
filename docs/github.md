@@ -24,7 +24,7 @@ Read this when touching `github.ts`, `prs.svelte.ts`, `PullRequests.svelte`,
   anchor), so the raw markdown stays plain. `repoRefs(md)` lists those refs.
 - `IssuePopup.svelte` is the `alias#query` picker in `LiveEditor` (same `handleKey`
   pattern as mentions).
-- `prs.svelte.ts` — `prCache` (module-level `$state`, keyed `prKey(repo, n)`),
+- `prs.svelte.ts` — `prCache` (module-level `$state`, keyed `prKey(repo, n)` from `github.ts`),
   `linkedRefs()` (every ref across notes), `syncPRs()` (the fetch effect, started once in
   `App.svelte` so the cache fills whether or not the pane is open; batched and, in the
   first seconds after launch, deferred to an idle callback) and `refreshPRs()`, which moves

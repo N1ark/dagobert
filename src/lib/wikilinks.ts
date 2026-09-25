@@ -1,4 +1,4 @@
-import { issueUrl } from "./github";
+import { issueUrl, prKey } from "./github";
 import { t } from "./i18n";
 import { store } from "./store.svelte";
 import type { Note } from "./types";
@@ -52,7 +52,7 @@ function renderRepoRefs(md: string): string {
   return md.replace(REPO_REF_RE, (m, pre: string, alias: string, num: string, offset: number) => {
     const repo = store.repos[alias];
     if (!repo || inCode(offset + pre.length)) return m;
-    const ref = escapeHtml(`${repo}#${num}`);
+    const ref = escapeHtml(prKey(repo, Number(num)));
     return `${pre}<a class="ghref" href="${issueUrl(repo, Number(num))}" title="${ref}" data-ref="${ref}">${alias}#${num}</a>`;
   });
 }

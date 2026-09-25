@@ -17,9 +17,25 @@ export interface IssueRef {
   comments: number;
 }
 
-/** The signed-in session's token; null when nobody is signed in. */
-export async function token(): Promise<string | null> {
-  return auth.token();
+/** The key an issue or PR is cached and looked up under. */
+export function prKey(repo: string, number: number): string {
+  return `${repo}#${number}`;
+}
+
+/** A failed API call, with the HTTP status it failed with. */
+class ApiError extends Error {
+  status: number;
+  constructor(res: Response) {
+    super(failure(res));
+    this.status = res.status;
+  }
+}
+
+function failure(res: Response): string {
+  if (rateLimited(res)) return t("github.rateLimit");
+  if (res.status === 401) return t("github.tokenRejected");
+  if (res.status === 404) return t("github.notFound");
+  return t("github.status", { status: res.status });
 }
 
 function send(path: string, tok: string | null) {
@@ -38,7 +54,7 @@ const readAnonymously = new Set<string>();
 let scopeOf: string | null = null;
 
 async function scopedToken(repo?: string): Promise<string | null> {
-  const tok = await token();
+  const tok = await auth.token();
   // A different sign-in reaches different repos; start the memo over.
   if (tok !== scopeOf) {
     scopeOf = tok;
@@ -58,12 +74,7 @@ async function api<T>(path: string, repo?: string): Promise<T> {
       res = anon;
     } else if (rateLimited(anon)) res = anon;
   }
-  if (!res.ok) {
-    if (rateLimited(res)) throw new Error(t("github.rateLimit"));
-    if (res.status === 401) throw new Error(t("github.tokenRejected"));
-    if (res.status === 404) throw new Error(t("github.notFound"));
-    throw new Error(t("github.status", { status: res.status }));
-  }
+  if (!res.ok) throw new ApiError(res);
   return res.json() as Promise<T>;
 }
 
@@ -155,15 +166,17 @@ export function invalidate() {
   cache.clear();
 }
 
+function fetchIssue(repo: string, number: number): Promise<IssueRef[]> {
+  return api<RawIssue>(`/repos/${repo}/issues/${number}`, repo).then((r) => [toRef(r)]);
+}
+
 /** One issue/PR by number, from the recent list or fetched on its own; null when missing. */
 export async function issue(repo: string, number: number): Promise<IssueRef | null> {
   const recent = await recentIssues(repo);
   const hit = recent.find((r) => r.number === number);
   if (hit) return hit;
   const one = await cached(`issue ${repo} ${number}`, () =>
-    api<RawIssue>(`/repos/${repo}/issues/${number}`, repo)
-      .then((r) => [toRef(r)])
-      .catch((e: Error) => (/not found/i.test(e.message) ? [] : Promise.reject(e))),
+    fetchIssue(repo, number).catch((e) => (e instanceof ApiError && e.status === 404 ? [] : Promise.reject(e))),
   );
   return one[0] ?? null;
 }
@@ -189,12 +202,7 @@ export async function searchIssues(repo: string, query: string): Promise<IssueRe
   const local = recent.filter((r) => matches(r, q));
   const extra = await cached(`search ${repo} ${q}`, async () => {
     const jobs: Promise<IssueRef[]>[] = [];
-    if (/^\d+$/.test(q))
-      jobs.push(
-        api<RawIssue>(`/repos/${repo}/issues/${q}`, repo)
-          .then((r) => [toRef(r)])
-          .catch(() => []),
-      );
+    if (/^\d+$/.test(q)) jobs.push(fetchIssue(repo, Number(q)).catch(() => []));
     jobs.push(
       api<{ items: RawIssue[] }>(
         `/search/issues?q=${encodeURIComponent(`repo:${repo} ${q} in:title`)}&sort=updated&order=desc&per_page=10`,
