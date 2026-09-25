@@ -110,6 +110,8 @@ export interface Project {
   notes: Note[];
   meta: Meta;
   local: Local;
+  /** Files left out because an earlier file already has their id. */
+  duplicates: string[];
 }
 
 /** A project in the app's data directory, addressed by name. */

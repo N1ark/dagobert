@@ -123,7 +123,7 @@ export const backend = {
   },
 
   async openProject(path: string): Promise<Project> {
-    if (!inTauri) return { path, notes: [...mock.notes.values()], meta: mock.meta, local: mock.local };
+    if (!inTauri) return { path, notes: [...mock.notes.values()], meta: mock.meta, local: mock.local, duplicates: [] };
     return invoke<Project>("open_project", { path });
   },
 

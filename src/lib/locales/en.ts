@@ -368,6 +368,8 @@ export default {
 
   // Store notices
   "store.cycle": "That would create a cycle.",
+  "store.duplicates.one": "{files} has the same id as another note, so it's hidden.",
+  "store.duplicates.other": "{n} files have the same id as another note, so they're hidden: {files}.",
   "store.undid": "Undid: {label}",
   "store.redid": "Redid: {label}",
   "history.multi": "{label} ({n} notes)",

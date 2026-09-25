@@ -19,6 +19,7 @@ All notable changes to Dagobert are documented here. The format follows
 - A note sharing its title with another no longer changes file name every time it's saved.
 - On a phone, the issue popup fits the screen and the dependency picker lines up with the panel.
 - Emptying the trash also removes notes it couldn't list.
+- Opening a project warns about note files that share an id, instead of silently hiding one.
 
 ## [0.8.0] - 2026-09-25
 

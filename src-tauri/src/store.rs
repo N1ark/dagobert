@@ -190,6 +190,8 @@ pub struct Project {
     pub notes: Vec<Note>,
     pub meta: Meta,
     pub local: Local,
+    /// Files left out because an earlier file already has their id.
+    pub duplicates: Vec<String>,
 }
 
 pub fn notes_dir(root: &Path) -> PathBuf {
@@ -219,7 +221,7 @@ fn md_files(dir: &Path) -> Result<Vec<PathBuf>, String> {
     Ok(files)
 }
 
-/// Every note in a directory by file name, skipping unparsable files; ids may repeat.
+/// Every note in a directory, shortest file name first, skipping unparsable files; ids may repeat.
 pub fn read_all_notes(dir: &Path) -> Result<Vec<Note>, String> {
     let mut notes = Vec::new();
     for path in md_files(dir)? {
@@ -234,22 +236,23 @@ pub fn read_all_notes(dir: &Path) -> Result<Vec<Note>, String> {
             Err(e) => eprintln!("skipping {e}"),
         }
     }
-    notes.sort_by(|a, b| a.file.cmp(&b.file));
+    // A copy like `x 2.md` then loses to `x.md` wherever the first of an id wins.
+    notes.sort_by(|a, b| (a.file.len(), &a.file).cmp(&(b.file.len(), &b.file)));
     Ok(notes)
+}
+
+/// Every note in a directory, skipping unparsable files; files repeating an id come back apart.
+pub fn read_unique_notes(dir: &Path) -> Result<(Vec<Note>, Vec<String>), String> {
+    let mut seen = HashSet::new();
+    let (notes, dupes): (Vec<Note>, Vec<Note>) = read_all_notes(dir)?
+        .into_iter()
+        .partition(|n| seen.insert(n.id.clone()));
+    Ok((notes, dupes.into_iter().map(|n| n.file).collect()))
 }
 
 /// Reads every note in a directory, skipping unparsable files and duplicate ids.
 pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
-    let mut seen = HashSet::new();
-    let mut notes = read_all_notes(dir)?;
-    notes.retain(|n| {
-        let fresh = seen.insert(n.id.clone());
-        if !fresh {
-            eprintln!("skipping {}: duplicate id {}", n.file, n.id);
-        }
-        fresh
-    });
-    Ok(notes)
+    Ok(read_unique_notes(dir)?.0)
 }
 
 /// A filename in `dir` based on `wanted` that doesn't exist yet or is `own` (the note's current file).
@@ -356,7 +359,7 @@ pub fn open(root: &Path) -> Result<Project, String> {
     let dir = notes_dir(root);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let mut notes = read_notes(&dir)?;
+    let (mut notes, duplicates) = read_unique_notes(&dir)?;
     // Drop dangling dependencies.
     let ids: HashSet<String> = notes.iter().map(|n| n.id.clone()).collect();
     for n in &mut notes {
@@ -382,6 +385,7 @@ pub fn open(root: &Path) -> Result<Project, String> {
         notes,
         meta,
         local,
+        duplicates,
     })
 }
 
@@ -783,6 +787,18 @@ mod tests {
         let b3 = save_note(&dir, b2.clone()).unwrap();
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!([b.file, b2.file, b3.file], ["same-b.md"; 3]);
+    }
+
+    #[test]
+    fn duplicate_ids_are_reported() {
+        let dir = std::env::temp_dir().join(format!("dagobert-dupes-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let a = save_note(&dir, note("a", "Same")).unwrap();
+        fs::copy(note_path(&dir, &a.file), note_path(&dir, "same 2.md")).unwrap();
+        let p = open(&dir).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!(p.notes.len(), 1);
+        assert_eq!(p.duplicates, ["same 2.md"]);
     }
 
     #[test]

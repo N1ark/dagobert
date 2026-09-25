@@ -6,7 +6,7 @@ import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, splitBlocks } from "./blocks";
-import { t, type HistoryLabel } from "./i18n";
+import { t, plural, type HistoryLabel } from "./i18n";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -550,6 +550,7 @@ class Store {
       this.#setRecent([ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT));
       localStorage.setItem(LAST_KEY, ref);
       this.error = null;
+      if (p.duplicates.length) this.fail(plural("store.duplicates", p.duplicates.length, { files: p.duplicates.join(", ") }));
       this.gitStatus = null;
       this.gitState = "idle";
       this.gitError = null;
