@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-25
+
 ### Added
 
 - Sign in with GitHub from settings or the welcome screen: you approve a code in your
