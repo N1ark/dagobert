@@ -131,15 +131,18 @@ fn classify_refresh(raw: Raw) -> Result<Refreshed, String> {
         }
         return Err(raw.error_description.unwrap_or_else(|| err.to_string()));
     }
+    Ok(Refreshed::Token { token: token(raw)? })
+}
+
+/// The token set in a reply that carries no error.
+fn token(raw: Raw) -> Result<Token, String> {
     let Some(access_token) = raw.access_token else {
         return Err("GitHub sent no token.".into());
     };
-    Ok(Refreshed::Token {
-        token: Token {
-            access_token,
-            refresh_token: raw.refresh_token,
-            expires_in: raw.expires_in,
-        },
+    Ok(Token {
+        access_token,
+        refresh_token: raw.refresh_token,
+        expires_in: raw.expires_in,
     })
 }
 
@@ -154,16 +157,7 @@ fn classify(raw: Raw) -> Result<Poll, String> {
             _ => Err(raw.error_description.unwrap_or_else(|| err.to_string())),
         };
     }
-    let Some(access_token) = raw.access_token else {
-        return Err("GitHub sent no token.".into());
-    };
-    Ok(Poll::Token {
-        token: Token {
-            access_token,
-            refresh_token: raw.refresh_token,
-            expires_in: raw.expires_in,
-        },
-    })
+    Ok(Poll::Token { token: token(raw)? })
 }
 
 #[cfg(test)]
