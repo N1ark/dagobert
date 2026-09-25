@@ -1,6 +1,6 @@
 import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backend";
 import { auth } from "./auth.svelte";
-import type { Conflict, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
+import type { Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
 import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
@@ -13,7 +13,7 @@ const LAST_KEY = "dagobert.last";
 const MAX_RECENT = 8;
 
 /** The last path segment — a project's name. */
-function nameOf(path: string): string {
+export function nameOf(path: string): string {
   return path.split(/[\\/]/).filter(Boolean).pop() ?? "";
 }
 
@@ -34,6 +34,26 @@ function loadRecent(): string[] {
   }
 }
 
+/** A call that waits for `ms` of quiet; `flush` runs a pending one right away. */
+function debounced(ms: number, fn: () => void) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fn();
+      }, ms);
+    },
+    flush() {
+      if (!timer) return;
+      clearTimeout(timer);
+      timer = null;
+      fn();
+    },
+  };
+}
+
 function now() {
   return new Date().toISOString();
 }
@@ -43,7 +63,7 @@ function newId() {
 }
 
 /** A body still carrying git conflict markers from a merge (fenced code doesn't count). */
-export function hasMarkers(body: string): boolean {
+function hasMarkers(body: string): boolean {
   return /^<{7} /m.test(body) && splitBlocks(body).some(isConflict);
 }
 
@@ -84,7 +104,7 @@ class Store {
     for (const n of this.notes) for (const t of n.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
     return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([tag, count]) => ({ tag, count }));
   });
-  projectName = $derived(this.path?.split(/[\\/]/).filter(Boolean).pop() ?? "");
+  projectName = $derived(nameOf(this.path ?? ""));
 
   // ---- git tracking --------------------------------------------------------
 
@@ -124,7 +144,6 @@ class Store {
   #disk = new Map<string, string>();
   /** IDs removed this session; late writes for them are dropped. */
   #deleted = new Set<string>();
-  #metaTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Notes by id, first one wins like a scan would; rebuilt only when the list or an id changes. */
   #index = $derived.by(() => {
@@ -349,7 +368,12 @@ class Store {
   // ---- workflows -----------------------------------------------------------
 
   workflowOf(note: Note): Workflow {
-    return (note.workflow && this.workflows.find((w) => w.id === note.workflow)) || DEFAULT_WORKFLOW;
+    return this.#workflow(note.workflow);
+  }
+
+  /** A workflow by id; null or a deleted one is the built-in Todo. */
+  #workflow(id: string | null): Workflow {
+    return (id && this.workflows.find((w) => w.id === id)) || DEFAULT_WORKFLOW;
   }
 
   isDone(note: Note): boolean {
@@ -508,13 +532,7 @@ class Store {
       this.notes = p.notes;
       // Guard against a malformed dagobert.local.json: a zero/NaN zoom poisons every coordinate.
       const v = p.local.viewport;
-      this.tagColors = p.meta.tag_colors ?? {};
-      this.workflows = p.meta.workflows ?? [];
-      this.defaultTemplate = p.meta.default_template ?? "";
-      this.trackingTemplate = p.meta.tracking_template ?? "";
-      this.repos = p.meta.repos ?? {};
-      this.palette = p.meta.palette ?? [];
-      this.#applyGitSettings(p.meta.git);
+      this.#applyMeta(p.meta);
       this.tagFilter = [];
       this.#history.clear();
       this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
@@ -529,8 +547,7 @@ class Store {
       this.#deleted.clear();
       this.trash = [];
       const ref = projectRef(p.path);
-      this.recent = [ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT);
-      localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
+      this.#setRecent([ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT));
       localStorage.setItem(LAST_KEY, ref);
       this.error = null;
       this.gitStatus = null;
@@ -546,9 +563,23 @@ class Store {
     }
   }
 
-  #applyGitSettings(g: { enabled: boolean; interval_min: number } | undefined) {
-    this.gitEnabled = !!g?.enabled;
-    this.gitInterval = g?.interval_min && g.interval_min > 0 ? Math.min(120, Math.round(g.interval_min)) : 5;
+  /** Adopt project settings; fields `meta` leaves out keep their value. True when the git settings changed. */
+  #applyMeta(meta: MetaPatch): boolean {
+    if (meta.tag_colors) this.tagColors = meta.tag_colors;
+    if (meta.workflows) this.workflows = meta.workflows;
+    if (meta.default_template !== undefined) this.defaultTemplate = meta.default_template;
+    if (meta.tracking_template !== undefined) this.trackingTemplate = meta.tracking_template;
+    if (meta.repos) this.repos = meta.repos;
+    if (meta.palette) this.palette = meta.palette;
+    if (!meta.git) return false;
+    const { gitEnabled, gitInterval } = this;
+    this.#applyGitSettings(meta.git);
+    return this.gitEnabled !== gitEnabled || this.gitInterval !== gitInterval;
+  }
+
+  #applyGitSettings(g: GitSettings) {
+    this.gitEnabled = !!g.enabled;
+    this.gitInterval = g.interval_min > 0 ? Math.min(120, Math.round(g.interval_min)) : 5;
   }
 
   /** Open a remembered project (a path on desktop, a name on mobile). */
@@ -575,8 +606,12 @@ class Store {
   }
 
   forgetRecent(path: string) {
-    this.recent = this.recent.filter((r) => r !== path);
-    localStorage.setItem(RECENT_KEY, JSON.stringify(this.recent));
+    this.#setRecent(this.recent.filter((r) => r !== path));
+  }
+
+  #setRecent(recent: string[]) {
+    this.recent = recent;
+    localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
   }
 
   fail(e: unknown) {
@@ -645,6 +680,11 @@ class Store {
     if (t) clearTimeout(t);
     this.#saveTimers.delete(id);
     this.#deleted.add(id);
+    this.#unlist(id);
+  }
+
+  /** Take a note out of the list and the selection. */
+  #unlist(id: string) {
     if (this.selectedId === id) this.selectedId = null;
     this.multi = this.multi.filter((x) => x !== id);
     this.notes = this.notes.filter((x) => x.id !== id);
@@ -657,11 +697,9 @@ class Store {
     this.#forget(id);
     const diff: NoteDiff = { id, before: this.#last.get(id) ?? $state.snapshot(n), after: null };
     this.#record("delete", diff);
-    for (const other of this.notes) {
-      if (other.deps.includes(id)) {
-        other.deps = other.deps.filter((d) => d !== id);
-        this.touch(other.id, { immediate: true, silent: true, label: "delete" });
-      }
+    for (const other of this.dependents(id)) {
+      other.deps = other.deps.filter((d) => d !== id);
+      this.touch(other.id, { immediate: true, silent: true, label: "delete" });
     }
     // Let a write in progress finish, so we know the real filename to trash.
     await this.#inflight.get(id);
@@ -758,9 +796,9 @@ class Store {
 
   /** Create a fresh note with `src`'s content (no deps, new id) at x/y. */
   cloneAt(src: Note, x: number, y: number): Note {
-    const workflow = src.workflow && this.workflows.some((w) => w.id === src.workflow) ? src.workflow : null;
-    const stages = (this.workflows.find((w) => w.id === workflow) ?? DEFAULT_WORKFLOW).stages;
-    const status = stages.some((s) => s.name === src.status) ? src.status : stages[0].name;
+    const wf = this.#workflow(src.workflow);
+    const workflow = wf === DEFAULT_WORKFLOW ? null : wf.id;
+    const status = wf.stages.some((s) => s.name === src.status) ? src.status : wf.stages[0].name;
     return this.create(Math.round(x), Math.round(y), {
       title: src.title,
       tags: [...src.tags],
@@ -841,24 +879,10 @@ class Store {
       if (local) local.file = msg.file;
     } else if (msg.type === "note-removed") {
       if (!this.byId(msg.id)) return;
-      this.#saveTimers.delete(msg.id);
-      this.#deleted.add(msg.id);
-      if (this.selectedId === msg.id) this.selectedId = null;
-      this.multi = this.multi.filter((x) => x !== msg.id);
-      this.notes = this.notes.filter((n) => n.id !== msg.id);
-      for (const n of this.notes) if (n.deps.includes(msg.id)) n.deps = n.deps.filter((d) => d !== msg.id);
+      this.#forget(msg.id);
+      for (const n of this.dependents(msg.id)) n.deps = n.deps.filter((d) => d !== msg.id);
     } else if (msg.type === "meta") {
-      if (msg.meta.tag_colors) this.tagColors = msg.meta.tag_colors;
-      if (msg.meta.workflows) this.workflows = msg.meta.workflows;
-      if (msg.meta.default_template !== undefined) this.defaultTemplate = msg.meta.default_template;
-      if (msg.meta.tracking_template !== undefined) this.trackingTemplate = msg.meta.tracking_template;
-      if (msg.meta.repos) this.repos = msg.meta.repos;
-      if (msg.meta.palette) this.palette = msg.meta.palette;
-      if (msg.meta.git) {
-        const was = `${this.gitEnabled}|${this.gitInterval}`;
-        this.#applyGitSettings(msg.meta.git);
-        if (`${this.gitEnabled}|${this.gitInterval}` !== was) this.#configureGit();
-      }
+      if (this.#applyMeta(msg.meta)) this.#configureGit();
     }
   }
 
@@ -896,23 +920,12 @@ class Store {
       }
       // The file is already gone; just forget it (no trash, no #deleted).
       this.#disk.delete(local.id);
-      if (this.selectedId === local.id) this.selectedId = null;
-      this.multi = this.multi.filter((x) => x !== local.id);
-      this.notes = this.notes.filter((n) => n.id !== local.id);
+      this.#unlist(local.id);
       this.#dropDanglingDeps();
     } else if (change.kind === "meta") {
       if (!this.path) return;
       try {
-        const meta = await backend.readMeta(this.path);
-        this.tagColors = meta.tag_colors ?? {};
-        this.workflows = meta.workflows ?? [];
-        this.defaultTemplate = meta.default_template ?? "";
-        this.trackingTemplate = meta.tracking_template ?? "";
-        this.repos = meta.repos ?? {};
-        this.palette = meta.palette ?? [];
-        const was = `${this.gitEnabled}|${this.gitInterval}`;
-        this.#applyGitSettings(meta.git);
-        if (`${this.gitEnabled}|${this.gitInterval}` !== was) this.#configureGit();
+        if (this.#applyMeta(await backend.readMeta(this.path))) this.#configureGit();
       } catch (e) {
         this.fail(e);
       }
@@ -999,26 +1012,24 @@ class Store {
 
   #lastUndoAt = 0;
 
-  async undo() {
+  undo() {
+    return this.#step("undo");
+  }
+
+  redo() {
+    return this.#step("redo");
+  }
+
+  async #step(dir: "undo" | "redo") {
     // A menu accelerator and the keydown handler can both fire for one ⌘Z.
     if (Date.now() - this.#lastUndoAt < 150) return;
     this.#lastUndoAt = Date.now();
-    this.#flushRecord();
-    const e = this.#history.popUndo();
+    if (dir === "undo") this.#flushRecord();
+    const e = dir === "undo" ? this.#history.popUndo() : this.#history.popRedo();
     if (!e) return;
-    await this.#apply(e.diffs, "undo");
+    await this.#apply(e.diffs, dir);
     this.#syncDepths();
-    this.#toast(t("store.undid", { label: e.label }));
-  }
-
-  async redo() {
-    if (Date.now() - this.#lastUndoAt < 150) return;
-    this.#lastUndoAt = Date.now();
-    const e = this.#history.popRedo();
-    if (!e) return;
-    await this.#apply(e.diffs, "redo");
-    this.#syncDepths();
-    this.#toast(t("store.redid", { label: e.label }));
+    this.#toast(t(dir === "undo" ? "store.undid" : "store.redid", { label: e.label }));
   }
 
   /** Put every note in `diffs` into its `before` (undo) or `after` (redo) state. */
@@ -1125,14 +1136,6 @@ class Store {
     };
   }
 
-  #scheduleMeta() {
-    if (this.#metaTimer) clearTimeout(this.#metaTimer);
-    this.#metaTimer = setTimeout(() => {
-      this.#metaTimer = null;
-      this.#flushMeta();
-    }, 400);
-  }
-
   #flushMeta() {
     if (!this.path) return;
     const patch = this.#metaPatch();
@@ -1140,24 +1143,21 @@ class Store {
     backend.broadcast({ type: "meta", meta: patch });
   }
 
-  /** Tag colours / workflows changed. */
-  saveMeta() {
-    this.#scheduleMeta();
-  }
-
-  #localTimer: ReturnType<typeof setTimeout> | null = null;
-
   #flushLocal() {
     if (!this.path) return;
     this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) })).catch((e) => this.fail(e));
   }
 
+  #metaSave = debounced(400, () => this.#flushMeta());
+  #localSave = debounced(400, () => this.#flushLocal());
+
+  /** Tag colours / workflows changed. */
+  saveMeta() {
+    this.#metaSave.schedule();
+  }
+
   saveViewport() {
-    if (this.#localTimer) clearTimeout(this.#localTimer);
-    this.#localTimer = setTimeout(() => {
-      this.#localTimer = null;
-      this.#flushLocal();
-    }, 400);
+    this.#localSave.schedule();
   }
 
   flushAll() {
@@ -1166,16 +1166,8 @@ class Store {
       void this.#write(id);
     }
     this.#saveTimers.clear();
-    if (this.#metaTimer) {
-      clearTimeout(this.#metaTimer);
-      this.#metaTimer = null;
-      this.#flushMeta();
-    }
-    if (this.#localTimer) {
-      clearTimeout(this.#localTimer);
-      this.#localTimer = null;
-      this.#flushLocal();
-    }
+    this.#metaSave.flush();
+    this.#localSave.flush();
   }
 }
 
