@@ -257,10 +257,7 @@ impl Ctx<'_> {
     }
 
     fn unstage(&self, index: &mut git2::Index, rel: &Path) -> Result<()> {
-        let abs = self.root.join(rel);
-        if abs.exists() {
-            fs::remove_file(&abs).map_err(|e| e.to_string())?;
-        }
+        store::remove_file(&self.root.join(rel))?;
         index.remove_path(&self.prefix.join(rel)).map_err(git::err)
     }
 

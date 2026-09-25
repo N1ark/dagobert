@@ -151,7 +151,7 @@ impl Default for GitSettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            interval_min: 5,
+            interval_min: five(),
         }
     }
 }
@@ -198,6 +198,10 @@ pub fn notes_dir(root: &Path) -> PathBuf {
 
 pub fn trash_dir(root: &Path) -> PathBuf {
     root.join(TRASH_DIR)
+}
+
+pub fn note_path(root: &Path, file: &str) -> PathBuf {
+    notes_dir(root).join(file)
 }
 
 /// Every note in a directory by file name, skipping unparsable files; ids may repeat.
@@ -395,7 +399,7 @@ pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
 
 /// Moves a note into `trash/` with a `deleted` stamp, suffixing a name already taken there.
 pub fn delete_note(root: &Path, file: &str, deleted_at: &str) -> Result<Option<Note>, String> {
-    let src = notes_dir(root).join(file);
+    let src = note_path(root, file);
     if !src.exists() {
         return Ok(None);
     }
@@ -412,11 +416,15 @@ pub fn delete_note(root: &Path, file: &str, deleted_at: &str) -> Result<Option<N
 
 /// Hard-deletes a note file without going through the trash (for empty notes).
 pub fn discard_note(root: &Path, file: &str) -> Result<(), String> {
-    let p = notes_dir(root).join(file);
-    if p.exists() {
-        fs::remove_file(p).map_err(|e| e.to_string())?;
+    remove_file(&note_path(root, file))
+}
+
+/// Deletes a file; one that's already gone is not an error.
+pub fn remove_file(path: &Path) -> Result<(), String> {
+    match fs::remove_file(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => Err(e.to_string()),
+        _ => Ok(()),
     }
-    Ok(())
 }
 
 pub fn list_trash(root: &Path) -> Result<Vec<Note>, String> {
@@ -448,19 +456,11 @@ pub fn restore_note(root: &Path, file: &str) -> Result<Note, String> {
 pub fn purge_trash(root: &Path, file: Option<&str>) -> Result<(), String> {
     let trash = trash_dir(root);
     match file {
-        Some(f) => {
-            let p = trash.join(f);
-            if p.exists() {
-                fs::remove_file(p).map_err(|e| e.to_string())?;
-            }
-        }
-        None => {
-            for n in read_notes(&trash)? {
-                fs::remove_file(trash.join(&n.file)).map_err(|e| e.to_string())?;
-            }
-        }
+        Some(f) => remove_file(&trash.join(f)),
+        None => read_notes(&trash)?
+            .iter()
+            .try_for_each(|n| remove_file(&trash.join(&n.file))),
     }
-    Ok(())
 }
 
 /// Partial update of `Meta`; absent fields keep their stored value.
@@ -514,12 +514,12 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     if let Some(g) = patch.git {
         meta.git = g;
     }
-    write_meta(root, &meta)
+    write_json(&root.join(META_FILE), &meta)
 }
 
-fn write_meta(root: &Path, meta: &Meta) -> Result<(), String> {
-    let text = serde_json::to_string_pretty(&meta).map_err(|e| e.to_string())?;
-    fs::write(root.join(META_FILE), text).map_err(|e| e.to_string())
+fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
+    let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+    fs::write(path, text).map_err(|e| e.to_string())
 }
 
 fn read_local(root: &Path) -> Option<Local> {
@@ -529,8 +529,7 @@ fn read_local(root: &Path) -> Option<Local> {
 }
 
 pub fn save_local(root: &Path, local: &Local) -> Result<(), String> {
-    let text = serde_json::to_string_pretty(local).map_err(|e| e.to_string())?;
-    fs::write(root.join(LOCAL_FILE), text).map_err(|e| e.to_string())
+    write_json(&root.join(LOCAL_FILE), local)
 }
 
 #[cfg(test)]

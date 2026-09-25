@@ -90,10 +90,10 @@ fn save_note(state: State<AppState>, path: String, note: Note) -> Result<Note, S
     let root = Path::new(&path);
     // Mark the old and the renamed file both, so the watcher ignores this write.
     if !note.file.is_empty() {
-        state.recent.mark(store::notes_dir(root).join(&note.file));
+        state.recent.mark(store::note_path(root, &note.file));
     }
     let saved = store::save_note(root, note)?;
-    state.recent.mark(store::notes_dir(root).join(&saved.file));
+    state.recent.mark(store::note_path(root, &saved.file));
     Ok(saved)
 }
 
@@ -105,14 +105,14 @@ fn delete_note(
     deleted_at: String,
 ) -> Result<Option<Note>, String> {
     let root = Path::new(&path);
-    state.recent.mark(store::notes_dir(root).join(&file));
+    state.recent.mark(store::note_path(root, &file));
     store::delete_note(root, &file, &deleted_at)
 }
 
 #[tauri::command]
 fn discard_note(state: State<AppState>, path: String, file: String) -> Result<(), String> {
     let root = Path::new(&path);
-    state.recent.mark(store::notes_dir(root).join(&file));
+    state.recent.mark(store::note_path(root, &file));
     store::discard_note(root, &file)
 }
 
@@ -125,9 +125,7 @@ fn list_trash(path: String) -> Result<Vec<Note>, String> {
 fn restore_note(state: State<AppState>, path: String, file: String) -> Result<Note, String> {
     let root = Path::new(&path);
     let restored = store::restore_note(root, &file)?;
-    state
-        .recent
-        .mark(store::notes_dir(root).join(&restored.file));
+    state.recent.mark(store::note_path(root, &restored.file));
     Ok(restored)
 }
 
