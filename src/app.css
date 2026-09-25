@@ -362,9 +362,35 @@ a {
   margin-left: -1.3em;
 }
 .markdown input[type="checkbox"] {
-  accent-color: var(--accent);
   margin-right: 6px;
   pointer-events: none;
+}
+/* Drawn like the graph cards' check: dark box, accent fill with Phosphor's bold tick. */
+.checkbox,
+.markdown input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  padding: 0;
+  vertical-align: -5px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  background: var(--bg);
+}
+@media (hover: hover) {
+  .checkbox:hover,
+  .markdown input[type="checkbox"]:hover {
+    border-color: var(--accent2);
+  }
+}
+.checkbox:checked,
+.markdown input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23f0f0f0'%3E%3Cpath d='M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z'/%3E%3C/svg%3E")
+    center / 11px no-repeat;
 }
 .markdown hr {
   border: none;

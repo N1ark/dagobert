@@ -2,6 +2,8 @@
 
 A lightweight note-taking and task-tracking app where notes form a DAG. Each note is also a task: it can depend on other notes, and it is "ready" once everything it depends on is done.
 
+![Dagobert: a graph of notes with the selected one open in the side panel](assets/screenshot.png)
+
 This is a personal project! It is Obsidian inspired (each file is a local Markdown file), but with a focus on task management, and to fit my own needs.
 
 > [!NOTE]

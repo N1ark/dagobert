@@ -7,6 +7,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
+import { demo, demoMeta, demoNotes } from "./demo";
 import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -60,18 +61,20 @@ function seed(): Map<string, Note> {
 }
 
 const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local } = {
-  notes: seed(),
+  notes: demo ? new Map(demoNotes().map((n) => [n.id, n])) : seed(),
   trash: [],
   local: { viewport: { x: 0, y: 0, zoom: 1 } },
-  meta: {
-    tag_colors: {},
-    workflows: [],
-    default_template: "",
-    tracking_template: "",
-    repos: {},
-    palette: [],
-    git: { enabled: false, interval_min: 5 },
-  },
+  meta: demo
+    ? demoMeta
+    : {
+        tag_colors: {},
+        workflows: [],
+        default_template: "",
+        tracking_template: "",
+        repos: {},
+        palette: [],
+        git: { enabled: false, interval_min: 5 },
+      },
 };
 
 const mockGitStatus: GitStatus = {

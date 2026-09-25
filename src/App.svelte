@@ -18,6 +18,7 @@
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
   import { backend, isMobile } from "./lib/backend";
+  import { demo, DEMO_SELECTED } from "./lib/demo";
   import { ICON } from "./lib/icons";
   import { minimap, toggleMinimap } from "./lib/minimapState.svelte";
   import MapTrifold from "phosphor-svelte/lib/MapTrifold";
@@ -532,6 +533,11 @@
     if (standaloneId && standalonePath) {
       store.syncs = false;
       store.open(standalonePath).then(() => store.select(standaloneId));
+    } else if (demo) {
+      store.open("/atlas").then(() => {
+        store.select(DEMO_SELECTED);
+        requestAnimationFrame(() => canvas?.fitAll());
+      });
     } else {
       store.restore();
     }

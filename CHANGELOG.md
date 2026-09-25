@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Checkboxes in the note panel look like the ones on the graph.
+
 ## [0.8.0] - 2026-09-25
 
 ### Added

@@ -127,7 +127,7 @@
       >
     {:else if !custom}
       <label class="done" title={t(done ? "node.markNotDone" : "node.markDone")}>
-        <input type="checkbox" checked={done} onchange={() => store.advance(note.id)} />
+        <input type="checkbox" class="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
     <!-- Rendered until it's edited, like the body's blocks. -->
@@ -341,9 +341,9 @@
     padding: 12px 12px 4px 16px;
   }
   .done input {
+    display: block;
     width: 16px;
     height: 16px;
-    accent-color: var(--accent);
     margin: 0;
     cursor: pointer;
   }

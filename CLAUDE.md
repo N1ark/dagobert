@@ -17,7 +17,8 @@ npm run version -- X.Y.Z   # sync versions, roll CHANGELOG, commit + tag (push t
 ```
 
 Verifying UI changes: `npm run dev`, open http://localhost:1420, click "Open a folder…"
-(returns a mock project). The native window can't be screenshotted from the CLI.
+(returns a mock project); `/?demo` opens the tidy README-screenshot project (`demo.ts`).
+The native window can't be screenshotted from the CLI.
 
 ## Working rules
 

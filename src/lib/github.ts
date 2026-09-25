@@ -1,5 +1,6 @@
 import { t } from "./i18n";
 import { auth } from "./auth.svelte";
+import { demo, demoIssues } from "./demo";
 
 /** An issue or pull request as shown in the picker. */
 export interface IssueRef {
@@ -169,6 +170,7 @@ export async function issue(repo: string, number: number): Promise<IssueRef | nu
 
 /** The 100 most recently updated issues + PRs of a repo (one request, cached). */
 export function recentIssues(repo: string): Promise<IssueRef[]> {
+  if (demo) return Promise.resolve(Object.values(demoIssues));
   return cached(`recent ${repo}`, async () =>
     (await api<RawIssue[]>(`/repos/${repo}/issues?state=all&sort=updated&direction=desc&per_page=100`, repo)).map(toRef),
   );
