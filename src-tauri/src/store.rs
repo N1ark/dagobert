@@ -78,17 +78,11 @@ struct FrontMatter {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Viewport {
-    #[serde(default)]
     pub x: f64,
-    #[serde(default)]
     pub y: f64,
-    #[serde(default = "one")]
     pub zoom: f64,
-}
-
-fn one() -> f64 {
-    1.0
 }
 
 fn todo() -> String {
@@ -136,22 +130,17 @@ pub struct Local {
 
 /// Git tracking settings (shared, so every machine behaves the same).
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GitSettings {
-    #[serde(default)]
     pub enabled: bool,
-    #[serde(default = "five")]
     pub interval_min: u32,
-}
-
-fn five() -> u32 {
-    5
 }
 
 impl Default for GitSettings {
     fn default() -> Self {
         Self {
             enabled: false,
-            interval_min: five(),
+            interval_min: 5,
         }
     }
 }
@@ -799,6 +788,14 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!(p.notes.len(), 1);
         assert_eq!(p.duplicates, ["same 2.md"]);
+    }
+
+    #[test]
+    fn missing_fields_take_defaults() {
+        let g: GitSettings = serde_json::from_str(r#"{"enabled":true}"#).unwrap();
+        assert!(g.enabled && g.interval_min == 5);
+        let v: Viewport = serde_json::from_str(r#"{"x":3}"#).unwrap();
+        assert_eq!((v.x, v.y, v.zoom), (3.0, 0.0, 1.0));
     }
 
     #[test]
