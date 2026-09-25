@@ -4,8 +4,7 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
 import { demo, demoMeta, demoNotes } from "./demo";
 import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
@@ -29,6 +28,17 @@ export type SyncMessage =
   | { type: "meta"; meta: MetaPatch };
 
 const channel = inTauri ? null : new BroadcastChannel("dagobert");
+
+/** Listen to a Tauri event; the returned unsubscribe also works before `listen` has resolved. */
+function on<T>(event: string, cb: (payload: T) => void): () => void {
+  let un: (() => void) | null = null;
+  let cancelled = false;
+  listen<T>(event, (e) => cb(e.payload)).then((u) => (cancelled ? u() : (un = u)));
+  return () => {
+    cancelled = true;
+    un?.();
+  };
+}
 
 /** A small graph so the browser dev loop has something to lay out. */
 function seed(): Map<string, Note> {
@@ -132,9 +142,9 @@ export const backend = {
       for (const [id, n] of mock.notes) {
         if (n.file === file) {
           mock.notes.delete(id);
-          const t = { ...n, deleted: deletedAt };
-          mock.trash.unshift(t);
-          return t;
+          const trashed = { ...n, deleted: deletedAt };
+          mock.trash.unshift(trashed);
+          return trashed;
         }
       }
       return null;
@@ -214,13 +224,7 @@ export const backend = {
   /** Receive external changes to the open project. Returns an unsubscribe function. */
   onProjectChanged(cb: (change: ProjectChange) => void): () => void {
     if (!inTauri) return () => {};
-    let un: (() => void) | null = null;
-    let cancelled = false;
-    listen<ProjectChange>("project-changed", (e) => cb(e.payload)).then((u) => (cancelled ? u() : (un = u)));
-    return () => {
-      cancelled = true;
-      un?.();
-    };
+    return on("project-changed", cb);
   },
 
   // ---- git tracking ----------------------------------------------------------
@@ -264,13 +268,11 @@ export const backend = {
   /** `git-tick` (timer) and `git-quit` (close/exit held back for a sync) events. */
   onGitEvent(cb: (kind: "tick" | "quit", reason: string) => void): () => void {
     if (!inTauri) return () => {};
-    const uns: (() => void)[] = [];
-    let cancelled = false;
-    listen("git-tick", () => cb("tick", "")).then((u) => (cancelled ? u() : uns.push(u)));
-    listen<string>("git-quit", (e) => cb("quit", e.payload)).then((u) => (cancelled ? u() : uns.push(u)));
+    const unTick = on("git-tick", () => cb("tick", ""));
+    const unQuit = on<string>("git-quit", (reason) => cb("quit", reason));
     return () => {
-      cancelled = true;
-      for (const u of uns) u();
+      unTick();
+      unQuit();
     };
   },
 
@@ -289,17 +291,11 @@ export const backend = {
       channel.addEventListener("message", h);
       return () => channel.removeEventListener("message", h);
     }
-    let un: (() => void) | null = null;
-    let cancelled = false;
     const me = getCurrentWindow().label;
-    listen<SyncMessage & { from?: string }>("dagobert-sync", (e) => {
+    return on<SyncMessage & { from?: string }>("dagobert-sync", (msg) => {
       // Tauri delivers our own emits back to us; ignore those.
-      if (e.payload.from !== me) cb(e.payload);
-    }).then((u) => (cancelled ? u() : (un = u)));
-    return () => {
-      cancelled = true;
-      un?.();
-    };
+      if (msg.from !== me) cb(msg);
+    });
   },
 
   /** Open (or focus) a window for one note; false when there are none to open (mobile). */
@@ -345,13 +341,7 @@ export const backend = {
   /** Software keyboard height in CSS pixels, from UIKit. Returns an unsubscribe. */
   onKeyboard(cb: (height: number) => void): () => void {
     if (!inTauri) return () => {};
-    let un: (() => void) | null = null;
-    let cancelled = false;
-    listen<number>("keyboard", (e) => cb(e.payload)).then((u) => (cancelled ? u() : (un = u)));
-    return () => {
-      cancelled = true;
-      un?.();
-    };
+    return on("keyboard", cb);
   },
 
   /** Opens a URL in the user's own browser. */
