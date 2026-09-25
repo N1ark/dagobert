@@ -137,35 +137,29 @@
     if (c.y !== vp.y) vp.y = c.y;
   });
 
-  /** A node plus everything upstream and downstream of it. */
-  function connected(id: string) {
-    const set = new Set<string>([id]);
-    const up = [id];
-    while (up.length) {
-      const n = store.byId(up.pop()!);
-      for (const d of n?.deps ?? [])
-        if (!set.has(d)) {
-          set.add(d);
-          up.push(d);
-        }
-    }
-    const down = [id];
-    while (down.length) {
-      const cur = down.pop()!;
-      for (const n of store.notes)
-        if (n.deps.includes(cur) && !set.has(n.id)) {
-          set.add(n.id);
-          down.push(n.id);
-        }
-    }
+  /** The selected node plus everything upstream and downstream of it. */
+  const selectedChain = $derived.by(() => {
+    const id = store.selectedId;
+    if (!id || store.multi.length > 1) return null;
+    const dependents = new Map<string, string[]>();
+    for (const n of store.notes) for (const d of n.deps) (dependents.get(d) ?? dependents.set(d, []).get(d)!).push(n.id);
+    const set = new Set([id]);
+    const walk = (next: (id: string) => string[]) => {
+      const stack = [id];
+      while (stack.length)
+        for (const x of next(stack.pop()!))
+          if (!set.has(x)) {
+            set.add(x);
+            stack.push(x);
+          }
+    };
+    walk((x) => store.byId(x)?.deps ?? []);
+    walk((x) => dependents.get(x) ?? []);
     return set;
-  }
+  });
 
   /** The selected node's chain, when focus mode should dim everything else. */
-  const chain = $derived.by(() => {
-    if (!focus || !store.selectedId || store.multi.length > 1) return null;
-    return connected(store.selectedId);
-  });
+  const chain = $derived(focus ? selectedChain : null);
 
   /** Search/tag filter wins; otherwise the focus chain; null = nothing dimmed. */
   const visible = $derived(matches ?? chain);
@@ -228,10 +222,9 @@
 
   /** World-space cubic beziers of every edge in the selected node's chain, for the grain flow. */
   const flowCurves = $derived.by((): Curve[] => {
-    const id = store.selectedId;
-    if (!id || store.multi.length > 1) return [];
+    const set = selectedChain;
+    if (!set) return [];
     const out: Curve[] = [];
-    const set = connected(id);
     for (const n of store.notes) {
       if (!set.has(n.id)) continue;
       for (const d of n.deps) {
@@ -264,7 +257,7 @@
   }
 
   /** Pan just enough that the note is fully on screen (with a margin). */
-  export function ensureVisible(id: string) {
+  function ensureVisible(id: string) {
     const n = store.byId(id);
     if (!n) return;
     stopGlide();
@@ -447,9 +440,7 @@
       // A second finger turns whatever was happening into a pinch.
       if (touches.size === 2) {
         cancelHold();
-        drag = marquee = linking = resize = null;
-        pan = null;
-        isPanning = false;
+        resetGesture();
         pinch = pinchFrom();
         gestureRect = container.getBoundingClientRect();
         return;
@@ -481,9 +472,7 @@
       // Dragging a node in the group moves the whole group.
       if (touch) {
         startHold(e, id);
-        pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y, touch };
-        isPanning = true;
-        panTrail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
+        startPan(e, touch);
         return;
       }
       drag = startDrag(id, e);
@@ -496,9 +485,19 @@
       return;
     }
     if (touch) startHold(e, null);
+    startPan(e, touch);
+  }
+
+  function startPan(e: PointerEvent, touch: boolean) {
     pan = { startX: e.clientX, startY: e.clientY, vx: vp.x, vy: vp.y, touch };
     isPanning = true;
     panTrail = [{ t: e.timeStamp, x: e.clientX, y: e.clientY }];
+  }
+
+  function resetGesture() {
+    drag = marquee = linking = resize = null;
+    pan = null;
+    isPanning = false;
   }
 
   function startDrag(id: string, e: { clientX: number; clientY: number }) {
@@ -539,6 +538,13 @@
   /** Coalesced to one viewport write per frame, for the same reason as `applyWheel`. */
   function scheduleGesture() {
     gestureRaf ||= requestAnimationFrame(flushGesture);
+  }
+
+  /** A gesture can end before its last queued frame runs. */
+  function flushPendingGesture() {
+    if (!gestureRaf) return;
+    cancelAnimationFrame(gestureRaf);
+    flushGesture();
   }
 
   function flushGesture() {
@@ -629,10 +635,7 @@
   function onPointerUp(e: PointerEvent) {
     const wasPinching = !!pinch;
     if (touches.delete(e.pointerId) && touches.size < 2 && pinch) {
-      if (gestureRaf) {
-        cancelAnimationFrame(gestureRaf);
-        flushGesture();
-      }
+      flushPendingGesture();
       pinch = null;
       gestureRect = null;
       store.saveViewport();
@@ -689,11 +692,7 @@
       return;
     }
     if (pan) {
-      // A gesture can end before its last queued frame runs.
-      if (gestureRaf) {
-        cancelAnimationFrame(gestureRaf);
-        flushGesture();
-      }
+      flushPendingGesture();
       const moved = Math.hypot(e.clientX - pan.startX, e.clientY - pan.startY) > 3;
       if (moved) {
         // Only a finger coasts; a canvas that stops dead under it reads as broken.
@@ -733,8 +732,8 @@
       if (edgeEl) {
         t = { kind: "edge", from: edgeEl.dataset.from!, to: edgeEl.dataset.to! };
       } else {
-        const w = toWorld(x, y);
-        t = { kind: "background", wx: w.x - NODE_W / 2, wy: w.y - 20 };
+        const p = spawnPoint(x, y);
+        t = { kind: "background", wx: p.x, wy: p.y };
       }
     }
     menu = { x, y, target: t };
@@ -752,9 +751,7 @@
     if (!prev || now - prev.at > 320 || Math.hypot(e.clientX - prev.x, e.clientY - prev.y) > TAP_SLOP * 2) return false;
     // A double-tap replaces the single tap that would otherwise have landed.
     lastTap = null;
-    drag = marquee = linking = resize = null;
-    pan = null;
-    isPanning = false;
+    resetGesture();
     activateAt(e.clientX, e.clientY, e.target as HTMLElement);
     return true;
   }
@@ -770,8 +767,14 @@
       return;
     }
     if (target.closest("[data-edge]")) return;
+    const p = spawnPoint(x, y);
+    createAt(p.x, p.y);
+  }
+
+  /** Top-left for a new note so it lands under screen point (x, y). */
+  function spawnPoint(x: number, y: number) {
     const w = toWorld(x, y);
-    createAt(w.x - NODE_W / 2, w.y - 20);
+    return { x: w.x - NODE_W / 2, y: w.y - 20 };
   }
 
   /** Wheel input applied once per frame, in order (docs/canvas.md); WebKit flushes per event. */
@@ -815,13 +818,11 @@
     const inside =
       lastPointer && lastPointer.x >= r.left && lastPointer.x <= r.right && lastPointer.y >= r.top && lastPointer.y <= r.bottom;
     const p = inside ? lastPointer! : { x: r.left + r.width / 2, y: r.top + r.height / 2 };
-    const w = toWorld(p.x, p.y);
-    return { x: w.x - NODE_W / 2, y: w.y - 20 };
+    return spawnPoint(p.x, p.y);
   }
 
-  function pasteHere() {
-    const t = pasteTarget();
-    const n = store.paste(t.x, t.y);
+  function pasteAt(x: number, y: number) {
+    const n = store.paste(x, y);
     if (n) store.select(n.id);
   }
 
@@ -853,7 +854,8 @@
     }
     if (pressed(keys.paste, e) && store.clipboard) {
       e.preventDefault();
-      pasteHere();
+      const p = pasteTarget();
+      pasteAt(p.x, p.y);
       return;
     }
     if (pressed(keys.duplicate, e) && store.selectedId) {
@@ -1022,9 +1024,6 @@
   {#if grain}
     <Grain rects={glowRects} curves={flowCurves} offset={{ x: vp.x, y: vp.y }} zoom={vp.zoom} {bg} {grid} />
   {/if}
-  <!-- Background layer: a parallax'd copy of the world transform. The dot grid uses a
-       fixed 24px tile scaled by the transform so tiles aren't rounded to whole screen
-       pixels at fractional zoom; it's sized to cover just the view. -->
   {#if !grain}
     <!-- CSS fallback when the shader is off; the shader draws the same grid per pixel otherwise. -->
     <div class="bg" style="transform: translate({bg.x}px, {bg.y}px) scale({bg.zoom})">
@@ -1042,8 +1041,7 @@
       style="left:{rim.x}px; top:{rim.y}px; {rim.v ? `height:${rim.len}px` : `width:${rim.len}px`}"
     ></div>
   {/each}
-  <!-- Inline transform rather than custom properties on .canvas: a changed inherited
-       property re-resolves style for every descendant on each pan. -->
+  <!-- Inline transform, not inherited custom properties, which restyle every descendant (docs/canvas.md). -->
   <div class="world" style="transform: translate({vp.x}px, {vp.y}px) scale({vp.zoom})">
     <svg class="edges" overflow="visible">
       {#each orderedEdges as edge (edge.from + ">" + edge.to)}
@@ -1124,21 +1122,9 @@
   {/if}
 </div>
 
-<!-- Outside .canvas on purpose: a position:fixed descendant of an overflow:hidden
-     container with composited layers makes WebKit drop the container's clip, so the
-     graph would paint over the note panel while the menu is open. -->
+<!-- Outside .canvas: a fixed child makes WebKit drop the canvas clip (docs/canvas.md). -->
 {#if menu}
-  <ContextMenu
-    x={menu.x}
-    y={menu.y}
-    target={menu.target}
-    onclose={() => (menu = null)}
-    oncreate={createAt}
-    onpaste={(wx, wy) => {
-      const n = store.paste(wx, wy);
-      if (n) store.select(n.id);
-    }}
-  />
+  <ContextMenu x={menu.x} y={menu.y} target={menu.target} onclose={() => (menu = null)} oncreate={createAt} onpaste={pasteAt} />
 {/if}
 
 <style>
@@ -1171,15 +1157,13 @@
     z-index: 1;
     transform-origin: 0 0;
     pointer-events: none;
-    /* Own compositor layer: panning translates the rasterised grid instead of re-rasterising
-       sub-pixel dots each frame (which makes them flicker). */
+    /* Own layer: panning moves the rasterised grid instead of re-rasterising flickering dots. */
     will-change: transform;
   }
   .grid {
     position: absolute;
     pointer-events: none;
-    /* Fixed 32px lattice (dots at 16 + 32k, same as the shader); --dot is the radius in
-       world units (see gridStyle). No level-of-detail here: this is only the fallback. */
+    /* Dots at 16 + 32k like the shader; --dot is the radius in world units (gridStyle). */
     background-image: radial-gradient(circle at 16px 16px, #ffffff1c var(--dot), transparent var(--dot));
     background-size: 32px 32px;
   }
@@ -1189,10 +1173,7 @@
     top: 0;
     z-index: 2;
     transform-origin: 0 0;
-    /* Own compositor layer from the start. Panning then translates rasterised tiles and
-       only newly exposed ones are painted; without this WebKit repaints the whole view
-       every frame and, some 40 repaints into a gesture, promotes the layer anyway with
-       a ~65 ms hitch. */
+    /* Own layer from the start, or WebKit promotes it mid-gesture with a hitch (docs/canvas.md). */
     will-change: transform;
   }
   /* World edge, drawn in screen space (see `worldEdge`). */

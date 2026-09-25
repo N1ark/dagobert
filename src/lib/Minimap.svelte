@@ -30,9 +30,12 @@
 
   const vp = $derived(store.viewport);
 
+  /** Apart from the viewport, so panning doesn't walk every note. */
+  const notes = $derived(notesBounds(store.notes, widthOf, heightOf));
+
   /** World bounds of all notes plus the viewport, so the view box never leaves the map. */
   const bounds = $derived.by(() => {
-    let { minX, minY, maxX, maxY } = notesBounds(store.notes, widthOf, heightOf);
+    let { minX, minY, maxX, maxY } = notes;
     const vx0 = -vp.x / vp.zoom,
       vy0 = -vp.y / vp.zoom;
     minX = Math.min(minX, vx0) - PAD;

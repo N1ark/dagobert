@@ -55,10 +55,10 @@
 
   /** How far the bottom bar rides up, so it follows the sheet frame by frame. */
   const lift = $derived.by(() => {
-    const peek = cssPx("--sheet-peek", 148);
     if (entering || leaving) return 0;
-    if (y === null || !stops) return peek;
-    return Math.max(0, Math.min(peek, stops.max - y));
+    if (y === null || !stops) return cssPx("--sheet-peek", 148);
+    // The stops already hold the peek height: no style read on every pointer move.
+    return Math.max(0, Math.min(stops.max - stops.peek, stops.max - y));
   });
 
   $effect(() => {
