@@ -81,11 +81,14 @@ jobs:
 
       - run: npm ci
 
-      # Uploads the bundle to the release created by the version job.
+      # Uploads the bundle, the signed updater archive and `latest.json` to the release
+      # created by the version job. Updater artifacts are CI-only: they need the signing key.
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
         with:
           tagName: v${{ needs.version.outputs.version }}
           releaseName: Dagobert v${{ needs.version.outputs.version }}
-          args: --target ${{ matrix.target }} --bundles dmg
+          args: --target ${{ matrix.target }} --bundles app,dmg --config src-tauri/tauri.updater.conf.json

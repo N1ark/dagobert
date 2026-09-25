@@ -40,7 +40,7 @@ The native window can't be screenshotted from the CLI.
 
 - `src-tauri/src/` — `store.rs` (all disk I/O), `watch.rs` (file watcher, desktop only),
   `state.rs` (managed state), `git.rs` / `merge.rs` / `sync.rs` (git tracking),
-  `symbols.rs` (SF Symbols), `lib.rs` (commands).
+  `symbols.rs` (SF Symbols), `update.rs` (self-update), `lib.rs` (commands).
 - `src/lib/backend.ts` — wraps `invoke`; in-memory mock in the browser; `isMobile`.
 - `src/lib/secrets.ts` — the GitHub API token and the git push/pull token.
 - `src/lib/store.svelte.ts` — the single `store` instance: notes, viewport, selection,
@@ -63,7 +63,7 @@ Details per area (read the one you're working in):
   wikilinks / mentions, rendering & highlighting, templates.
 - [docs/github.md](docs/github.md) — repo aliases, PR cache, sidebar, icons.
 - [docs/ui.md](docs/ui.md) — shortcuts & native menu, i18n, undo, multiple windows,
-  dialogs/popovers, icons & assets, CI/release.
+  dialogs/popovers, icons & assets, CI/release, auto-update.
 - [docs/mobile.md](docs/mobile.md) — the `isMobile` flag, `cfg(desktop)` gating, sandboxed
   projects, token credentials, the foreground/background lifecycle, touch, phone layout.
 

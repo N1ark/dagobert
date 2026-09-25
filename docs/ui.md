@@ -105,3 +105,16 @@ every PR and on main (concurrency-cancelled per ref, macOS runner because of App
 `release.yml` runs on main when version files change: if no GitHub release exists for
 `package.json`'s version it builds DMGs (arm64 + x86_64) with `tauri-action` and publishes
 one, using that version's CHANGELOG section as notes. Builds are unsigned.
+
+## Updates
+
+`tauri-plugin-updater` (desktop only) reads `latest.json` from the latest GitHub release.
+CI signs the updater archive with the `TAURI_SIGNING_PRIVATE_KEY` secret (minisign key, no
+password; public half in `tauri.conf.json`) and `tauri.updater.conf.json` turns on
+`createUpdaterArtifacts` there only, so local builds need no key. Losing the key means
+shipping a new pubkey, which installed copies won't accept: they'd need a manual reinstall.
+`update.rs` checks and downloads (skipped in debug builds) and keeps the bytes until
+`update_install` installs and calls `request_restart`, whose `ExitRequested` skips the git
+quit hold. `updater.svelte.ts` checks on launch and every 6 h from the main window; when one
+is ready the toolbar shows "Restart to update" and the app-menu item switches to it.
+Installing runs `store.suspend()` (flush + sync) first.

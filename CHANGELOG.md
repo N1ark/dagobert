@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Dagobert updates itself: new versions download in the background and install on restart.
+
 ### Changed
 
 - Checkboxes in the note panel look like the ones on the graph.

@@ -276,6 +276,20 @@ export const backend = {
     };
   },
 
+  // ---- updates ---------------------------------------------------------------
+
+  /** Checks for and downloads a newer release: its version, or null when up to date. */
+  async checkUpdate(): Promise<string | null> {
+    if (!inTauri || isMobile) return null;
+    return (await invoke<string | null>("update_check")) ?? null;
+  },
+
+  /** Installs the downloaded update and relaunches the app. */
+  async installUpdate(): Promise<void> {
+    if (!inTauri) return;
+    return invoke("update_install");
+  },
+
   // ---- windows & sync --------------------------------------------------------
 
   /** Broadcast a change to every other window of this app. */

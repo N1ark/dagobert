@@ -13,6 +13,7 @@
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
   import Sheet from "./lib/Sheet.svelte";
   import { auth } from "./lib/auth.svelte";
+  import { updater } from "./lib/updater.svelte";
   import { syncPRs } from "./lib/prs.svelte";
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
@@ -51,6 +52,7 @@
   import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
   import Warning from "phosphor-svelte/lib/Warning";
   import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
+  import ArrowCircleUp from "phosphor-svelte/lib/ArrowCircleUp";
   import type { ProjectRef } from "./lib/types";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
@@ -421,6 +423,12 @@
         menuLabel: t("action.grain.menu"),
       }),
       a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
+      a(
+        "update",
+        updater.ready ? t("action.update.install", { version: updater.ready }) : t("action.update.check"),
+        () => (updater.ready ? updater.install() : updater.check(true)),
+        { icon: ArrowCircleUp, symbol: ["arrow.down.circle"], menu: "App" },
+      ),
       a("settings", t("action.settings"), () => openSettings("github"), {
         hint: keys.settings,
         icon: GearSix,
@@ -456,7 +464,7 @@
       }),
     ];
     // No tracking toggle and nothing to reveal in: a phone has neither.
-    return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal") : actions;
+    return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal" && x.id !== "update") : actions;
   });
 
   /** Undo/redo from the menu: native inside text fields, ours elsewhere. */
@@ -540,6 +548,7 @@
     } else {
       store.restore();
     }
+    const unupdate = standaloneId || demo ? () => {} : updater.start();
     window.addEventListener("keydown", onKey);
     // Flush pending debounced saves whenever the page may be going away.
     const flush = () => store.flushAll();
@@ -557,6 +566,7 @@
       unsub();
       unwatch();
       ungit();
+      unupdate();
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", flush);
       window.removeEventListener("pagehide", flush);
@@ -604,6 +614,11 @@
         {/if}
       {/if}
       <div class="spacer" data-tauri-drag-region={isMobile ? undefined : true}></div>
+      {#if updater.ready && !isMobile}
+        <button class="ghost update" onclick={() => updater.install()} use:tooltip={t("toolbar.update.tip", { version: updater.ready })}
+          ><ArrowCircleUp size={ICON} /> {t("toolbar.update")}</button
+        >
+      {/if}
       <span class="stats" class:hide={isMobile} title={t("toolbar.stats.title")}>
         <span class="ready">{t("toolbar.stats.ready", { n: stats.ready })}</span> · {t("toolbar.stats.done", {
           done: stats.done,
@@ -885,6 +900,14 @@
     margin-right: 4px;
   }
   .stats .ready {
+    color: var(--accent2);
+  }
+  .update {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 8px;
+    font-size: 12px;
     color: var(--accent2);
   }
   .conflicts {

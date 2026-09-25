@@ -25,6 +25,12 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNDNjMwMUZBQzFFMDY1M0MKUldROFplREIrZ0ZqUEZyVnJxbEN5ZjdWTVM2UGN4OXVreHNtL0JDYktkTzlpanE5Zk53eTdnYS8K",
+      "endpoints": ["https://github.com/N1ark/dagobert/releases/latest/download/latest.json"]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

@@ -8,6 +8,8 @@ mod store;
 mod symbols;
 mod sync;
 #[cfg(desktop)]
+mod update;
+#[cfg(desktop)]
 mod watch;
 
 use serde::Serialize;
@@ -274,13 +276,38 @@ async fn github_refresh(refresh_token: String) -> Result<github::Refreshed, Stri
     blocking(move || github::refresh(&refresh_token)).await?
 }
 
+/// Checks for and downloads a newer release; `None` when up to date (always on mobile).
+#[tauri::command]
+#[allow(unused_variables)]
+async fn update_check(app: AppHandle) -> Result<Option<String>, String> {
+    #[cfg(desktop)]
+    return update::check(&app).await;
+    #[cfg(not(desktop))]
+    Ok(None)
+}
+
+/// Installs the downloaded update and relaunches; saves and syncs must be done by then.
+#[tauri::command]
+#[allow(unused_variables)]
+async fn update_install(app: AppHandle) -> Result<(), String> {
+    #[cfg(desktop)]
+    return blocking(move || update::install(&app)).await?;
+    #[cfg(not(desktop))]
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_dialog::init());
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    builder
         .setup(|app| {
             app.manage(AppState::default());
+            #[cfg(desktop)]
+            app.manage(update::Pending::default());
             #[cfg(target_os = "ios")]
             keyboard::watch(app.handle().clone());
             Ok(())
@@ -310,7 +337,9 @@ pub fn run() {
             git_init,
             git_configure,
             git_sync,
-            git_quit
+            git_quit,
+            update_check,
+            update_install
         ])
         .on_window_event(|window, event| {
             let _ = (&window, &event);
@@ -329,8 +358,11 @@ pub fn run() {
         .run(|app, event| {
             let _ = (app, &event);
             #[cfg(desktop)]
-            if let tauri::RunEvent::ExitRequested { api, .. } = &event {
-                if sync::intercept_quit(app, &app.state::<AppState>().git, "exit") {
+            if let tauri::RunEvent::ExitRequested { api, code, .. } = &event {
+                // An update's restart can't be held back; the frontend synced before asking for it.
+                if *code != Some(tauri::RESTART_EXIT_CODE)
+                    && sync::intercept_quit(app, &app.state::<AppState>().git, "exit")
+                {
                     api.prevent_exit();
                 }
             }

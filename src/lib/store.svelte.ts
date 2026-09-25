@@ -310,7 +310,7 @@ class Store {
           this.gitLastSync = now();
           // No watcher on mobile: a pull's rewrites have to be read back.
           if (isMobile && (r.pulled === "fast-forward" || r.pulled === "merging")) await this.reloadFromDisk();
-          if (manual) this.#toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
+          if (manual) this.toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
         }
       } catch (e) {
         if (this.path !== path) return;
@@ -1030,7 +1030,7 @@ class Store {
     if (!e) return;
     await this.#apply(e.diffs, dir);
     this.#syncDepths();
-    this.#toast(t(dir === "undo" ? "store.undid" : "store.redid", { label: e.label }));
+    this.toast(t(dir === "undo" ? "store.undid" : "store.redid", { label: e.label }));
   }
 
   /** Put every note in `diffs` into its `before` (undo) or `after` (redo) state. */
@@ -1075,7 +1075,7 @@ class Store {
     }
   }
 
-  #toast(msg: string) {
+  toast(msg: string) {
     this.notice = msg;
     setTimeout(() => {
       if (this.notice === msg) this.notice = null;
