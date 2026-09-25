@@ -36,6 +36,7 @@ All notable changes to Dagobert are documented here. The format follows
 - The editor and search keep clear of the software keyboard, and autocorrect no longer
   rewrites markdown as it is typed.
 - The mention picker follows the caret in a newly added block, as it does in every other.
+- The note panel's title renders its markdown, like the node card, until you edit it.
 
 ## [0.7.1] - 2026-09-21
 

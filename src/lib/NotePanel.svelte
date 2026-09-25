@@ -39,6 +39,7 @@
   const custom = $derived(note.workflow !== null && !note.tracking);
   const progress = $derived(note.tracking ? store.progress(note) : null);
   let titleEl = $state<HTMLInputElement | null>(null);
+  let titleFocused = $state(false);
 
   // Longest first: flex-wrap packs greedily, so first-fit-decreasing needs the fewest rows.
   const packed = (notes: Note[]) => [...notes].sort((a, b) => b.title.length - a.title.length || a.title.localeCompare(b.title));
@@ -129,21 +130,32 @@
         <input type="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
-    <input
-      class="title"
-      placeholder={t("panel.title.placeholder")}
-      bind:value={note.title}
-      bind:this={titleEl}
-      oninput={edited}
-      onchange={titleCommitted}
-      onblur={titleCommitted}
-      onkeydown={(e) => {
-        if (e.key === "Escape" && !standalone) {
-          e.preventDefault();
-          store.select(null);
-        }
-      }}
-    />
+    <!-- Rendered until it's edited, like the body's blocks. -->
+    <span class="title-wrap">
+      <input
+        class="title"
+        class:rendered={!titleFocused && !!note.title}
+        placeholder={t("panel.title.placeholder")}
+        bind:value={note.title}
+        bind:this={titleEl}
+        oninput={edited}
+        onchange={titleCommitted}
+        onfocus={() => (titleFocused = true)}
+        onblur={() => {
+          titleFocused = false;
+          titleCommitted();
+        }}
+        onkeydown={(e) => {
+          if (e.key === "Escape" && !standalone) {
+            e.preventDefault();
+            store.select(null);
+          }
+        }}
+      />
+      {#if !titleFocused && note.title}
+        <span class="title-md" aria-hidden="true"><InlineMd source={note.title} /></span>
+      {/if}
+    </span>
     {#if !standalone && !isMobile}
       <button
         class="ghost close"
@@ -335,6 +347,12 @@
     margin: 0;
     cursor: pointer;
   }
+  .title-wrap {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+    display: flex;
+  }
   .title {
     flex: 1;
     font-size: 18px;
@@ -351,6 +369,30 @@
   }
   .title:focus {
     border-color: var(--accent);
+  }
+  .title.rendered {
+    color: transparent;
+  }
+  .title-md {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color2);
+    white-space: nowrap;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  :global(body.mobile) .title-md {
+    font-size: 16px;
+  }
+  .title-md :global(.inline-md) {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .close {
     font-size: 12px;

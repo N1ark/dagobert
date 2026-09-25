@@ -7,7 +7,8 @@ or `highlight.ts`.
 ## NotePanel.svelte
 
 Right-hand editor, re-keyed per note id in `App.svelte` so local state resets on selection
-change. The title field is a raw `<input>`; committing a title runs `renameLinks`. Owns the
+change. The title field is a raw `<input>`, overlaid by its `InlineMd` rendering while unfocused;
+committing a title runs `renameLinks`. Owns the
 `⌫`/`⌦` listener that arms its Delete button (second press deletes). Width is `panelW` in
 `App.svelte` (localStorage `dagobert.panelWidth`, dragged via `.resizer`; `--panel-w` on
 `.main`).
