@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { store } from "./lib/store.svelte";
+  import { nameOf, store } from "./lib/store.svelte";
   import Canvas from "./lib/Canvas.svelte";
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
@@ -83,6 +83,30 @@
   // Remembered where it's a sidebar; a phone opens with nothing over the canvas.
   let showPRs = $state(!isMobile && localStorage.getItem(PRS_KEY) === "1");
   let prsW = $state(Number(localStorage.getItem(PRS_W_KEY)) || 300);
+
+  /** Pointer handlers for a resizer that drags a width, remembered under `key` once let go. */
+  function widthDrag(key: string, width: () => number, resize: (startW: number, dx: number) => void) {
+    let from = $state<{ x: number; w: number } | null>(null);
+    return {
+      get active() {
+        return !!from;
+      },
+      down(e: PointerEvent) {
+        e.preventDefault(); // otherwise the drag also starts a text selection
+        from = { x: e.clientX, w: width() };
+        (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      },
+      move(e: PointerEvent) {
+        if (from) resize(from.w, e.clientX - from.x);
+      },
+      up() {
+        if (!from) return;
+        from = null;
+        localStorage.setItem(key, String(width()));
+      },
+    };
+  }
+
   /** Shift the viewport with the canvas's left edge so the graph stays put on screen. */
   function absorb(dx: number) {
     if (!store.path || !dx) return;
@@ -99,42 +123,23 @@
     localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
     absorb(showPRs ? prsW : -prsW);
   }
-  let prsResizing = $state<{ startX: number; w: number } | null>(null);
-  function onPrsResizeDown(e: PointerEvent) {
-    e.preventDefault(); // otherwise the drag also starts a text selection
-    prsResizing = { startX: e.clientX, w: prsW };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }
-  function onPrsResizeMove(e: PointerEvent) {
-    if (!prsResizing) return;
-    const w = Math.round(Math.max(220, Math.min(window.innerWidth * 0.5, prsResizing.w + (e.clientX - prsResizing.startX))));
-    absorb(w - prsW);
-    prsW = w;
-  }
-  function onPrsResizeUp() {
-    if (!prsResizing) return;
-    prsResizing = null;
-    localStorage.setItem(PRS_W_KEY, String(prsW));
-  }
+  const prsDrag = widthDrag(
+    PRS_W_KEY,
+    () => prsW,
+    (w0, dx) => {
+      const w = Math.round(Math.max(220, Math.min(window.innerWidth * 0.5, w0 + dx)));
+      absorb(w - prsW);
+      prsW = w;
+    },
+  );
 
   const PANEL_KEY = "dagobert.panelWidth";
   let panelW = $state(Number(localStorage.getItem(PANEL_KEY)) || 440);
-  let resizing = $state<{ startX: number; w: number } | null>(null);
-
-  function onResizeDown(e: PointerEvent) {
-    e.preventDefault(); // otherwise the drag also starts a text selection
-    resizing = { startX: e.clientX, w: panelW };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }
-  function onResizeMove(e: PointerEvent) {
-    if (!resizing) return;
-    panelW = Math.round(Math.max(320, Math.min(window.innerWidth * 0.8, resizing.w - (e.clientX - resizing.startX))));
-  }
-  function onResizeUp() {
-    if (!resizing) return;
-    resizing = null;
-    localStorage.setItem(PANEL_KEY, String(panelW));
-  }
+  const panelDrag = widthDrag(
+    PANEL_KEY,
+    () => panelW,
+    (w0, dx) => (panelW = Math.round(Math.max(320, Math.min(window.innerWidth * 0.8, w0 - dx)))),
+  );
 
   // The phone has no folder picker: projects live in the app's data directory.
   let projects = $state<ProjectRef[]>([]);
@@ -171,6 +176,19 @@
   let settingsSection = $state<"workflows" | "tracking" | "github" | "git">("workflows");
   let settingsWorkflow = $state<string | null | undefined>(undefined);
 
+  function openSettings(section: typeof settingsSection, workflow?: string | null) {
+    settingsSection = section;
+    settingsWorkflow = workflow;
+    showWorkflows = true;
+  }
+  store.openSettings = openSettings;
+
+  function hidePanels() {
+    showWorkflows = false;
+    showTrash = false;
+    showPRs = false;
+  }
+
   $effect(() => {
     if (isMobile && (showWorkflows || showTrash)) store.sheetFull = true;
   });
@@ -182,17 +200,10 @@
   let sheet = $state<Sheet | null>(null);
   /** Canvas taps ask the panel to leave, so it animates out. */
   store.dismissPanel = () => sheet?.dismiss();
-  store.openSettings = (section, workflow) => {
-    settingsSection = section;
-    settingsWorkflow = workflow;
-    showWorkflows = true;
-  };
 
   /** Dismissing is dismissing: there is no stack to pop back to. */
   function closePanel() {
-    showWorkflows = false;
-    showTrash = false;
-    showPRs = false;
+    hidePanels();
     store.select(null);
   }
 
@@ -233,9 +244,7 @@
   function jump(id: string) {
     // First, so nothing below can throw and leave the note behind an open panel.
     if (isMobile) {
-      showPRs = false;
-      showTrash = false;
-      showWorkflows = false;
+      hidePanels();
       store.sheetFull = true;
     }
     store.select(id);
@@ -412,24 +421,19 @@
         menuLabel: t("action.grain.menu"),
       }),
       a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
-      a("settings", t("action.settings"), () => ((settingsSection = "github"), (settingsWorkflow = undefined), (showWorkflows = true)), {
+      a("settings", t("action.settings"), () => openSettings("github"), {
         hint: keys.settings,
         icon: GearSix,
         symbol: ["gearshape", "gear"],
         menu: "App",
         enabled: has,
       }),
-      a(
-        "workflows",
-        t("action.workflows"),
-        () => ((settingsSection = "workflows"), (settingsWorkflow = undefined), (showWorkflows = true)),
-        {
-          icon: Kanban,
-          symbol: ["list.bullet.rectangle", "list.bullet"],
-          menu: "Tools",
-          enabled: has,
-        },
-      ),
+      a("workflows", t("action.workflows"), () => openSettings("workflows"), {
+        icon: Kanban,
+        symbol: ["list.bullet.rectangle", "list.bullet"],
+        menu: "Tools",
+        enabled: has,
+      }),
       a("prs", t(showPRs ? "action.prs.hide" : "action.prs.show"), () => togglePRs(), {
         hint: keys.prs,
         icon: GitPullRequest,
@@ -438,23 +442,18 @@
         menuLabel: t("action.prs.menu"),
         enabled: has,
       }),
-      a("github", t("action.github"), () => ((settingsSection = "github"), (settingsWorkflow = undefined), (showWorkflows = true)), {
+      a("github", t("action.github"), () => openSettings("github"), {
         icon: GithubLogo,
         symbol: ["link"],
         menu: "Tools",
         enabled: has,
       }),
-      a(
-        "git-settings",
-        t("action.git-settings"),
-        () => ((settingsSection = "git"), (settingsWorkflow = undefined), (showWorkflows = true)),
-        {
-          icon: GitBranch,
-          symbol: ["arrow.triangle.branch"],
-          menu: "Tools",
-          enabled: has,
-        },
-      ),
+      a("git-settings", t("action.git-settings"), () => openSettings("git"), {
+        icon: GitBranch,
+        symbol: ["arrow.triangle.branch"],
+        menu: "Tools",
+        enabled: has,
+      }),
     ];
     // No tracking toggle and nothing to reveal in: a phone has neither.
     return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal") : actions;
@@ -669,17 +668,17 @@
         >
       {/if}
     </div>
-    <div class="main" class:resizing={!!resizing || !!prsResizing} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
+    <div class="main" class:resizing={panelDrag.active || prsDrag.active} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
       {#if showPRs && !isMobile}
         <PullRequests onclose={togglePRs} onjump={jump} />
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="resizer left"
-          class:active={!!prsResizing}
-          onpointerdown={onPrsResizeDown}
-          onpointermove={onPrsResizeMove}
-          onpointerup={onPrsResizeUp}
-          onpointercancel={onPrsResizeUp}
+          class:active={prsDrag.active}
+          onpointerdown={prsDrag.down}
+          onpointermove={prsDrag.move}
+          onpointerup={prsDrag.up}
+          onpointercancel={prsDrag.up}
         ></div>
       {/if}
       <Canvas bind:this={canvas} {matches} {focus} {grain} />
@@ -687,11 +686,11 @@
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="resizer"
-          class:active={!!resizing}
-          onpointerdown={onResizeDown}
-          onpointermove={onResizeMove}
-          onpointerup={onResizeUp}
-          onpointercancel={onResizeUp}
+          class:active={panelDrag.active}
+          onpointerdown={panelDrag.down}
+          onpointermove={panelDrag.move}
+          onpointerup={panelDrag.up}
+          onpointercancel={panelDrag.up}
         ></div>
         <div class="panel-wrap">
           {#key store.selected.id}
@@ -764,7 +763,7 @@
             {#each store.recent as r (r)}
               <li>
                 <button class="ghost path" onclick={() => store.openRef(r)} title={r}>
-                  <span class="name">{r.split(/[\\/]/).filter(Boolean).pop()}</span>
+                  <span class="name">{nameOf(r)}</span>
                   <span class="full">{r}</span>
                 </button>
                 <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label={t("welcome.forget")}><X size={14} /></button>
