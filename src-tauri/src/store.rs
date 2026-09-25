@@ -224,9 +224,10 @@ pub fn read_notes(dir: &Path) -> Result<Vec<Note>, String> {
     Ok(notes)
 }
 
-/// A filename in `dir` that doesn't exist yet, based on `wanted`.
-pub fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
-    if !dir.join(wanted).exists() {
+/// A filename in `dir` based on `wanted` that doesn't exist yet or is `own` (the note's current file).
+pub fn free_name(dir: &Path, wanted: &str, id: &str, own: &str) -> String {
+    let free = |name: &str| name == own || !dir.join(name).exists();
+    if free(wanted) {
         return wanted.to_string();
     }
     let stem = wanted.strip_suffix(".md").unwrap_or(wanted);
@@ -237,7 +238,7 @@ pub fn free_name(dir: &Path, wanted: &str, id: &str) -> String {
         } else {
             format!("{stem}-{id}-{n}.md")
         };
-        if !dir.join(&candidate).exists() {
+        if free(&candidate) {
             return candidate;
         }
         n += 1;
@@ -361,21 +362,12 @@ pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
     let dir = notes_dir(root);
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
 
-    let slug = slugify(&note.title);
-    let wanted = if note.file.is_empty()
-        || Path::new(&note.file).file_stem().and_then(|s| s.to_str()) != Some(&slug)
-    {
-        // Pick a free filename for the new slug (our own current file doesn't count).
-        let candidate = format!("{slug}.md");
-        if candidate == note.file {
-            candidate
-        } else {
-            free_name(&dir, &candidate, &note.id)
-        }
-    } else {
-        note.file.clone()
-    };
-
+    let wanted = free_name(
+        &dir,
+        &format!("{}.md", slugify(&note.title)),
+        &note.id,
+        &note.file,
+    );
     if !note.file.is_empty() && note.file != wanted {
         let old = dir.join(&note.file);
         if old.exists() {
@@ -399,7 +391,7 @@ pub fn delete_note(root: &Path, file: &str, deleted_at: &str) -> Result<Option<N
     let text = fs::read_to_string(&src).map_err(|e| e.to_string())?;
     let mut note = parse_note(&text, file)?;
     note.deleted = Some(deleted_at.to_string());
-    note.file = free_name(&trash, file, &note.id);
+    note.file = free_name(&trash, file, &note.id, "");
     fs::write(trash.join(&note.file), serialize_note(&note)?).map_err(|e| e.to_string())?;
     fs::remove_file(&src).map_err(|e| e.to_string())?;
     Ok(Some(note))
@@ -757,6 +749,18 @@ mod tests {
                 && out.contains("status: review\n")
                 && !out.contains("done:")
         );
+    }
+
+    #[test]
+    fn suffixed_name_is_stable() {
+        let dir = std::env::temp_dir().join(format!("dagobert-suffix-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        save_note(&dir, note("a", "Same")).unwrap();
+        let b = save_note(&dir, note("b", "Same")).unwrap();
+        let b2 = save_note(&dir, b.clone()).unwrap();
+        let b3 = save_note(&dir, b2.clone()).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert_eq!([b.file, b2.file, b3.file], ["same-b.md"; 3]);
     }
 
     #[test]

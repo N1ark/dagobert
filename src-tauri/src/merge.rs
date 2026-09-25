@@ -431,7 +431,7 @@ impl Ctx<'_> {
                     let mut t = t.clone();
                     // Their new file may clash with a different note of ours.
                     if written.contains(&t.file) {
-                        t.file = store::free_name(&self.root.join(dir), &t.file, &t.id);
+                        t.file = store::free_name(&self.root.join(dir), &t.file, &t.id, "");
                     }
                     self.write_note(index, dir, &t)?;
                     written.insert(t.file.clone());

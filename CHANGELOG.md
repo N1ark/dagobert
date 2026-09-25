@@ -10,6 +10,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Checkboxes in the note panel look like the ones on the graph.
 
+### Fixed
+
+- A note sharing its title with another no longer changes file name every time it's saved.
+
 ## [0.8.0] - 2026-09-25
 
 ### Added
