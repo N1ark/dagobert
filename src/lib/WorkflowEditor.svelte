@@ -96,6 +96,12 @@
   }}
 />
 
+{#snippet template(get: () => string, set: (v: string) => void, save: () => void, placeholder: string)}
+  <h4>{t("settings.template")}</h4>
+  <p class="help">{t("settings.template.hint")}</p>
+  <textarea class="template" rows="6" bind:value={get, set} onchange={save} {placeholder} spellcheck="false"></textarea>
+{/snippet}
+
 {#snippet panel()}
   <header>
     <h3>{t("settings.title")}</h3>
@@ -142,15 +148,12 @@
     <section>
       {#if page === "tracking"}
         <p class="help"><InlineMd source={t("settings.tracking.help")} /></p>
-        <h4>{t("settings.template")}</h4>
-        <p class="help">{t("settings.template.hint")}</p>
-        <textarea
-          class="template"
-          rows="6"
-          bind:value={store.trackingTemplate}
-          onchange={() => store.saveMeta()}
-          placeholder={t("settings.tracking.placeholder")}
-          spellcheck="false"></textarea>
+        {@render template(
+          () => store.trackingTemplate,
+          (v) => (store.trackingTemplate = v),
+          () => store.saveMeta(),
+          t("settings.tracking.placeholder"),
+        )}
       {:else if page === "git"}
         <p class="help"><InlineMd source={t("settings.git.help")} /></p>
         {#if !isMobile}
@@ -292,26 +295,20 @@
           <span class="usage">{plural("settings.wf.usage", usage)}</span>
           <button class="ghost danger" onclick={() => remove(wf)}>{t("settings.wf.delete")}</button>
         </div>
-        <h4>{t("settings.template")}</h4>
-        <p class="help">{t("settings.template.hint")}</p>
-        <textarea
-          class="template"
-          rows="6"
-          bind:value={wf.template}
-          onchange={() => commit(wf)}
-          placeholder={t("settings.wf.placeholder")}
-          spellcheck="false"></textarea>
+        {@render template(
+          () => wf.template,
+          (v) => (wf.template = v),
+          () => commit(wf),
+          t("settings.wf.placeholder"),
+        )}
       {:else}
         <p class="help"><InlineMd source={t("settings.todo.help")} /></p>
-        <h4>{t("settings.template")}</h4>
-        <p class="help">{t("settings.template.hint")}</p>
-        <textarea
-          class="template"
-          rows="6"
-          bind:value={store.defaultTemplate}
-          onchange={() => store.saveMeta()}
-          placeholder={t("settings.todo.placeholder")}
-          spellcheck="false"></textarea>
+        {@render template(
+          () => store.defaultTemplate,
+          (v) => (store.defaultTemplate = v),
+          () => store.saveMeta(),
+          t("settings.todo.placeholder"),
+        )}
       {/if}
     </section>
   </div>
