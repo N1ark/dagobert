@@ -105,30 +105,36 @@ export function isConflict(block: string): boolean {
   return region(block.split("\n")) !== null;
 }
 
-/** The block as each side wrote it (text around the region included), without the marker lines. */
-export function conflictSides(block: string): { mine: string; theirs: string } {
+/** The lines around the conflict region and each side's lines inside it, markers dropped. */
+function parts(block: string): { before: string[]; mine: string[]; theirs: string[]; after: string[] } | null {
   const lines = block.split("\n");
   const r = region(lines);
-  if (!r) return { mine: block, theirs: block };
-  const before = lines.slice(0, r.start);
-  const after = lines.slice(r.end + 1);
-  const mine = lines.slice(r.start + 1, r.mid < 0 ? r.end : r.mid);
-  const theirs = r.mid < 0 ? [] : lines.slice(r.mid + 1, r.end);
+  if (!r) return null;
   return {
-    mine: [...before, ...mine, ...after].join("\n"),
-    theirs: [...before, ...theirs, ...after].join("\n"),
+    before: lines.slice(0, r.start),
+    mine: lines.slice(r.start + 1, r.mid < 0 ? r.end : r.mid),
+    theirs: r.mid < 0 ? [] : lines.slice(r.mid + 1, r.end),
+    after: lines.slice(r.end + 1),
+  };
+}
+
+/** The block as each side wrote it (text around the region included), without the marker lines. */
+export function conflictSides(block: string): { mine: string; theirs: string } {
+  const p = parts(block);
+  if (!p) return { mine: block, theirs: block };
+  return {
+    mine: [...p.before, ...p.mine, ...p.after].join("\n"),
+    theirs: [...p.before, ...p.theirs, ...p.after].join("\n"),
   };
 }
 
 /** Replace the conflict region of a block by one side, or both in order. */
 export function resolveConflict(block: string, keep: "mine" | "theirs" | "both"): string {
-  const lines = block.split("\n");
-  const r = region(lines);
-  if (!r) return block;
-  const before = lines.slice(0, r.start);
-  const after = lines.slice(r.end + 1);
-  const mine = lines.slice(r.start + 1, r.mid < 0 ? r.end : r.mid).join("\n");
-  const theirs = r.mid < 0 ? "" : lines.slice(r.mid + 1, r.end).join("\n");
+  const p = parts(block);
+  if (!p) return block;
+  const { before, after } = p;
+  const mine = p.mine.join("\n");
+  const theirs = p.theirs.join("\n");
   let middle: string;
   if (keep === "mine") middle = mine;
   else if (keep === "theirs") middle = theirs;

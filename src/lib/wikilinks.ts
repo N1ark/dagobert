@@ -4,11 +4,14 @@ import { store } from "./store.svelte";
 import type { Note } from "./types";
 
 /** `[[Note title]]` links between notes. */
-export const WIKI_RE = /\[\[([^[\]\n]+?)\]\]/g;
+const WIKI_RE = /\[\[([^[\]\n]+?)\]\]/g;
+
+/** Titles compare trimmed and case-insensitively. */
+const norm = (title: string) => title.trim().toLowerCase();
 
 export function resolve(title: string): Note | null {
-  const t = title.trim().toLowerCase();
-  return store.notes.find((n) => n.title.trim().toLowerCase() === t) ?? null;
+  const t = norm(title);
+  return store.notes.find((n) => norm(n.title) === t) ?? null;
 }
 
 function escapeHtml(s: string) {
@@ -80,22 +83,22 @@ export function wikilinkTarget(el: HTMLElement): string | null {
 
 /** Notes whose body links to `note` by title. */
 export function mentions(note: Note): Note[] {
-  const t = note.title.trim().toLowerCase();
+  const t = norm(note.title);
   if (!t) return [];
   return store.notes.filter((n) => {
     if (n.id === note.id) return false;
-    for (const m of n.body.matchAll(WIKI_RE)) if (m[1].trim().toLowerCase() === t) return true;
+    for (const m of n.body.matchAll(WIKI_RE)) if (norm(m[1]) === t) return true;
     return false;
   });
 }
 
 /** Rewrite `[[old]]` to `[[new]]` in every note body. */
 export function renameLinks(oldTitle: string, newTitle: string) {
-  const o = oldTitle.trim().toLowerCase();
+  const o = norm(oldTitle);
   const nt = newTitle.trim();
-  if (!o || !nt || o === nt.toLowerCase()) return;
+  if (!o || !nt || o === norm(nt)) return;
   for (const n of store.notes) {
-    const body = n.body.replace(WIKI_RE, (m, title: string) => (title.trim().toLowerCase() === o ? `[[${nt}]]` : m));
+    const body = n.body.replace(WIKI_RE, (m, title: string) => (norm(title) === o ? `[[${nt}]]` : m));
     if (body !== n.body) {
       n.body = body;
       store.touch(n.id, { immediate: true, silent: true });

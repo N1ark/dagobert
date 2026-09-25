@@ -66,9 +66,12 @@ hljs.registerAliases(["toml"], { languageName: "ini" });
 
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+/** The language name from a fence's info string (`ts title="x"` → `ts`). */
+const langOf = (info: string | undefined) => info?.trim().split(/\s+/)[0].toLowerCase() ?? "";
+
 /** Highlight `code` as `lang` (unknown or missing language → escaped plain text). */
 export function highlight(code: string, lang: string | undefined): string {
-  const l = lang?.trim().split(/\s+/)[0].toLowerCase();
+  const l = langOf(lang);
   if (!l || !hljs.getLanguage(l)) return escape(code);
   return hljs.highlight(code, { language: l, ignoreIllegals: true }).value;
 }
@@ -77,7 +80,7 @@ export function highlight(code: string, lang: string | undefined): string {
 export const highlightExtension: MarkedExtension = {
   renderer: {
     code({ text, lang }) {
-      const l = lang?.trim().split(/\s+/)[0].toLowerCase() ?? "";
+      const l = langOf(lang);
       return `<pre><code class="hljs${l ? ` language-${escape(l)}` : ""}">${highlight(text, l)}\n</code></pre>\n`;
     },
   },
