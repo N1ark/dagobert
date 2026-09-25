@@ -12,6 +12,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Dragging and editing stay smooth in large projects.
 - The GitHub rate-limit message only suggests signing in when you aren't.
 - References a repo can't load are listed under its error once, not each with its own copy.
+- Clicking the count of hidden closed PRs in the sidebar shows them.
 
 ### Fixed
 

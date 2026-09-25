@@ -112,9 +112,11 @@
     {:else if !refs.length}
       <p class="empty"><InlineMd source={t("prs.noRefs")} /></p>
     {:else if !rows.length && !pending && !failed.length}
-      <p class="empty">
-        {#if hiddenCount}{plural("prs.allClosed", hiddenCount)}{:else}{t("prs.none")}{/if}
-      </p>
+      {#if hiddenCount}
+        <button class="ghost empty" onclick={toggleHide}>{plural("prs.allClosed", hiddenCount)}</button>
+      {:else}
+        <p class="empty">{t("prs.none")}</p>
+      {/if}
     {/if}
     {#each groups as { repo, items } (repo)}
       <div class="divider"><span>{repo}</span></div>
@@ -158,7 +160,7 @@
       {/each}
     {/each}
     {#if hiddenCount && rows.length}
-      <p class="foot">{t("prs.hidden", { n: hiddenCount })}</p>
+      <button class="ghost foot" onclick={toggleHide}>{t("prs.hidden", { n: hiddenCount })}</button>
     {/if}
   </div>
 </aside>
@@ -354,6 +356,17 @@
   .note.current {
     background: var(--accent-soft);
     color: var(--color2);
+  }
+  button.empty,
+  .foot {
+    display: block;
+    width: 100%;
+  }
+  @media (hover: hover) {
+    button.empty:hover,
+    .foot:hover {
+      color: var(--accent2);
+    }
   }
   .foot {
     margin: 4px 0 0;
