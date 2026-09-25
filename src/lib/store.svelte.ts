@@ -126,8 +126,15 @@ class Store {
   #deleted = new Set<string>();
   #metaTimer: ReturnType<typeof setTimeout> | null = null;
 
+  /** Notes by id, first one wins like a scan would; rebuilt only when the list or an id changes. */
+  #index = $derived.by(() => {
+    const m = new Map<string, Note>();
+    for (const n of this.notes) if (!m.has(n.id)) m.set(n.id, n);
+    return m;
+  });
+
   byId(id: string): Note | null {
-    return this.notes.find((n) => n.id === id) ?? null;
+    return this.#index.get(id) ?? null;
   }
 
   dependents(id: string): Note[] {

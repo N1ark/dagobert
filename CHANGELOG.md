@@ -9,6 +9,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Changed
 
 - Checkboxes in the note panel look like the ones on the graph.
+- Dragging and editing stay smooth in large projects.
 
 ### Fixed
 
