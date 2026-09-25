@@ -667,7 +667,7 @@ body.mobile textarea {
 
 /* Caret-anchored popups have nowhere to go sideways on a phone. */
 body.mobile .mention,
-body.mobile .picker {
+body.mobile .issues {
   left: 8px !important;
   right: 8px;
   width: auto;

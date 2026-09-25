@@ -14,6 +14,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Fixed
 
 - A note sharing its title with another no longer changes file name every time it's saved.
+- On a phone, the issue popup fits the screen and the dependency picker lines up with the panel.
 
 ## [0.8.0] - 2026-09-25
 
