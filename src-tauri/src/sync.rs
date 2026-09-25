@@ -44,10 +44,11 @@ pub struct SyncReport {
 /// One full cycle. Errors are reported in the result, after whatever succeeded.
 pub fn cycle(root: &Path, token: Option<&str>, stamp: &str, timeout: Duration) -> SyncReport {
     let mut r = SyncReport::default();
+    let merged = format!("dagobert merge {stamp}");
+    let save = format!("dagobert auto-save {stamp}");
     let step = |r: &mut SyncReport| -> Result<(), String> {
         // A merge left half-done by a crash is finished first.
-        r.conflicts = merge::resolve(root, &format!("dagobert merge {stamp}"))?;
-        let save = format!("dagobert auto-save {stamp}");
+        r.conflicts = merge::resolve(root, &merged)?;
         r.committed = git::commit_if_dirty(root, &save)?;
         let pulled = if git::fetch(root, token, Some(timeout))? {
             // A note saved while fetching would be skipped by the checkout and bury the remote's.
@@ -57,8 +58,7 @@ pub fn cycle(root: &Path, token: Option<&str>, stamp: &str, timeout: Duration) -
             PullOutcome::NoRemote
         };
         if pulled == PullOutcome::Merging {
-            r.conflicts
-                .extend(merge::resolve(root, &format!("dagobert merge {stamp}"))?);
+            r.conflicts.extend(merge::resolve(root, &merged)?);
         }
         r.pulled = Some(pulled);
         let st = git::status(root)?;
@@ -66,13 +66,17 @@ pub fn cycle(root: &Path, token: Option<&str>, stamp: &str, timeout: Duration) -
         if st.has_remote && (st.ahead > 0 || unpublished) {
             git::push(root, token, Some(timeout))?;
             r.pushed = true;
+        } else {
+            r.status = Some(st);
         }
         Ok(())
     };
     if let Err(e) = step(&mut r) {
         r.error = Some(e);
     }
-    r.status = git::status(root).ok();
+    if r.status.is_none() {
+        r.status = git::status(root).ok();
+    }
     r
 }
 
@@ -81,12 +85,11 @@ pub async fn locked<T: Send + 'static>(
     lock: Arc<Mutex<()>>,
     f: impl FnOnce() -> T + Send + 'static,
 ) -> Result<T, String> {
-    tauri::async_runtime::spawn_blocking(move || {
+    crate::blocking(move || {
         let _g = lock.lock().unwrap_or_else(|e| e.into_inner());
         f()
     })
     .await
-    .map_err(|e| e.to_string())
 }
 
 /// (Re)starts the tick thread; `interval_min == 0` or `enabled == false` stops it.

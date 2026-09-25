@@ -51,9 +51,10 @@ pub fn err(e: git2::Error) -> String {
 /// The repository containing `root`; the search walks up, but never as far as `~`.
 pub fn open(root: &Path) -> Result<Option<Repository>> {
     let home = std::env::var_os("HOME").map(PathBuf::from);
+    let real_root = root.canonicalize().ok();
     let ceiling = home
         .as_deref()
-        .filter(|h| root.canonicalize().is_ok_and(|r| r != *h))
+        .filter(|h| real_root.as_deref().is_some_and(|r| r != *h))
         .into_iter();
     let path = match Repository::discover_path(root, ceiling) {
         Ok(p) => p,
@@ -65,9 +66,8 @@ pub fn open(root: &Path) -> Result<Option<Repository>> {
         return Ok(None);
     };
     // The ceiling stops the walk below `~` but still lets `~` itself match.
-    if home.is_some_and(|h| wd.canonicalize().ok() == h.canonicalize().ok())
-        && root.canonicalize().ok() != wd.canonicalize().ok()
-    {
+    let wd = wd.canonicalize().ok();
+    if home.is_some_and(|h| wd == h.canonicalize().ok()) && real_root != wd {
         return Ok(None);
     }
     Ok(Some(repo))
@@ -122,10 +122,8 @@ pub fn clone(url: &str, dest: &Path, token: Option<&str>, name: &str, email: &st
     if dest.exists() {
         return Err("A project with that name is already here.".into());
     }
-    let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(token.map(str::to_string), None));
     let mut builder = git2::build::RepoBuilder::new();
-    builder.fetch_options(fo);
+    builder.fetch_options(fetch_options(token, None));
     let repo = builder.clone(url, dest).map_err(|e| {
         let _ = fs::remove_dir_all(dest);
         format!("clone failed: {}", e.message())
@@ -361,7 +359,7 @@ fn pick_cred(token: bool, allowed: CredentialType, attempt: usize) -> CredChoice
     CredChoice::None
 }
 
-fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCallbacks<'a> {
+fn callbacks<'a>(token: Option<&'a str>, deadline: Option<Instant>) -> RemoteCallbacks<'a> {
     let mut cb = RemoteCallbacks::new();
     let attempt = Cell::new(0usize);
     cb.credentials(move |_url, username, allowed| {
@@ -376,7 +374,7 @@ fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCall
                 username
                     .filter(|u| !u.is_empty())
                     .unwrap_or("x-access-token"),
-                token.as_deref().unwrap_or_default(),
+                token.unwrap_or_default(),
             ),
             CredChoice::None => Err(git2::Error::from_str(
                 "no usable credentials — sign in to GitHub",
@@ -389,6 +387,12 @@ fn callbacks<'a>(token: Option<String>, deadline: Option<Instant>) -> RemoteCall
         cb.sideband_progress(move |_| Instant::now() < d);
     }
     cb
+}
+
+fn fetch_options(token: Option<&str>, deadline: Option<Instant>) -> FetchOptions<'_> {
+    let mut fo = FetchOptions::new();
+    fo.remote_callbacks(callbacks(token, deadline));
+    fo
 }
 
 /// Reports a transfer error as a timeout when the deadline has passed.
@@ -457,10 +461,8 @@ pub fn fetch(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Res
         Err(_) => return Ok(false),
     };
     let d = deadline(timeout);
-    let mut fo = FetchOptions::new();
-    fo.remote_callbacks(callbacks(token.map(str::to_string), d));
     remote
-        .fetch(&[] as &[&str], Some(&mut fo), None)
+        .fetch(&[] as &[&str], Some(&mut fetch_options(token, d)), None)
         .map_err(|e| transfer_err("fetch", d, e))?;
     Ok(true)
 }
@@ -589,12 +591,11 @@ pub fn push(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Resu
         .find_remote(REMOTE)
         .map_err(|_| "no remote named origin".to_string())?;
     let d = deadline(timeout);
-    let mut cb = callbacks(token.map(str::to_string), d);
-    let failure = std::rc::Rc::new(std::cell::RefCell::new(None::<String>));
-    let f = failure.clone();
-    cb.push_update_reference(move |_, status| {
+    let failure = Cell::new(None::<String>);
+    let mut cb = callbacks(token, d);
+    cb.push_update_reference(|_, status| {
         if let Some(s) = status {
-            *f.borrow_mut() = Some(s.to_string());
+            failure.set(Some(s.to_string()));
         }
         Ok(())
     });
@@ -605,7 +606,7 @@ pub fn push(root: &Path, token: Option<&str>, timeout: Option<Duration>) -> Resu
     remote
         .push(&[spec.as_str()], Some(&mut po))
         .map_err(|e| transfer_err("push", d, e))?;
-    if let Some(msg) = failure.borrow().clone() {
+    if let Some(msg) = failure.take() {
         return Err(format!("push rejected: {msg}"));
     }
     let mut local = repo

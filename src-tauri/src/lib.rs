@@ -13,6 +13,7 @@ mod watch;
 use serde::Serialize;
 use state::AppState;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use store::{Local, Meta, MetaPatch, Note, Project};
 use sync::SyncReport;
 use tauri::{AppHandle, Manager, State};
@@ -22,6 +23,13 @@ use tauri::{AppHandle, Manager, State};
 struct ProjectRef {
     name: String,
     path: String,
+}
+
+/// Runs `f` on a blocking thread.
+async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 fn projects_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -156,7 +164,7 @@ fn save_local(path: String, local: Local) -> Result<(), String> {
 #[allow(unused_variables)]
 fn watch_project(app: AppHandle, state: State<AppState>, path: String) -> Result<(), String> {
     #[cfg(desktop)]
-    watch::start(app, &state, std::path::PathBuf::from(path))?;
+    watch::start(app, &state, PathBuf::from(path))?;
     Ok(())
 }
 
@@ -194,6 +202,21 @@ fn git_configure(app: AppHandle, state: State<AppState>, enabled: bool, interval
     sync::configure(app, &state.git, enabled, interval_min);
 }
 
+/// A cycle under the sync lock; the frontend has awaited its writes, so none are ours to hide.
+async fn run_cycle(
+    state: &AppState,
+    path: String,
+    token: Option<String>,
+    stamp: String,
+    timeout: Duration,
+) -> Result<SyncReport, String> {
+    state.recent.clear();
+    sync::locked(state.git.lock.clone(), move || {
+        sync::cycle(Path::new(&path), token.as_deref(), &stamp, timeout)
+    })
+    .await
+}
+
 /// The full cycle: commit if dirty → pull → resolve → push, with saves already flushed.
 #[tauri::command]
 async fn git_sync(
@@ -202,11 +225,7 @@ async fn git_sync(
     token: Option<String>,
     stamp: String,
 ) -> Result<SyncReport, String> {
-    state.recent.clear();
-    sync::locked(state.git.lock.clone(), move || {
-        sync::cycle(Path::new(&path), token.as_deref(), &stamp, sync::TIMEOUT)
-    })
-    .await
+    run_cycle(&state, path, token, stamp, sync::TIMEOUT).await
 }
 
 /// The last sync before a close or exit, on a short timeout; failures are logged, not shown.
@@ -220,16 +239,7 @@ async fn git_quit(
     reason: String,
 ) -> Result<(), String> {
     if let Some(path) = path {
-        state.recent.clear();
-        let r = sync::locked(state.git.lock.clone(), move || {
-            sync::cycle(
-                Path::new(&path),
-                token.as_deref(),
-                &stamp,
-                sync::QUIT_TIMEOUT,
-            )
-        })
-        .await?;
+        let r = run_cycle(&state, path, token, stamp, sync::QUIT_TIMEOUT).await?;
         if let Some(e) = r.error {
             eprintln!("git sync on quit failed: {e}");
         }
@@ -249,25 +259,19 @@ fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
 /// Starts the GitHub App device flow; the frontend shows the code and opens the URL.
 #[tauri::command]
 async fn github_signin_start() -> Result<github::DeviceStart, String> {
-    tauri::async_runtime::spawn_blocking(github::start)
-        .await
-        .map_err(|e| e.to_string())?
+    blocking(github::start).await?
 }
 
 /// One poll of the device flow. `pending` / `slow-down` mean keep waiting.
 #[tauri::command]
 async fn github_signin_poll(device_code: String) -> Result<github::Poll, String> {
-    tauri::async_runtime::spawn_blocking(move || github::poll(&device_code))
-        .await
-        .map_err(|e| e.to_string())?
+    blocking(move || github::poll(&device_code)).await?
 }
 
 /// Exchanges a refresh token for a fresh one (apps with expiring user tokens).
 #[tauri::command]
 async fn github_refresh(refresh_token: String) -> Result<github::Refreshed, String> {
-    tauri::async_runtime::spawn_blocking(move || github::refresh(&refresh_token))
-        .await
-        .map_err(|e| e.to_string())?
+    blocking(move || github::refresh(&refresh_token)).await?
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
