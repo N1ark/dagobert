@@ -1,13 +1,16 @@
 //! The software keyboard's height from UIKit, emitted as `keyboard`: WKWebView never reports it.
 
 use block2::RcBlock;
+use objc2::msg_send;
+use objc2::rc::Retained;
 use objc2::runtime::AnyObject;
 use objc2_foundation::{NSDictionary, NSNotification, NSNotificationCenter, NSString, NSValue};
 use objc2_ui_kit::{
-    UIKeyboardFrameEndUserInfoKey, UIKeyboardWillChangeFrameNotification,
-    UIKeyboardWillHideNotification,
+    UIKeyboardDidChangeFrameNotification, UIKeyboardFrameEndUserInfoKey,
+    UIKeyboardWillChangeFrameNotification, UIKeyboardWillHideNotification,
+    UIKeyboardWillShowNotification,
 };
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Height in points of the keyboard the notification describes.
 fn height_from(note: &NSNotification) -> f64 {
@@ -41,7 +44,32 @@ fn observe(name: &'static NSString, app: AppHandle, height: fn(&NSNotification) 
     std::mem::forget(block);
 }
 
+/// Keeps WKWebView out of it: it would inset its scroll view and push the whole page up.
+fn detach_webview(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+    let res = window.with_webview(|w| unsafe {
+        let view = &*(w.inner() as *const AnyObject);
+        let center = NSNotificationCenter::defaultCenter();
+        for name in [
+            UIKeyboardWillShowNotification,
+            UIKeyboardWillHideNotification,
+            UIKeyboardWillChangeFrameNotification,
+            UIKeyboardDidChangeFrameNotification,
+        ] {
+            center.removeObserver_name_object(view, Some(name), None);
+        }
+        let scroll: Retained<AnyObject> = msg_send![view, scrollView];
+        let _: () = msg_send![&*scroll, setScrollEnabled: false];
+    });
+    if let Err(e) = res {
+        eprintln!("keyboard: {e}");
+    }
+}
+
 pub fn watch(app: AppHandle) {
+    detach_webview(&app);
     // Hide fires after the frame change, and has the last word: a dismissal reports full height.
     observe(
         unsafe { UIKeyboardWillChangeFrameNotification },

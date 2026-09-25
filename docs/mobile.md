@@ -90,7 +90,10 @@ its own mobile treatment. To add one:
 The sheet settles on the stop a flick throws it at rather than the nearest one, gives a
 little above its top stop and springs back, and dims what it covers with a `.scrim` whose
 opacity follows the drag. It reads its own position out of the live transform, so a
-gesture that starts mid-animation picks the sheet up where it is. `--sheet-top` is
+gesture that starts mid-animation picks the sheet up where it is. Below its top stop, any drag on the
+contents moves the sheet in either direction (a non-passive `touchmove` keeps iOS from
+starting a scroll, which would cancel the pointer); at the top, the contents scroll first
+and only a downward drag from their top takes the sheet. `--sheet-top` is
 registered with `@property` because `getComputedStyle` hands an unregistered custom
 property its `calc()` back unevaluated.
 
@@ -233,11 +236,23 @@ WKWebView never tells the web layer about the keyboard — `visualViewport` does
 so every web-only trick for keeping a field visible is guesswork. `keyboard.rs` observes
 `UIKeyboardWillChangeFrameNotification` and `UIKeyboardWillHideNotification` and emits the
 end frame's height, which in points is the same unit as a CSS pixel. `main.ts` puts it in
-`--kb`; `body.mobile .app` and the panels shrink by it, and `body.mobile.typing` drops the
-home-indicator inset the keyboard already covers.
+`--kb` and toggles `body.keyboard`; `body.mobile .app` and the panels shrink by it.
+
+While the keyboard is up the phone is compact: a sheet climbs to the status bar
+(`--sheet-top`) and drops the home-indicator inset the keyboard already covers; a field
+taking focus in a sheet opens it fully; and the note panel hides its details and footer
+while the body is being typed in. The details are capped at 40% of the panel otherwise,
+scrolling on their own. `LiveEditor` keeps the caret in view (`revealCaret`) on input and
+whenever the editor resizes, since nothing scrolls it there for us.
 
 Hide fires after the frame change that comes with it, so it has the last word — a
 dismissing keyboard still reports its full height on the way out.
+
+WKWebView's own keyboard handling is switched off (`detach_webview`), as Capacitor's
+keyboard plugin does: it is removed as an observer of the keyboard notifications and its
+scroll view is made unscrollable. Left alone, it insets its scroll view by the keyboard
+and scrolls the page to reveal the focused field, so the whole shell rides up with the
+keyboard, and a drag while typing scrolls the page instead of reaching the sheet.
 
 Nothing in the shell scrolls, and nothing should: with `--kb` correct there is nothing to
 scroll out of the way, and a scrolling shell can put the focused field back under the

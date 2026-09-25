@@ -6,8 +6,12 @@ import { backend, inTauri, isMobile } from "./lib/backend";
 document.body.classList.toggle("mobile", isMobile);
 
 // `--kb` is how much of the screen the keyboard covers; WKWebView only knows via UIKit.
+const setKb = (px: number) => {
+  const kb = Math.max(0, Math.round(px));
+  document.documentElement.style.setProperty("--kb", `${kb}px`);
+  document.body.classList.toggle("keyboard", kb > 0);
+};
 if (isMobile) {
-  const setKb = (px: number) => document.documentElement.style.setProperty("--kb", `${Math.max(0, Math.round(px))}px`);
   backend.onKeyboard(setKb);
   // The net for the scrolls WKWebView performs on its own; nothing here scrolls.
   window.addEventListener("scroll", () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0), { passive: true });
@@ -16,7 +20,7 @@ if (isMobile) {
 // In the browser dev loop there is no UIKit, but the visual viewport does shrink.
 const vv = window.visualViewport;
 if (isMobile && !inTauri && vv) {
-  const track = () => document.documentElement.style.setProperty("--kb", `${Math.max(0, window.innerHeight - vv.height - vv.offsetTop)}px`);
+  const track = () => setKb(window.innerHeight - vv.height - vv.offsetTop);
   vv.addEventListener("resize", track);
   vv.addEventListener("scroll", track);
   track();

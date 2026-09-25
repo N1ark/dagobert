@@ -28,6 +28,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Pull request titles and file names read as links, not as buttons, and closed and
   not-yet-loaded pull requests get their own icons.
 - Dragging across buttons, labels and dialogs no longer selects their text.
+- On a phone, typing in a note gives the editor most of the screen above the keyboard.
 
 ### Fixed
 

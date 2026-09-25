@@ -583,6 +583,33 @@ body.mobile .app {
   height: calc(100% - var(--kb, 0px));
 }
 
+/* With the keyboard up a sheet climbs to the status bar, and drops the home
+   indicator's inset, which the keyboard already covers. */
+body.mobile.keyboard {
+  --sheet-top: calc(var(--safe-top) + 4px);
+}
+
+body.mobile.keyboard .sheet {
+  padding-bottom: var(--sheet-top);
+}
+
+/* A note's details scroll on their own, so a long list of links can't squeeze
+   the editor out; while its body is being typed in, they step aside entirely. */
+body.mobile aside.panel .top {
+  max-height: 40%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: none;
+}
+
+body.mobile.keyboard aside.panel header {
+  padding-top: 0;
+}
+
+body.mobile.keyboard aside.panel:has(.live textarea:focus) :is(.top, footer) {
+  display: none;
+}
+
 /* 16px or Safari zooms the page when a field takes focus; the components set
    their own smaller sizes, so this has to win. */
 /* Only the panels' own lists scroll; a scroll that reaches the page would take

@@ -92,6 +92,7 @@
       pendingCaret = null;
     }
     autosize();
+    revealCaret();
   }
 
   // Another window changed the body under an active block: reload the draft, keeping the caret.
@@ -132,6 +133,24 @@
     el.style.height = "0";
     el.style.height = `${el.scrollHeight}px`;
   }
+
+  /** Keeps the caret in view on a phone, where the keyboard shrinks the editor under it. */
+  function revealCaret() {
+    const el = textarea;
+    if (!isMobile || !el || !container || document.activeElement !== el) return;
+    const c = caretCoords(el, el.selectionEnd);
+    const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop + c.top;
+    const pad = 12;
+    if (top - pad < container.scrollTop) container.scrollTop = top - pad;
+    else if (top + c.height + pad > container.scrollTop + container.clientHeight)
+      container.scrollTop = top + c.height + pad - container.clientHeight;
+  }
+  $effect(() => {
+    if (!isMobile || !container) return;
+    const ro = new ResizeObserver(() => revealCaret());
+    ro.observe(container);
+    return () => ro.disconnect();
+  });
 
   /** Start a fresh paragraph after the last block ("virtual" until it has text). */
   async function appendBlock() {
@@ -197,6 +216,7 @@
     const el = textarea!;
     draft = el.value;
     autosize();
+    revealCaret();
     // A blank line splits the draft in two; follow the caret into the right block.
     const parts = splitBlocks(draft);
     if (parts.length > 1) {

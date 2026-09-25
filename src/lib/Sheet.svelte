@@ -16,6 +16,11 @@
     return () => (cancelAnimationFrame(frame), clearTimeout(timer));
   });
   let y = $state<number | null>(null);
+  /** Mid-transition, when iOS's native caret would be left behind where the sheet was. */
+  let sliding = $state(false);
+  const slide = (on: boolean) => (e: TransitionEvent) => {
+    if (e.target === el && e.propertyName === "transform") sliding = on;
+  };
   /** The three stops, read once per gesture: full, peek, and gone. */
   let stops = $state<{ top: number; peek: number; max: number } | null>(null);
   let drag: {
@@ -29,6 +34,11 @@
     lastY: number;
     v: number;
   } | null = null;
+
+  /** Typing needs the room: a field taking focus opens the sheet all the way. */
+  function onFocusIn(e: FocusEvent) {
+    if ((e.target as HTMLElement).matches("input:not([type=checkbox]), textarea, [contenteditable]")) full = true;
+  }
 
   /** Past this, a flick decides the stop rather than where the finger let go. */
   const FLING = 0.45; // px/ms
@@ -118,14 +128,25 @@
 
   const onDown = (e: PointerEvent) => begin(e, true);
 
-  /** Anything but a control drags the panel, but only from the top of its scroll. */
+  /** Anything but a control drags the panel; a full one only from the top of its scroll. */
   function onBodyDown(e: PointerEvent) {
     const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, textarea, select, [contenteditable], .grab")) return;
+    if (target.closest("button, a, input, select, [contenteditable], .grab")) return;
     const scroller = target.closest<HTMLElement>(".scroll, [data-scroll]") ?? scrollableAncestor(target);
-    if (scroller && scroller.scrollTop > 0) return;
+    if (full && scroller && scroller.scrollTop > 0) return;
     begin(e, false);
   }
+
+  // A lowered sheet's contents don't scroll: iOS starting a scroll would cancel the drag.
+  $effect(() => {
+    const node = el;
+    if (!node) return;
+    const block = (e: TouchEvent) => {
+      if (drag && (drag.engaged || !full) && e.cancelable) e.preventDefault();
+    };
+    node.addEventListener("touchmove", block, { passive: false });
+    return () => node.removeEventListener("touchmove", block);
+  });
 
   function scrollableAncestor(from: HTMLElement | null): HTMLElement | null {
     for (let n = from; n && n !== el; n = n.parentElement) {
@@ -141,9 +162,9 @@
     if (!drag || !stops || e.pointerId !== drag.pointer) return;
     const dy = e.clientY - drag.y;
     if (!drag.engaged) {
-      // Upwards means they meant to scroll the contents; let go of the gesture.
-      if (dy < -6) return void ((drag = null), (y = null));
-      if (dy < 8) return;
+      // Upwards on a full sheet means they meant to scroll the contents; let go of the gesture.
+      if (full && dy < -6) return void ((drag = null), (y = null));
+      if (full ? dy < 8 : Math.abs(dy) < 6) return;
       drag.engaged = true;
       drag.at = e.timeStamp;
       drag.lastY = e.clientY;
@@ -198,9 +219,14 @@
   class:full
   class:off={entering || leaving}
   class:dragging={y !== null}
+  class:moving={y !== null || sliding}
   style={y === null ? undefined : `transform: translateY(${y}px)`}
   bind:this={el}
   onpointerdown={onBodyDown}
+  onfocusin={onFocusIn}
+  ontransitionstart={slide(true)}
+  ontransitionend={slide(false)}
+  ontransitioncancel={slide(false)}
   onpointermove={onMove}
   onpointerup={onUp}
   onpointercancel={onUp}
@@ -251,6 +277,9 @@
   }
   .sheet.dragging {
     transition: none;
+  }
+  .sheet.moving :global(:is(input, textarea)) {
+    caret-color: transparent;
   }
   /* Whatever is inside fills what's left, and starts at the top. */
   .sheet :global(> :not(.grab)) {
