@@ -68,7 +68,7 @@
 </script>
 
 {#if count}
-  <div class="mention" style="left:{left}px; top:{top}px" role="listbox">
+  <div class="mention popover" style="left:{left}px; top:{top}px" role="listbox">
     {#each results as n, i (n.id)}
       <button
         class="ghost row"
@@ -97,15 +97,10 @@
 
 <style>
   .mention {
-    -webkit-user-select: none;
-    user-select: none;
     position: absolute;
     z-index: 30;
     width: 280px;
     padding: 4px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
     max-height: 260px;
     overflow-y: auto;
   }

@@ -75,7 +75,7 @@
     onkeydown={onKey}
   />
   {#if open && results.length}
-    <ul class="results">
+    <ul class="results popover">
       {#each results as n, i (n.id)}
         <li>
           <button
@@ -92,7 +92,7 @@
       {/each}
     </ul>
   {:else if open && query}
-    <ul class="results"><li class="none">{t("picker.noMatches")}</li></ul>
+    <ul class="results popover"><li class="none">{t("picker.noMatches")}</li></ul>
   {/if}
 </div>
 
@@ -105,8 +105,6 @@
     font-size: 13px;
   }
   .results {
-    -webkit-user-select: none;
-    user-select: none;
     position: absolute;
     z-index: 5;
     left: 0;
@@ -115,9 +113,6 @@
     margin: 0;
     padding: 4px;
     list-style: none;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
     max-height: 240px;
     overflow-y: auto;
   }

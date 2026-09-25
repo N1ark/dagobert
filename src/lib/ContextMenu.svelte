@@ -167,7 +167,7 @@
 {/if}
 
 <div
-  class="ctx"
+  class="ctx popover"
   class:shown
   class:dragging={dragY !== null}
   bind:this={el}
@@ -278,13 +278,8 @@
     min-width: 200px;
     max-width: 280px;
     padding: 4px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
     font-size: 13px;
     outline: none;
-    user-select: none;
-    -webkit-user-select: none;
   }
   .item {
     display: flex;

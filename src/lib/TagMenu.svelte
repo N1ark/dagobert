@@ -93,17 +93,12 @@
     text-align: center;
   }
   .popover {
-    -webkit-user-select: none;
-    user-select: none;
     position: absolute;
     z-index: 20;
     top: calc(100% + 6px);
     right: 0;
     width: 220px;
     padding: 6px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
   }
   ul {
     list-style: none;

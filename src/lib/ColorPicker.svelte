@@ -58,7 +58,7 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} onkeydown={(e) => onEscape(e, onclose)} />
 
-<div class="color-picker" role="listbox" aria-label={label}>
+<div class="color-picker popover" role="listbox" aria-label={label}>
   {#each TAG_PALETTE as color (color)}
     <button class="swatch" class:active={color === value} style="--c:{color}" aria-label={color} onclick={() => pick(color)}></button>
   {/each}
@@ -101,8 +101,6 @@
 
 <style>
   .color-picker {
-    -webkit-user-select: none;
-    user-select: none;
     position: absolute;
     z-index: 20;
     top: calc(100% + 6px);
@@ -111,9 +109,6 @@
     grid-template-columns: repeat(5, 18px);
     gap: 6px;
     padding: 8px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
   }
   .swatch {
     width: 18px;

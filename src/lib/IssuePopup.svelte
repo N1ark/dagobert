@@ -88,7 +88,7 @@
   }
 </script>
 
-<div class="issues" style="left:{left}px; top:{top}px" role="listbox">
+<div class="issues popover" style="left:{left}px; top:{top}px" role="listbox">
   <div class="head">
     <span class="alias">{alias}</span> → {repo}
     {#if loading}<span class="spin"><CircleNotch size={12} /></span>{/if}
@@ -115,15 +115,10 @@
 
 <style>
   .issues {
-    -webkit-user-select: none;
-    user-select: none;
     position: absolute;
     z-index: 30;
     width: 360px;
     padding: 4px;
-    background: var(--bg3);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
     max-height: 300px;
     overflow-y: auto;
   }
@@ -143,11 +138,6 @@
     display: inline-flex;
     color: var(--accent2);
     animation: spin 0.8s linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
   .msg {
     padding: 6px 8px;

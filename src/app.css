@@ -497,6 +497,21 @@ a {
   transition: none;
 }
 
+/* Floating menus and pickers; each sets its own position, size and padding. */
+.popover {
+  -webkit-user-select: none;
+  user-select: none;
+  background: var(--bg3);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Instant tooltip (src/lib/tooltip.ts); one shared element on <body>. */
 .tooltip {
   position: fixed;
@@ -636,10 +651,7 @@ body.mobile.keyboard aside.panel:has(.live textarea:focus) :is(.top, footer) {
   display: none;
 }
 
-/* 16px or Safari zooms the page when a field takes focus; the components set
-   their own smaller sizes, so this has to win. */
-/* Only the panels' own lists scroll; a scroll that reaches the page would take
-   the whole shell with it, keyboard and all. */
+/* Only the panels' own lists scroll; a scroll reaching the page takes the shell with it. */
 body.mobile .list,
 body.mobile section,
 body.mobile .repos,
@@ -647,6 +659,7 @@ body.mobile .sheet {
   overscroll-behavior: contain;
 }
 
+/* 16px or Safari zooms the page when a field takes focus, so this beats the components. */
 body.mobile input,
 body.mobile textarea {
   font-size: 16px !important;

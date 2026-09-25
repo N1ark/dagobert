@@ -287,15 +287,16 @@
     cursor: ew-resize;
     opacity: 0;
     transition: opacity 0.15s;
+    --stripe: #555;
     background: linear-gradient(
       135deg,
       transparent 50%,
-      #555 50%,
-      #555 62%,
+      var(--stripe) 50%,
+      var(--stripe) 62%,
       transparent 62%,
       transparent 75%,
-      #555 75%,
-      #555 87%,
+      var(--stripe) 75%,
+      var(--stripe) 87%,
       transparent 87%
     );
     border-bottom-right-radius: var(--radius);
@@ -305,17 +306,7 @@
     opacity: 1;
   }
   .grip:hover {
-    background: linear-gradient(
-      135deg,
-      transparent 50%,
-      var(--accent2) 50%,
-      var(--accent2) 62%,
-      transparent 62%,
-      transparent 75%,
-      var(--accent2) 75%,
-      var(--accent2) 87%,
-      transparent 87%
-    );
+    --stripe: var(--accent2);
   }
   .port {
     position: absolute;
