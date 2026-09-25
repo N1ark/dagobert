@@ -30,14 +30,16 @@ Read this when touching `github.ts`, `prs.svelte.ts`, `PullRequests.svelte`,
   first seconds after launch, deferred to an idle callback) and `refreshPRs()`, which moves
   `details` into `stale` so sidebar rows keep their place and old title/author while the
   state reloads.
-- `PrIcon.svelte` — shared state icon (PR open/draft/closed/merged, issue open/closed):
+- `PrIcon.svelte` — shared state icon (PR open/draft/closed/merged, issue open/done/closed,
+  closed = `state_reason` not "completed"):
   pass `item` or a cache `key`. A `key` not in `details` shows a grey question mark (unless
-  `prCache.stale` says it's a plain issue). Inline, the `prIcons` action (on `Markdown` and
+  `prCache.stale` says it wasn't found). Inline, the `prIcons` action (on `Markdown` and
   `InlineMd`) `mount()`s one into every `.ghref` after render.
 - `PullRequests.svelte` — left sidebar (toolbar "PRs", `⇧⌘P`, localStorage
   `dagobert.prs`) listing every PR referenced as `alias#123`: state icon, title (opens
   GitHub), author, updated, comment count and chips for the notes mentioning it (click =
-  jump). Grouped per repo with a divider; plain issues are dropped. "Hide closed/merged"
+  jump). Grouped per repo with a divider; plain issues are cached (for
+  their icons) but not listed. "Hide closed/merged"
   persists in `dagobert.prsHideClosed`. Width is `--prs-w` (`prsW` in `App.svelte`,
   localStorage `dagobert.prsWidth`, dragged via `.resizer.left`); toggling or resizing calls
   `absorb(dx)` so the graph doesn't move (see [canvas.md](canvas.md)). Overflowing titles

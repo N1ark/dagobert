@@ -6,8 +6,9 @@
   import { t } from "./i18n";
   import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
   import GitMerge from "phosphor-svelte/lib/GitMerge";
-  import Circle from "phosphor-svelte/lib/Circle";
   import CheckCircle from "phosphor-svelte/lib/CheckCircle";
+  import ProhibitInset from "phosphor-svelte/lib/ProhibitInset";
+  import IssueOpened from "./IssueOpened.svelte";
   import GitPullRequestClosed from "./GitPullRequestClosed.svelte";
   import GitPullRequestUnknown from "./GitPullRequestUnknown.svelte";
 
@@ -20,9 +21,9 @@
 </script>
 
 {#if ref}
-  <span class="pr-icon {ref.state}" class:draft={ref.draft} use:tooltip={label}>
+  <span class="pr-icon {ref.state}" class:draft={ref.draft} class:issue={!ref.isPr} class:not-planned={ref.notPlanned} use:tooltip={label}>
     {#if !ref.isPr}
-      {#if ref.state === "closed"}<CheckCircle {size} />{:else}<Circle {size} />{/if}
+      {#if ref.notPlanned}<ProhibitInset {size} />{:else if ref.state === "closed"}<CheckCircle {size} />{:else}<IssueOpened {size} />{/if}
     {:else if ref.state === "merged"}<GitMerge {size} />{:else if ref.state === "closed"}<GitPullRequestClosed
         {size}
       />{:else}<GitPullRequest {size} />{/if}
@@ -38,13 +39,15 @@
     color: var(--green);
   }
   .pr-icon.unknown,
-  .pr-icon.draft {
+  .pr-icon.draft,
+  .pr-icon.not-planned {
     color: var(--color-dim);
   }
   .pr-icon.closed {
     color: var(--red);
   }
-  .pr-icon.merged {
+  .pr-icon.merged,
+  .pr-icon.issue.closed:not(.not-planned) {
     color: var(--accent2);
   }
 </style>

@@ -38,7 +38,7 @@
     const out: Row[] = [];
     for (const ref of refs) {
       const pr = details[ref.key] ?? (ref.key in details ? null : stale[ref.key]);
-      if (!pr) continue;
+      if (!pr?.isPr) continue;
       if (hideClosed && pr.state !== "open") continue;
       out.push({ ref, pr });
     }
@@ -51,7 +51,7 @@
     for (const r of rows) (by.get(r.ref.repo) ?? by.set(r.ref.repo, []).get(r.ref.repo)!).push(r);
     return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
   });
-  const hiddenCount = $derived(hideClosed ? Object.values(details).filter((d) => d && d.state !== "open").length : 0);
+  const hiddenCount = $derived(hideClosed ? Object.values(details).filter((d) => d?.isPr && d.state !== "open").length : 0);
   /** References that couldn't be read, grouped per repo and listed under the working ones. */
   const failed = $derived.by(() => {
     const by = new Map<string, { ref: Linked; message: string }[]>();

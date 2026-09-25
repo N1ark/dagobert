@@ -11,6 +11,8 @@ export interface IssueRef {
   updated: string;
   author: string;
   draft: boolean;
+  /** A closed issue that wasn't completed: not planned, or a duplicate. */
+  notPlanned: boolean;
   comments: number;
 }
 
@@ -100,6 +102,7 @@ interface RawIssue {
   number: number;
   title: string;
   state: string;
+  state_reason?: string | null;
   html_url: string;
   updated_at: string;
   user?: { login: string } | null;
@@ -120,6 +123,7 @@ function toRef(r: RawIssue): IssueRef {
     updated: r.updated_at,
     author: r.user?.login ?? "",
     draft: isPr && !!r.draft,
+    notPlanned: !isPr && state === "closed" && !!r.state_reason && r.state_reason !== "completed",
     comments: r.comments ?? 0,
   };
 }

@@ -226,6 +226,7 @@ export default {
   "prs.state.draft": "Draft",
   "prs.state.closed": "Closed",
   "prs.state.merged": "Merged",
+  "prs.state.done": "Done",
   "prs.state.detail": "{state} · {title}",
   "github.rateLimit": "GitHub rate limit hit — add a token in settings.",
   "github.tokenRejected": "GitHub token rejected.",

@@ -17,6 +17,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Touch input on the canvas: pinch to zoom, two-finger pan, flick to scroll, long-press
   for the context menu, hold a note to drag it, and double-tap to create or open one.
 - A file name in the trash reveals the file, like the one in the note panel.
+- Issue references get state icons like pull requests: open, done and closed.
 
 ### Changed
 

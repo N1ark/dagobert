@@ -27,7 +27,8 @@ Verifying UI changes: `npm run dev`, open http://localhost:1420, click "Open a f
   added.
 - **Every user-facing string lives in `src/lib/locales/en.ts`** (`t(key)`); shortcuts come
   from `keys.ts` and are never spelled out in strings.
-- Icons are `phosphor-svelte`, imported per icon. No hand-drawn glyphs or unicode symbols.
+- Icons are `phosphor-svelte`, imported per icon. When nothing there fits, hand-draw a
+  Phosphor-style SVG component (see `GitPullRequestClosed.svelte`); never unicode symbols.
 - Lint: `svelte/prefer-svelte-reactivity` is off on purpose (plain Set/Map for scratch
   state); declare an `$effect` dependency you don't otherwise use with `void dep;`;
   `{@html}` is only ever DOMPurify output and carries an eslint-disable comment saying so.

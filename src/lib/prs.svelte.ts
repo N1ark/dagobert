@@ -9,7 +9,7 @@ export interface Linked extends RepoRef {
   notes: { id: string; title: string }[];
 }
 
-/** PR details keyed `prKey(repo, n)`; `null` = not a PR, never retried. */
+/** Issue and PR details keyed `prKey(repo, n)`; `null` = not found, never retried. */
 export const prCache = $state({
   details: {} as Record<string, IssueRef | null>,
   errors: {} as Record<string, string>,
@@ -51,7 +51,7 @@ async function load(batch: Linked[]) {
   results.forEach((r, i) => {
     const key = batch[i].key;
     if (r.status === "fulfilled") {
-      d[key] = r.value && r.value.isPr ? r.value : null;
+      d[key] = r.value;
       delete e[key];
     } else e[key] = r.reason instanceof Error ? r.reason.message : String(r.reason);
     inflight.delete(key);
@@ -93,6 +93,7 @@ export function refreshPRs() {
 }
 
 export function stateLabel(r: IssueRef): string {
+  if (!r.isPr && r.state === "closed") return t(r.notPlanned ? "prs.state.closed" : "prs.state.done");
   return t(
     r.state === "merged" ? "prs.state.merged" : r.state === "closed" ? "prs.state.closed" : r.draft ? "prs.state.draft" : "prs.state.open",
   );
