@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub const NOTES_DIR: &str = "notes";
-const TRASH_DIR: &str = "trash";
+pub const TRASH_DIR: &str = "trash";
 pub const META_FILE: &str = "dagobert.json";
 pub const LOCAL_FILE: &str = "dagobert.local.json";
 

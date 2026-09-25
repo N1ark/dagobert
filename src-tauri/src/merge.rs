@@ -1,7 +1,7 @@
 //! Resolves the conflicts a pull leaves, by the rules in docs/storage-and-sync.md.
 
-use crate::git::{self, Result};
-use crate::store::{self, Note};
+use crate::git::{self, Result, IGNORE_FILE};
+use crate::store::{self, Note, META_FILE, NOTES_DIR, TRASH_DIR};
 use git2::{IndexEntry, MergeFileOptions, Repository};
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -28,10 +28,7 @@ type Blob = Option<Vec<u8>>;
 fn blob(repo: &Repository, e: &Option<IndexEntry>) -> Result<Blob> {
     match e {
         Some(e) => Ok(Some(
-            repo.find_blob(e.id)
-                .map_err(|e| e.message().to_string())?
-                .content()
-                .to_vec(),
+            repo.find_blob(e.id).map_err(git::err)?.content().to_vec(),
         )),
         None => Ok(None),
     }
@@ -99,9 +96,7 @@ fn merge_body(
         return Ok((theirs.to_string(), false));
     }
     let entry = |text: &str| -> Result<IndexEntry> {
-        let id = repo
-            .blob(text.as_bytes())
-            .map_err(|e| e.message().to_string())?;
+        let id = repo.blob(text.as_bytes()).map_err(git::err)?;
         Ok(IndexEntry {
             ctime: git2::IndexTime::new(0, 0),
             mtime: git2::IndexTime::new(0, 0),
@@ -126,7 +121,7 @@ fn merge_body(
             &entry(theirs)?,
             Some(&mut opts),
         )
-        .map_err(|e| e.message().to_string())?;
+        .map_err(git::err)?;
     let text = String::from_utf8_lossy(r.content()).to_string();
     Ok((text, !r.is_automergeable()))
 }
@@ -224,7 +219,7 @@ fn merge_meta(ours: &Value, theirs: &Value) -> Value {
     Value::Object(out)
 }
 
-const NOTE_DIRS: [&str; 2] = ["notes", "trash"];
+const NOTE_DIRS: [&str; 2] = [NOTES_DIR, TRASH_DIR];
 
 /// Where a conflicted index path sits, relative to the project root.
 enum Kind {
@@ -236,10 +231,10 @@ enum Kind {
 
 fn classify(rel: &Path) -> Kind {
     let s = rel.to_string_lossy();
-    if s == "dagobert.json" {
+    if s == META_FILE {
         return Kind::Meta;
     }
-    if s == ".gitignore" {
+    if s == IGNORE_FILE {
         return Kind::Ignore;
     }
     for dir in NOTE_DIRS {
@@ -288,9 +283,7 @@ impl Ctx<'_> {
             fs::create_dir_all(p).map_err(|e| e.to_string())?;
         }
         fs::write(&abs, text).map_err(|e| e.to_string())?;
-        index
-            .add_path(&self.prefix.join(rel))
-            .map_err(|e| e.message().to_string())
+        index.add_path(&self.prefix.join(rel)).map_err(git::err)
     }
 
     fn unstage(&self, index: &mut git2::Index, rel: &Path) -> Result<()> {
@@ -298,9 +291,7 @@ impl Ctx<'_> {
         if abs.exists() {
             fs::remove_file(&abs).map_err(|e| e.to_string())?;
         }
-        index
-            .remove_path(&self.prefix.join(rel))
-            .map_err(|e| e.message().to_string())
+        index.remove_path(&self.prefix.join(rel)).map_err(git::err)
     }
 
     fn write_note(&self, index: &mut git2::Index, dir: &str, note: &Note) -> Result<()> {
@@ -373,7 +364,7 @@ impl Ctx<'_> {
         if loser.file != winner.file {
             self.unstage(index, &Path::new(dir).join(&loser.file))?;
         }
-        if dir == "notes" {
+        if dir == NOTES_DIR {
             self.candidates.extend(
                 candidates
                     .into_iter()
@@ -413,7 +404,7 @@ impl Ctx<'_> {
         ids.extend(their_ids);
         for id in ids {
             let anc = s.ancestor.get(id).or_else(|| self.base.get(id)).cloned();
-            let report = dir == "notes" && (anc.is_some() || s.broken.contains(id));
+            let report = dir == NOTES_DIR && (anc.is_some() || s.broken.contains(id));
             match (s.ours.get(id), s.theirs.get(id)) {
                 (Some((_, o)), Some((_, t))) => {
                     let m = self.merge_pair(index, dir, o, t, anc.as_ref())?;
@@ -549,7 +540,7 @@ impl Ctx<'_> {
                     .cloned()
                     .collect();
                 let note = n.clone();
-                self.write_note(index, "notes", &note)?;
+                self.write_note(index, NOTES_DIR, &note)?;
             }
         }
         Ok(())
@@ -563,50 +554,35 @@ impl Ctx<'_> {
             .collect();
         for t in store::read_notes(&store::trash_dir(self.root))? {
             if live.contains(&t.id) {
-                self.unstage(index, &Path::new("trash").join(&t.file))?;
+                self.unstage(index, &Path::new(TRASH_DIR).join(&t.file))?;
             }
         }
         Ok(())
     }
 }
 
-/// Finishes the merge `git::pull` left: resolve, fold, commit, and list the notes touched.
+/// Finishes the merge `git::merge_fetched` left: resolve, fold, commit, and list the notes touched.
 pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
-    let mut repo = git::open(root)?.ok_or("not a repository")?;
+    let mut repo = git::require(root)?;
     if repo.state() != git2::RepositoryState::Merge {
         return Ok(vec![]);
     }
-    let wd = repo
-        .workdir()
-        .ok_or("bare repository")?
-        .canonicalize()
-        .map_err(|e| e.to_string())?;
-    let prefix = root
-        .canonicalize()
-        .map_err(|e| e.to_string())?
-        .strip_prefix(&wd)
-        .map_err(|_| "project is outside the repository".to_string())?
-        .to_path_buf();
+    let prefix = git::prefix(&repo, root)?;
     let head_oid = repo.head().ok().and_then(|h| h.target());
-    let mut merge_heads = Vec::new();
-    repo.mergehead_foreach(|o| {
-        merge_heads.push(*o);
-        true
-    })
-    .map_err(|e| e.message().to_string())?;
-    let head_tree = head_oid.and_then(|o| repo.find_commit(o).ok()?.tree().ok());
-    let their_tree = merge_heads
-        .first()
-        .and_then(|o| repo.find_commit(*o).ok()?.tree().ok());
-    let base_tree = head_oid
-        .zip(merge_heads.first().copied())
-        .and_then(|(h, m)| repo.merge_base(h, m).ok())
-        .and_then(|o| repo.find_commit(o).ok()?.tree().ok());
+    let their_oid = git::merge_heads(&mut repo)?.first().copied();
+    let tree = |o: Option<git2::Oid>| repo.find_commit(o?).ok()?.tree().ok();
+    let head_tree = tree(head_oid);
+    let their_tree = tree(their_oid);
+    let base_tree = tree(
+        head_oid
+            .zip(their_oid)
+            .and_then(|(h, m)| repo.merge_base(h, m).ok()),
+    );
 
-    let mut index = repo.index().map_err(|e| e.message().to_string())?;
+    let mut index = repo.index().map_err(git::err)?;
     let conflicts: Vec<git2::IndexConflict> = index
         .conflicts()
-        .map_err(|e| e.message().to_string())?
+        .map_err(git::err)?
         .filter_map(|c| c.ok())
         .collect();
     let mut sides: HashMap<&'static str, Sides> = HashMap::new();
@@ -695,11 +671,11 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
             (Some(v), None) | (None, Some(v)) => v,
             (None, None) => String::new(),
         };
-        ctx.stage(&mut index, Path::new(".gitignore"), &merged)?;
+        ctx.stage(&mut index, Path::new(IGNORE_FILE), &merged)?;
     }
 
     // Rule 6; a clean line-merge can still make invalid JSON, so rebuild from both sides.
-    let meta_rel = Path::new("dagobert.json");
+    let meta_rel = Path::new(META_FILE);
     let parse = |b: Option<Vec<u8>>| b.and_then(|b| serde_json::from_slice::<Value>(&b).ok());
     let on_disk = fs::read(root.join(meta_rel)).ok();
     let meta = match meta {
@@ -723,7 +699,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
         }
     }
 
-    index.write().map_err(|e| e.message().to_string())?;
+    index.write().map_err(git::err)?;
     let report = ctx.report;
     drop((index, head_tree, their_tree, base_tree));
     git::commit_merge(&mut repo, message)?;
@@ -734,7 +710,7 @@ pub fn resolve(root: &Path, message: &str) -> Result<Vec<Conflict>> {
 fn keep_worktree(index: &mut git2::Index, path: &Path) -> Result<()> {
     match index.add_path(path) {
         Ok(()) => Ok(()),
-        Err(_) => index.remove_path(path).map_err(|e| e.message().to_string()),
+        Err(_) => index.remove_path(path).map_err(git::err),
     }
 }
 

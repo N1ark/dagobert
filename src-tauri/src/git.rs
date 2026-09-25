@@ -1,5 +1,6 @@
 //! Git primitives via libgit2; only Dagobert's own paths are ever staged.
 
+use crate::store::{LOCAL_FILE, META_FILE, NOTES_DIR, TRASH_DIR};
 use git2::{
     build::{CheckoutBuilder, TreeUpdateBuilder},
     AnnotatedCommit, Cred, CredentialType, Delta, DiffOptions, FetchOptions, IndexAddOption,
@@ -12,9 +13,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+pub const IGNORE_FILE: &str = ".gitignore";
 /// Paths (relative to the project root) that tracking manages.
-pub const PATHS: [&str; 4] = ["notes", "trash", "dagobert.json", ".gitignore"];
-const IGNORED: [&str; 2] = ["dagobert.local.json", ".DS_Store"];
+const PATHS: [&str; 4] = [NOTES_DIR, TRASH_DIR, META_FILE, IGNORE_FILE];
+const IGNORED: [&str; 2] = [LOCAL_FILE, ".DS_Store"];
 const REMOTE: &str = "origin";
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -42,7 +44,7 @@ pub enum PullOutcome {
 
 pub type Result<T> = std::result::Result<T, String>;
 
-fn err(e: git2::Error) -> String {
+pub fn err(e: git2::Error) -> String {
     e.message().to_string()
 }
 
@@ -71,8 +73,15 @@ pub fn open(root: &Path) -> Result<Option<Repository>> {
     Ok(Some(repo))
 }
 
-fn require(root: &Path) -> Result<Repository> {
+pub fn require(root: &Path) -> Result<Repository> {
     open(root)?.ok_or_else(|| "This folder isn't inside a git repository.".to_string())
+}
+
+fn require_clean(repo: &Repository) -> Result<()> {
+    if repo.state() != RepositoryState::Clean {
+        return Err("The repository has an operation in progress (merge/rebase).".into());
+    }
+    Ok(())
 }
 
 /// Creates a repository on `main` (or the user's `init.defaultBranch`).
@@ -134,7 +143,7 @@ pub fn clone(url: &str, dest: &Path, token: Option<&str>, name: &str, email: &st
 
 /// Adds the per-machine files to the project's `.gitignore` if missing.
 pub fn ensure_ignore(root: &Path) -> Result<()> {
-    let path = root.join(".gitignore");
+    let path = root.join(IGNORE_FILE);
     let mut text = fs::read_to_string(&path).unwrap_or_default();
     let missing: Vec<&str> = IGNORED
         .iter()
@@ -154,18 +163,25 @@ pub fn ensure_ignore(root: &Path) -> Result<()> {
     fs::write(&path, text).map_err(|e| e.to_string())
 }
 
-/// Our pathspecs relative to the repository's work tree.
-fn specs(repo: &Repository, root: &Path) -> Result<Vec<String>> {
+/// The project root relative to the repository's work tree.
+pub fn prefix(repo: &Repository, root: &Path) -> Result<PathBuf> {
     let wd = repo.workdir().ok_or("bare repository")?;
     let root = root.canonicalize().map_err(|e| e.to_string())?;
     let wd = wd.canonicalize().map_err(|e| e.to_string())?;
-    let rel = root
-        .strip_prefix(&wd)
-        .map_err(|_| "project is outside the repository".to_string())?;
-    Ok(PATHS
-        .iter()
-        .map(|p| rel.join(p).to_string_lossy().replace('\\', "/"))
-        .collect())
+    root.strip_prefix(&wd)
+        .map(Path::to_path_buf)
+        .map_err(|_| "project is outside the repository".to_string())
+}
+
+/// `rel` under the project as a repository pathspec.
+fn spec(prefix: &Path, rel: &str) -> String {
+    prefix.join(rel).to_string_lossy().replace('\\', "/")
+}
+
+/// Our pathspecs relative to the repository's work tree.
+fn specs(repo: &Repository, root: &Path) -> Result<Vec<String>> {
+    let prefix = prefix(repo, root)?;
+    Ok(PATHS.iter().map(|p| spec(&prefix, p)).collect())
 }
 
 fn head_tree(repo: &Repository) -> Result<Option<Tree<'_>>> {
@@ -219,15 +235,14 @@ fn remote_ref(repo: &Repository, branch: &str) -> Option<Oid> {
 /// Checks the folder is in a repository that doesn't ignore it, then writes `.gitignore`.
 pub fn enable(root: &Path) -> Result<()> {
     let repo = open(root)?.ok_or("no-repo")?;
-    let mut probes = specs(&repo, root)?;
+    let prefix = prefix(&repo, root)?;
     // A parent rule like `*.md` ignores the files, not the folders.
-    for dir in ["notes", "trash"] {
-        probes.push(format!(
-            "{}/{dir}/probe.md",
-            probes[0].trim_end_matches("notes")
-        ));
-    }
-    for s in probes {
+    let probes = [NOTES_DIR, TRASH_DIR].map(|d| format!("{d}/probe.md"));
+    let paths = PATHS
+        .iter()
+        .copied()
+        .chain(probes.iter().map(String::as_str));
+    for s in paths.map(|p| spec(&prefix, p)) {
         if repo.is_path_ignored(&s).map_err(err)? {
             return Err(format!(
                 "`{s}` is ignored by the repository's .gitignore, so nothing would be committed."
@@ -278,9 +293,7 @@ fn signature(repo: &Repository) -> Result<Signature<'static>> {
 /// Stages Dagobert's paths and commits them if anything changed, leaving other staging alone.
 pub fn commit_if_dirty(root: &Path, message: &str) -> Result<bool> {
     let repo = require(root)?;
-    if repo.state() != RepositoryState::Clean {
-        return Err("The repository has an operation in progress (merge/rebase).".into());
-    }
+    require_clean(&repo)?;
     current_branch(&repo)?;
     let specs = specs(&repo, root)?;
     let mut index = repo.index().map_err(err)?;
@@ -464,9 +477,7 @@ pub fn pull(root: &Path, timeout: Option<Duration>) -> Result<PullOutcome> {
 /// Merges the fetched branch in, committing first: libgit2 refuses over a local modification.
 pub fn merge_fetched(root: &Path, save: &str) -> Result<PullOutcome> {
     let repo = require(root)?;
-    if repo.state() != RepositoryState::Clean {
-        return Err("The repository has an operation in progress (merge/rebase).".into());
-    }
+    require_clean(&repo)?;
     let branch = match current_branch(&repo)? {
         Some(b) => b,
         None => return Ok(PullOutcome::NoRemote),
@@ -533,14 +544,21 @@ fn fast_forward(
     Ok(())
 }
 
-/// Commits the index as a merge of HEAD and MERGE_HEAD and clears the merge state.
-pub fn commit_merge(repo: &mut Repository, message: &str) -> Result<Oid> {
-    let mut oids = vec![repo.head().map_err(err)?.target().ok_or("no HEAD")?];
+/// The commits in MERGE_HEAD.
+pub fn merge_heads(repo: &mut Repository) -> Result<Vec<Oid>> {
+    let mut oids = Vec::new();
     repo.mergehead_foreach(|oid| {
         oids.push(*oid);
         true
     })
     .map_err(err)?;
+    Ok(oids)
+}
+
+/// Commits the index as a merge of HEAD and MERGE_HEAD and clears the merge state.
+pub fn commit_merge(repo: &mut Repository, message: &str) -> Result<Oid> {
+    let mut oids = vec![repo.head().map_err(err)?.target().ok_or("no HEAD")?];
+    oids.extend(merge_heads(repo)?);
     let mut index = repo.index().map_err(err)?;
     index.write().map_err(err)?;
     let tree = repo
@@ -811,7 +829,9 @@ pub(crate) mod tests {
         fs::write(dir.join(".gitignore"), "*.md\n").unwrap();
         let project = dir.join("docs/plan");
         fs::create_dir_all(&project).unwrap();
-        assert!(enable(&project).unwrap_err().contains("probe.md"));
+        assert!(enable(&project)
+            .unwrap_err()
+            .contains("`docs/plan/notes/probe.md`"));
         fs::remove_dir_all(&dir).unwrap();
     }
 
