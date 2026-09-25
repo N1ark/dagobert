@@ -45,16 +45,29 @@
     out.sort((a, b) => b.pr.updated.localeCompare(a.pr.updated));
     return out;
   });
+  function groupBy<T>(list: T[], key: (x: T) => string): [string, T[]][] {
+    const by = new Map<string, T[]>();
+    for (const x of list) (by.get(key(x)) ?? by.set(key(x), []).get(key(x))!).push(x);
+    return [...by];
+  }
   /** Grouped per repo (`owner/name`), repos alphabetical, order kept inside. */
   function byRepo<T extends { ref: Linked }>(list: T[]) {
-    const by = new Map<string, T[]>();
-    for (const x of list) (by.get(x.ref.repo) ?? by.set(x.ref.repo, []).get(x.ref.repo)!).push(x);
-    return [...by.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([repo, items]) => ({ repo, items }));
+    return groupBy(list, (x) => x.ref.repo)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([repo, items]) => ({ repo, items }));
   }
   const groups = $derived(byRepo(rows));
   const hiddenCount = $derived(hideClosed ? Object.values(details).filter((d) => d?.isPr && d.state !== "open").length : 0);
-  /** References that couldn't be read, listed under the working ones. */
-  const failed = $derived(byRepo(refs.filter((ref) => errors[ref.key]).map((ref) => ({ ref, message: errors[ref.key] }))));
+  /** References that couldn't be read, per repo and then per error, listed under the working ones. */
+  const failed = $derived(
+    byRepo(refs.filter((ref) => errors[ref.key]).map((ref) => ({ ref }))).map(({ repo, items }) => ({
+      repo,
+      messages: groupBy(
+        items.map((x) => x.ref),
+        (ref) => errors[ref.key],
+      ),
+    })),
+  );
   const noRepos = $derived(!Object.keys(store.repos).length);
 
   function open(url: string) {
@@ -127,15 +140,19 @@
         </div>
       {/each}
     {/each}
-    {#each failed as { repo, items } (repo)}
+    {#each failed as { repo, messages } (repo)}
       <div class="divider fail"><span>{repo}</span></div>
-      {#each items as { ref, message } (ref.key)}
+      {#each messages as [message, list] (message)}
         <div class="row">
           <span class="state fail"><WarningCircle size={15} /></span>
           <div class="body">
             <p class="msg">{message}</p>
-            <div class="meta"><span class="ref">{ref.alias}#{ref.number}</span></div>
-            {@render notes(ref.notes)}
+            {#each list as ref (ref.key)}
+              <div class="failed">
+                <div class="meta"><span class="ref">{ref.alias}#{ref.number}</span></div>
+                {@render notes(ref.notes)}
+              </div>
+            {/each}
           </div>
         </div>
       {/each}
@@ -258,6 +275,9 @@
     font-size: 12px;
     line-height: 1.3;
     color: var(--color2);
+  }
+  .failed {
+    margin-top: 6px;
   }
   .body {
     flex: 1;
