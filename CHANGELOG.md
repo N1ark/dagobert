@@ -10,6 +10,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Checkboxes in the note panel look like the ones on the graph.
 - Dragging and editing stay smooth in large projects.
+- The GitHub rate-limit message only suggests signing in when you aren't.
 
 ### Fixed
 

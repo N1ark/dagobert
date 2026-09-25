@@ -32,7 +32,7 @@ class ApiError extends Error {
 }
 
 function failure(res: Response): string {
-  if (rateLimited(res)) return t("github.rateLimit");
+  if (rateLimited(res)) return t(scopeOf ? "github.rateLimit" : "github.rateLimit.signin");
   if (res.status === 401) return t("github.tokenRejected");
   if (res.status === 404) return t("github.notFound");
   return t("github.status", { status: res.status });
