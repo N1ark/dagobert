@@ -29,6 +29,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Fixed
 
 - The GitHub sign-in code can be selected, and has a copy button.
+- The trash no longer opens as a thin empty line.
 
 ## [0.9.0] - 2026-09-25
 

@@ -49,6 +49,7 @@
 <div
   class="dock"
   class:popup={!rect}
+  class:fit={!rect && size.fit}
   style:left={rect && `${rect.x}px`}
   style:top={rect && `${rect.y}px`}
   style:width={rect ? `${rect.w}px` : `min(${size.w}px, 100vw - 40px)`}
@@ -84,5 +85,10 @@
     flex: 1;
     min-height: 0;
     width: 100%;
+  }
+  /* Sized by its content: WebKit measures a zero basis or a 100% height as nothing. */
+  .dock.fit > :global(*) {
+    flex: 0 1 auto;
+    height: auto;
   }
 </style>
