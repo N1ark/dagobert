@@ -1,16 +1,19 @@
 <script lang="ts">
-  import { inlineHtml } from "./inline";
+  import { inlineHtml, isPlain } from "./inline";
   import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
 
   /** Renders a single line of markdown (bold, code, links…) with no block wrapper. */
   let { source, fallback = "" }: { source: string; fallback?: string } = $props();
 
-  const html = $derived(inlineHtml(source));
+  const plain = $derived(isPlain(source));
+  const html = $derived(plain ? "" : inlineHtml(source));
 </script>
 
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-{#if html}
+{#if plain && source.trim()}
+  <span class="inline-md">{source}</span>
+{:else if html}
+  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
   <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
   <span class="inline-md" use:prIcons={() => html} onclick={(e) => onLinkClick(e, true)}>{@html html}</span>
 {:else}

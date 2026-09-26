@@ -24,7 +24,9 @@ dialogs/popovers, icons, or CI/release.
 - Menu bar icons are SF Symbols: `Action.symbol` lists candidate names; the Rust
   `sf_symbol` command (`symbols.rs`, objc2-app-kit) renders the first that exists to PNG,
   and `sfsymbol.ts` centres/tints it on a canvas for the current appearance. Phosphor
-  icons are only used in-app.
+  icons are only used in-app, in the `regular`, `bold` and `fill` weights: the
+  `phosphor-weights` plugin in `vite.config.js` strips the others from each icon (add a
+  weight there before using it).
 
 ## i18n
 
