@@ -84,7 +84,8 @@ selection's top-left) as one undo step, then fits the view.
 
 Bottom-right overview (180×120). Bounds = all notes ∪ the viewport, padded, so the view
 box always stays inside the map; the notes' bounds are derived apart from the viewport so
-panning doesn't walk every note. Click/drag pans (stopPropagation keeps the canvas from
+panning doesn't walk every note. Notes and edges (one `<path>`, non-scaling stroke) are
+drawn in world units under a single `<g transform>`, so a pan rewrites one attribute. Click/drag pans (stopPropagation keeps the canvas from
 panning too). Open state lives in `minimapState.svelte.ts` (localStorage
 `dagobert.minimap`, shared because the phone's toggle sits in the toolbar). Hidden when
 fewer than 2 notes.

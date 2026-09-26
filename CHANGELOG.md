@@ -9,6 +9,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 
 - Align selected notes from the right-click menu.
+- The minimap shows the links between notes.
 
 ## [0.9.0] - 2026-09-25
 

@@ -45,3 +45,8 @@ export function notesBounds(
   }
   return { minX, minY, maxX, maxY };
 }
+
+/** Horizontal control-point offset of an edge's bezier, shared by the canvas and the minimap. */
+export function edgeHandle(a: { x: number }, b: { x: number }): number {
+  return Math.max(40, Math.abs(b.x - a.x) * 0.5);
+}

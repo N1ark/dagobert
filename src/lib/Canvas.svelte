@@ -7,7 +7,7 @@
   import type { Note } from "./types";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
-  import { WORLD, clampViewport, clampNode, notesBounds } from "./viewport";
+  import { WORLD, clampViewport, clampNode, notesBounds, edgeHandle } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
   import { t } from "./i18n";
   import { keys, matches as pressed } from "./keys";
@@ -207,12 +207,9 @@
   function leftOf(n: Note) {
     return { x: n.x, y: n.y + h(n.id) / 2 };
   }
-  function handle(a: { x: number; y: number }, b: { x: number; y: number }) {
-    return Math.max(40, Math.abs(b.x - a.x) * 0.5);
-  }
   /** The edge line. It stops inside the arrowhead so its square cap never pokes past the tip. */
   function path(a: { x: number; y: number }, b: { x: number; y: number }) {
-    const dx = handle(a, b);
+    const dx = edgeHandle(a, b);
     return `M ${a.x} ${a.y} C ${a.x + dx} ${a.y}, ${b.x - dx} ${b.y}, ${b.x - 5} ${b.y}`;
   }
   /** Arrowhead as a plain triangle, never an SVG `<marker>` (docs/canvas.md); always points +x. */
@@ -233,7 +230,7 @@
         if (!dep) continue;
         const a = rightOf(dep);
         const b = leftOf(n);
-        const dx = handle(a, b);
+        const dx = edgeHandle(a, b);
         out.push({ id: d + ">" + n.id, p0: a, p1: { x: a.x + dx, y: a.y }, p2: { x: b.x - dx, y: b.y }, p3: b });
       }
     }

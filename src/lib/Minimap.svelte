@@ -6,7 +6,7 @@
   import { ICON } from "./icons";
   import { minimap, toggleMinimap } from "./minimapState.svelte";
   import { isMobile } from "./backend";
-  import { notesBounds } from "./viewport";
+  import { notesBounds, edgeHandle } from "./viewport";
 
   /** Overview of the whole graph with the viewport drawn on top; click or drag to pan. */
   let {
@@ -52,6 +52,26 @@
   const toMap = (x: number, y: number) => ({
     x: bounds.ox + (x - bounds.minX) * bounds.scale,
     y: bounds.oy + (y - bounds.minY) * bounds.scale,
+  });
+
+  /** Notes and edges are drawn in world units under one transform, so panning rewrites a single attribute. */
+  const transform = $derived(`translate(${bounds.ox} ${bounds.oy}) scale(${bounds.scale}) translate(${-bounds.minX} ${-bounds.minY})`);
+  /** Two map pixels, in world units: the smallest a note is drawn. */
+  const minSize = $derived(2 / bounds.scale);
+
+  /** Every edge in one path, the same beziers as the canvas. */
+  const edges = $derived.by(() => {
+    let d = "";
+    for (const n of store.notes)
+      for (const id of n.deps) {
+        const s = store.byId(id);
+        if (!s) continue;
+        const a = { x: s.x + widthOf(s), y: s.y + heightOf(s.id) / 2 };
+        const b = { x: n.x, y: n.y + heightOf(n.id) / 2 };
+        const dx = edgeHandle(a, b);
+        d += `M${a.x} ${a.y}C${a.x + dx} ${a.y} ${b.x - dx} ${b.y} ${b.x} ${b.y}`;
+      }
+    return d;
   });
 
   const view = $derived.by(() => {
@@ -100,19 +120,21 @@
   {/if}
   {#if !collapsed}
     <svg width={W} height={H} onpointerdown={onDown} onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} role="presentation">
-      {#each store.notes as n (n.id)}
-        {@const p = toMap(n.x, n.y)}
-        <rect
-          x={p.x}
-          y={p.y}
-          width={Math.max(2, widthOf(n) * bounds.scale)}
-          height={Math.max(2, heightOf(n.id) * bounds.scale)}
-          rx="1"
-          class="node"
-          class:selected={store.selectedId === n.id || (store.multi.length > 1 && store.multi.includes(n.id))}
-          class:done={store.isDone(n)}
-        />
-      {/each}
+      <g {transform}>
+        <path class="edges" d={edges} />
+        {#each store.notes as n (n.id)}
+          <rect
+            x={n.x}
+            y={n.y}
+            width={Math.max(minSize, widthOf(n))}
+            height={Math.max(minSize, heightOf(n.id))}
+            rx={minSize / 2}
+            class="node"
+            class:selected={store.selectedId === n.id || (store.multi.length > 1 && store.multi.includes(n.id))}
+            class:done={store.isDone(n)}
+          />
+        {/each}
+      </g>
       <rect class="view" x={view.x} y={view.y} width={view.w} height={view.h} />
     </svg>
   {/if}
@@ -155,6 +177,12 @@
   svg {
     display: block;
     cursor: pointer;
+  }
+  .edges {
+    fill: none;
+    stroke: #333;
+    stroke-width: 0.75;
+    vector-effect: non-scaling-stroke;
   }
   .node {
     fill: #3a3a3a;
