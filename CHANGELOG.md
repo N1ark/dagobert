@@ -25,6 +25,10 @@ All notable changes to Dagobert are documented here. The format follows
 - No welcome-screen flash while the last project reopens at launch.
 - The window stays responsive while a big project opens.
 
+### Fixed
+
+- The GitHub sign-in code can be selected, and has a copy button.
+
 ## [0.9.0] - 2026-09-25
 
 ### Added

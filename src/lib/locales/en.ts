@@ -352,6 +352,8 @@ export default {
   "settings.github.signedInAs": "Signed in as {login}",
   "settings.github.signout": "Sign out",
   "settings.github.code": "Type this code in your browser:",
+  "settings.github.copy": "Copy code",
+  "settings.github.copied": "Copied",
   "settings.github.waiting": "Waiting for approval…",
   "settings.github.reopen": "Open github.com again",
   "settings.github.cancel": "Cancel",
