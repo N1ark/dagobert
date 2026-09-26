@@ -5,6 +5,7 @@
     POPUP,
     arrange,
     dropAt,
+    moves,
     place,
     previewOf,
     resize,
@@ -71,6 +72,8 @@
 
   let drag: { pane: Pane; id: number; x: number; y: number; box: DOMRect } | null = null;
   let drop = $state.raw<Drop | null>(null);
+  /** Past the threshold, whether or not it's over somewhere the pane would move to. */
+  let moving = $state(false);
   /** A drag on the dock button ends in a click, which isn't a request for the menu. */
   let dragged = false;
 
@@ -93,9 +96,10 @@
     if (sizing && e.pointerId === sizing.id) {
       resize(sizing.h, (sizing.h.row ? e.clientX : e.clientY) - sizing.at, sizing.total);
     } else if (drag && e.pointerId === drag.id) {
-      if (!drop && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
-      dragged = true;
-      drop = dropAt(e.clientX - drag.box.left, e.clientY - drag.box.top, w, h, arranged.rects, drag.pane);
+      if (!moving && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+      dragged = moving = true;
+      const d = dropAt(e.clientX - drag.box.left, e.clientY - drag.box.top, w, h, arranged.rects, drag.pane);
+      drop = d && moves($state.snapshot(layout), drag.pane, d, isOpen) ? d : null;
     }
   }
 
@@ -107,14 +111,15 @@
       if (drop) move(drag.pane, drop);
       drag = null;
       drop = null;
+      moving = false;
     }
   }
 
   $effect(() => {
-    if (!sizing && !drop) return;
+    if (!sizing && !moving) return;
     const b = document.body;
     b.classList.add("tiles-dragging");
-    b.style.cursor = drop ? "grabbing" : sizing!.h.row ? "col-resize" : "row-resize";
+    b.style.cursor = moving ? "grabbing" : sizing!.h.row ? "col-resize" : "row-resize";
     return () => {
       b.classList.remove("tiles-dragging");
       b.style.cursor = "";

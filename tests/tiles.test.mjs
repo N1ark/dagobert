@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_LAYOUT, arrange, dropAt, place, resize, valid, visible } from "../src/lib/tiles.ts";
+import { DEFAULT_LAYOUT, arrange, dropAt, moves, place, resize, valid, visible } from "../src/lib/tiles.ts";
 
 const all = () => true;
 const only =
@@ -85,6 +85,19 @@ test("a drop picks the nearest edge of the tile under it; the canvas's middle po
   assert.equal(dropAt(460, 300, 1002, 600, rects, "note"), "popup");
   assert.deepEqual(dropAt(250, 300, 1002, 600, rects, "note"), { side: "left", at: "canvas" });
   assert.equal(dropAt(800, 300, 1002, 600, rects, "note"), null);
+});
+
+test("a drop that would leave the pane where it is isn't one", () => {
+  const l = place(DEFAULT_LAYOUT, "trash", { side: "right", at: "note" }, all);
+  assert.ok(!moves(l, "trash", { side: "right", at: "note" }, all));
+  assert.ok(!moves(l, "note", { side: "left", at: "trash" }, all));
+  assert.ok(!moves(l, "note", { side: "right", at: "canvas" }, all));
+  assert.ok(!moves(l, "trash", { side: "right", at: null }, all));
+  assert.ok(!moves(DEFAULT_LAYOUT, "settings", "popup", all));
+  assert.ok(moves(l, "note", { side: "right", at: "trash" }, all));
+  assert.ok(moves(l, "note", { side: "bottom", at: "trash" }, all));
+  // A closed pane in between doesn't count.
+  assert.ok(!moves(l, "trash", { side: "right", at: "canvas" }, only("canvas", "trash")));
 });
 
 test("a tile too small for the window is brought up to the minimum", () => {

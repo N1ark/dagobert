@@ -142,6 +142,13 @@ export function dropAt(x: number, y: number, w: number, h: number, rects: Map<Id
   return null;
 }
 
+/** Whether dropping `pane` at `drop` would show it anywhere other than where it already is. */
+export function moves(l: Layout, pane: Pane, drop: Drop, open: (id: Id) => boolean): boolean {
+  const shape = (t: Shown | null): unknown => (!t ? null : "kids" in t ? [t.dir, t.kids.map(shape)] : t.id);
+  const seen = (l: Layout) => JSON.stringify([shape(visible(l.tree, open)), l.popups.includes(pane)]);
+  return seen(place(l, pane, drop, open)) !== seen(l);
+}
+
 /** How much of the tile it lands against a dropped pane takes. */
 const share = (at: Id | null) => (at === null ? 0.25 : at === "canvas" ? 0.3 : 0.5);
 
