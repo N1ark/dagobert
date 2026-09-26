@@ -19,9 +19,9 @@ export function sfSymbolImage(names: string[], dark: boolean, size = 36): Promis
 
 async function render(names: string[], dark: boolean, size: number): Promise<Image | null> {
   // Ask for more pixels than needed and scale down, so it stays crisp on retina.
-  const png = await invoke<number[] | null>("sf_symbol", { names, pointSize: size * 2 });
-  if (!png) return null;
-  const bitmap = await createImageBitmap(new Blob([new Uint8Array(png)], { type: "image/png" }));
+  const png = await invoke<ArrayBuffer>("sf_symbol", { names, pointSize: size * 2 });
+  if (!png.byteLength) return null;
+  const bitmap = await createImageBitmap(new Blob([png], { type: "image/png" }));
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;

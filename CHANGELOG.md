@@ -22,6 +22,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Update checks wait until the app has finished starting, and a downloaded update no longer sits in memory.
 - Faster launch: a smaller app bundle, and plain note titles skip the markdown renderer.
 - No welcome-screen flash while the last project reopens at launch.
+- The window stays responsive while a big project opens.
 
 ## [0.9.0] - 2026-09-25
 

@@ -52,9 +52,13 @@ fn project_ref(dir: &Path) -> ProjectRef {
 }
 
 #[tauri::command]
-fn list_projects(app: AppHandle) -> Result<Vec<ProjectRef>, String> {
+async fn list_projects(app: AppHandle) -> Result<Vec<ProjectRef>, String> {
     let dir = projects_dir(&app)?;
-    let mut out: Vec<ProjectRef> = std::fs::read_dir(&dir)
+    blocking(move || list_dir(&dir)).await?
+}
+
+fn list_dir(dir: &Path) -> Result<Vec<ProjectRef>, String> {
+    let mut out: Vec<ProjectRef> = std::fs::read_dir(dir)
         .map_err(|e| e.to_string())?
         .flatten()
         .filter(|e| e.path().is_dir())
@@ -90,9 +94,10 @@ async fn clone_project(
     .await?
 }
 
+// Reads, parses and git walks run off the main thread, so the window never stalls on them.
 #[tauri::command]
-fn open_project(path: String) -> Result<Project, String> {
-    store::open(Path::new(&path))
+async fn open_project(path: String) -> Result<Project, String> {
+    blocking(move || store::open(Path::new(&path))).await?
 }
 
 #[tauri::command]
@@ -127,16 +132,24 @@ fn discard_note(state: State<AppState>, path: String, file: String) -> Result<()
 }
 
 #[tauri::command]
-fn list_trash(path: String) -> Result<Vec<Note>, String> {
-    store::list_trash(Path::new(&path))
+async fn list_trash(path: String) -> Result<Vec<Note>, String> {
+    blocking(move || store::list_trash(Path::new(&path))).await?
 }
 
 #[tauri::command]
-fn restore_note(state: State<AppState>, path: String, file: String) -> Result<Note, String> {
-    let root = Path::new(&path);
-    let restored = store::restore_note(root, &file)?;
-    state.recent.mark(store::note_path(root, &restored.file));
-    Ok(restored)
+async fn restore_note(
+    state: State<'_, AppState>,
+    path: String,
+    file: String,
+) -> Result<Note, String> {
+    let recent = state.recent.clone();
+    blocking(move || {
+        let root = Path::new(&path);
+        let restored = store::restore_note(root, &file)?;
+        recent.mark(store::note_path(root, &restored.file));
+        Ok(restored)
+    })
+    .await?
 }
 
 #[tauri::command]
@@ -189,13 +202,16 @@ async fn git_status(state: State<'_, AppState>, path: String) -> Result<git::Git
 
 /// `Err("no-repo")` when the folder isn't inside a repository.
 #[tauri::command]
-fn git_enable(path: String) -> Result<(), String> {
-    git::enable(Path::new(&path))
+async fn git_enable(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    sync::locked(state.git.lock.clone(), move || {
+        git::enable(Path::new(&path))
+    })
+    .await?
 }
 
 #[tauri::command]
-fn git_init(path: String) -> Result<(), String> {
-    git::init(Path::new(&path))
+async fn git_init(state: State<'_, AppState>, path: String) -> Result<(), String> {
+    sync::locked(state.git.lock.clone(), move || git::init(Path::new(&path))).await?
 }
 
 /// Starts or stops the tick timer for the open project.
@@ -250,12 +266,15 @@ async fn git_quit(
     Ok(())
 }
 
-/// First SF Symbol from `names` that exists, as PNG bytes (macOS only).
+/// First SF Symbol from `names` that exists, as raw PNG bytes; empty when none does (macOS only).
 #[tauri::command]
-fn sf_symbol(names: Vec<String>, point_size: f64) -> Option<Vec<u8>> {
-    names
-        .iter()
-        .find_map(|n| symbols::sf_symbol_png(n, point_size))
+fn sf_symbol(names: Vec<String>, point_size: f64) -> tauri::ipc::Response {
+    tauri::ipc::Response::new(
+        names
+            .iter()
+            .find_map(|n| symbols::sf_symbol_png(n, point_size))
+            .unwrap_or_default(),
+    )
 }
 
 /// Starts the GitHub App device flow; the frontend shows the code and opens the URL.
