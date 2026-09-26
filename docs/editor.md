@@ -69,11 +69,14 @@ same pattern. `LinkPicker.svelte` is the search dropdown for adding deps/depende
   single line (`inline.ts` `inlineHtml`: `marked.parseInline` + DOMPurify) wherever a
   title or short string is displayed (card title and preview, panel title, dep lists,
   pickers, trash, TOC, help text); `tooltip` also accepts `inlineHtml` output as
-  `{ html }`.
-- `highlight.ts`: `highlight.js/lib/core` with a hand-picked language list (import per
-  language; add there, plus aliases like `svelte` → `xml`) and `highlightExtension`, the
-  marked renderer `Markdown.svelte` installs. Unknown or missing languages fall back to
-  escaped plain text. Token colours are `.hljs-*` rules in `app.css` using the tag
+  `{ html }`. Text with no markdown, link or ref characters (`isPlain`) skips marked and
+  DOMPurify and renders as a text node, which keeps opening a big project cheap.
+- `highlight.ts`: `highlightExtension`, the marked renderer `Markdown.svelte` installs
+  once (`<script module>`). `hljs.ts` holds `highlight.js/lib/core` with a hand-picked
+  language list (import per language; add there, plus aliases like `svelte` → `xml`) and
+  is a separate chunk: `Markdown` loads it (`loadHighlighter`) when its source has a fence
+  with a language and re-renders once it's in; until then, and for unknown or missing
+  languages, code is escaped plain text. Token colours are `.hljs-*` rules in `app.css` using the tag
   palette.
 
 ## Templates

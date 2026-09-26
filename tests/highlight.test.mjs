@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { marked } from "marked";
-import { highlight, highlightExtension } from "../src/lib/highlight.ts";
+import { highlight, highlightExtension, highlighterReady, loadHighlighter } from "../src/lib/highlight.ts";
 marked.use(highlightExtension);
+assert.equal(highlight("const x = 1;", "ts"), "const x = 1;");
+await loadHighlighter();
+assert.ok(highlighterReady());
 assert.match(highlight("const x = 1;", "ts"), /hljs-keyword/);
 assert.equal(highlight("<b>&", "nope"), "&lt;b&gt;&amp;");
 assert.equal(highlight("<b>&", undefined), "&lt;b&gt;&amp;");

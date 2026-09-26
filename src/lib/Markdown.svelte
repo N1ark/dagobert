@@ -1,6 +1,6 @@
 <script lang="ts" module>
   import { marked } from "marked";
-  import { highlightExtension } from "./highlight";
+  import { highlightExtension, highlighterReady, loadHighlighter } from "./highlight";
 
   // Once per app: `use` wraps the renderer again on every call.
   marked.use(highlightExtension);
@@ -15,13 +15,20 @@
 
   let { source }: { source: string } = $props();
 
+  let highlighted = $state(highlighterReady());
+  // A fence with a language loads the highlighter, then renders again.
+  $effect(() => {
+    if (!highlighted && /^ {0,3}(`{3,}|~{3,}) *\S/m.test(source)) void loadHighlighter().then(() => (highlighted = true));
+  });
+
   // marked disables task checkboxes, which swallows the clicks the editor toggles them with.
-  const html = $derived(
-    DOMPurify.sanitize(marked.parse(renderWikilinks(source), { gfm: true, async: false }) as string).replace(
+  const html = $derived.by(() => {
+    void highlighted;
+    return DOMPurify.sanitize(marked.parse(renderWikilinks(source), { gfm: true, async: false }) as string).replace(
       /(<input\b[^>]*?)\s+disabled(?:=""|='')?(?=[\s>/])/g,
       "$1",
-    ),
-  );
+    );
+  });
 </script>
 
 <!-- Links are intercepted so they open in the system browser. -->
