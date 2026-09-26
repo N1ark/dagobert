@@ -20,7 +20,8 @@ Performance rules (profile in Safari, not Chrome — Chrome is fine either way):
   WebKit re-renders markers on every paint, and a few hundred on screen dropped panning
   to ~25 fps.
 - Wheel events are queued and applied once per animation frame (`applyWheel`), and pointer
-  pans / pinches likewise (`scheduleGesture`): input fires far more often than the display
+  pans / pinches and node drags / resizes / marquees likewise (`scheduleGesture`,
+  `applyMove`): input fires far more often than the display
   refreshes, and WebKit re-flushes style and hit-tests the world after each event.
 - `.world` carries `will-change: transform` so it's a compositor layer from the start
   (otherwise WebKit promotes it mid-gesture with a ~65 ms hitch), and its transform is

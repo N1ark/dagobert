@@ -60,6 +60,8 @@
   let gestureRect: DOMRect | null = null;
   /** Latest pointer of a one-finger pan, applied once per frame (see `flushGesture`). */
   let panAt: { x: number; y: number } | null = null;
+  /** Latest pointer of a drag, resize or marquee, likewise applied once per frame. */
+  let moveAt: { clientX: number; clientY: number } | null = null;
   let gestureRaf = 0;
   /** A touch waiting to become something else: a hold arms a drag, a lift opens the menu. */
   let hold: { timer: number; x: number; y: number; id: string | null; armed: boolean } | null = null;
@@ -565,7 +567,10 @@
 
   function flushGesture() {
     gestureRaf = 0;
-    if (pinch && touches.size >= 2) applyPinch();
+    if (moveAt) {
+      applyMove(moveAt);
+      moveAt = null;
+    } else if (pinch && touches.size >= 2) applyPinch();
     else if (pan && panAt) {
       vp.x = pan.vx + (panAt.x - pan.startX);
       vp.y = pan.vy + (panAt.y - pan.startY);
@@ -603,6 +608,21 @@
       linking.over = over && over !== linking.from ? over : null;
       return;
     }
+    if (resize || marquee || drag) {
+      moveAt = { clientX: e.clientX, clientY: e.clientY };
+      scheduleGesture();
+      return;
+    }
+    if (pan) {
+      panAt = { x: e.clientX, y: e.clientY };
+      panTrail.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
+      if (panTrail.length > 6) panTrail.shift();
+      scheduleGesture();
+    }
+  }
+
+  /** Every node move, resize and marquee step reworks the edges, so it runs once per frame. */
+  function applyMove(e: { clientX: number; clientY: number }) {
     if (resize) {
       const n = store.byId(resize.id);
       if (n) {
@@ -622,7 +642,8 @@
       const a = toWorld(Math.min(marquee.x0, marquee.x1) + r.left, Math.min(marquee.y0, marquee.y1) + r.top);
       const b = toWorld(Math.max(marquee.x0, marquee.x1) + r.left, Math.max(marquee.y0, marquee.y1) + r.top);
       const hit = store.notes.filter((n) => n.x < b.x && n.x + widthOf(n) > a.x && n.y < b.y && n.y + h(n.id) > a.y).map((n) => n.id);
-      store.multi = [...new Set([...marquee.base, ...hit])];
+      const multi = [...new Set([...marquee.base, ...hit])];
+      if (multi.length !== store.multi.length || multi.some((id, i) => id !== store.multi[i])) store.multi = multi;
       return;
     }
     if (drag) {
@@ -638,17 +659,11 @@
           n.y = c.y;
         }
       }
-      return;
-    }
-    if (pan) {
-      panAt = { x: e.clientX, y: e.clientY };
-      panTrail.push({ t: e.timeStamp, x: e.clientX, y: e.clientY });
-      if (panTrail.length > 6) panTrail.shift();
-      scheduleGesture();
     }
   }
 
   function onPointerUp(e: PointerEvent) {
+    if (moveAt) flushPendingGesture();
     const wasPinching = !!pinch;
     if (touches.delete(e.pointerId) && touches.size < 2 && pinch) {
       flushPendingGesture();

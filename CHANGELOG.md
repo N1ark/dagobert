@@ -16,7 +16,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Hovering anywhere on a PR or issue link shows its status, not just on the icon.
 - The background grain rests when the window is in the background or left idle, saving battery.
 - Lower memory use in long sessions and large projects.
-- Typing in big projects uses less CPU.
+- Typing, dragging and box-selecting in big projects use less CPU.
 - Git sync no longer checks the remote while the app sits unused in the background; it catches up when you come back.
 - Files that haven't changed are no longer rewritten on save.
 - Update checks wait until the app has finished starting, and a downloaded update no longer sits in memory.
