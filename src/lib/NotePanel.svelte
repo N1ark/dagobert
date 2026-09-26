@@ -6,7 +6,6 @@
   import LiveEditor from "./LiveEditor.svelte";
   import LinkPicker from "./LinkPicker.svelte";
   import TagColorPicker from "./TagColorPicker.svelte";
-  import WorkflowEditor from "./WorkflowEditor.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import ProgressRing from "./ProgressRing.svelte";
@@ -134,11 +133,13 @@
 </script>
 
 {#if editingWorkflows && !isMobile}
-  <WorkflowEditor
-    section={note.tracking ? "tracking" : "workflows"}
-    workflow={note.tracking ? null : note.workflow}
-    onclose={() => (editingWorkflows = false)}
-  />
+  {#await import("./WorkflowEditor.svelte") then m}
+    <m.default
+      section={note.tracking ? "tracking" : "workflows"}
+      workflow={note.tracking ? null : note.workflow}
+      onclose={() => (editingWorkflows = false)}
+    />
+  {/await}
 {/if}
 
 <aside class="panel" class:standalone bind:this={panelEl}>

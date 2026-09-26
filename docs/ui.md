@@ -75,6 +75,9 @@ not their children; needs `core:window:allow-start-dragging` in the capability).
 
 ## Dialogs and popovers
 
+- Anything shown only on demand (QuickOpen, WorkflowEditor, PullRequests, TrashDialog,
+  GitDialog, CloneDialog) is mounted through `{#await import(…) then m}<m.default …/>`,
+  so it's a separate chunk that launch doesn't load; add new dialogs the same way.
 - `QuickOpen.svelte` — `mode: "notes"` (`quick-open`) or `"commands"` (`commands`); App
   owns `showQuickOpen`; not in standalone windows. Matching lives in `fuzzy.ts`
   (`fuzzyMatch`: prefix > word-start > substring > subsequence; `parseQuery`: a leading

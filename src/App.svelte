@@ -4,12 +4,7 @@
   import Canvas from "./lib/Canvas.svelte";
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
-  import TrashDialog from "./lib/TrashDialog.svelte";
-  import QuickOpen, { type Action } from "./lib/QuickOpen.svelte";
-  import WorkflowEditor from "./lib/WorkflowEditor.svelte";
-  import PullRequests from "./lib/PullRequests.svelte";
-  import GitDialog from "./lib/GitDialog.svelte";
-  import CloneDialog from "./lib/CloneDialog.svelte";
+  import type { Action } from "./lib/QuickOpen.svelte";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
   import Sheet from "./lib/Sheet.svelte";
   import { auth } from "./lib/auth.svelte";
@@ -686,7 +681,9 @@
     </div>
     <div class="main" class:resizing={panelDrag.active || prsDrag.active} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
       {#if showPRs && !isMobile}
-        <PullRequests onclose={togglePRs} onjump={jump} />
+        {#await import("./lib/PullRequests.svelte") then m}
+          <m.default onclose={togglePRs} onjump={jump} />
+        {/await}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="resizer left"
@@ -735,11 +732,17 @@
               <NotePanel note={store.selected} onjump={jump} />
             {/key}
           {:else if mobilePanel === "prs"}
-            <PullRequests sheet onclose={togglePRs} onjump={jump} />
+            {#await import("./lib/PullRequests.svelte") then m}
+              <m.default sheet onclose={togglePRs} onjump={jump} />
+            {/await}
           {:else if mobilePanel === "trash"}
-            <TrashDialog sheet onclose={() => (showTrash = false)} onrestored={(id) => jump(id)} />
+            {#await import("./lib/TrashDialog.svelte") then m}
+              <m.default sheet onclose={() => (showTrash = false)} onrestored={(id) => jump(id)} />
+            {/await}
           {:else if mobilePanel === "settings"}
-            <WorkflowEditor sheet section={settingsSection} workflow={settingsWorkflow} onclose={() => (showWorkflows = false)} />
+            {#await import("./lib/WorkflowEditor.svelte") then m}
+              <m.default sheet section={settingsSection} workflow={settingsWorkflow} onclose={() => (showWorkflows = false)} />
+            {/await}
           {/if}
         </Sheet>
       {/if}
@@ -795,33 +798,51 @@
 {/if}
 
 {#if showClone}
-  <CloneDialog onclose={() => (showClone = false)} />
+  {#await import("./lib/CloneDialog.svelte") then m}
+    <m.default onclose={() => (showClone = false)} />
+  {/await}
 {/if}
 
 {#if showQuickOpen}
   {#key paletteMode}
-    <QuickOpen mode={paletteMode} actions={paletteActions} onjump={jump} oncreate={createTitled} onclose={() => (showQuickOpen = false)} />
+    {#await import("./lib/QuickOpen.svelte") then m}
+      <m.default
+        mode={paletteMode}
+        actions={paletteActions}
+        onjump={jump}
+        oncreate={createTitled}
+        onclose={() => (showQuickOpen = false)}
+      />
+    {/await}
   {/key}
 {/if}
 
 {#if showWorkflows && !isMobile}
-  <WorkflowEditor section={settingsSection} onclose={() => (showWorkflows = false)} />
+  {#await import("./lib/WorkflowEditor.svelte") then m}
+    <m.default section={settingsSection} onclose={() => (showWorkflows = false)} />
+  {/await}
 {/if}
 
 {#if store.needsRepo}
-  <GitDialog kind="norepo" onclose={() => (store.needsRepo = false)} />
+  {#await import("./lib/GitDialog.svelte") then m}
+    <m.default kind="norepo" onclose={() => (store.needsRepo = false)} />
+  {/await}
 {:else if store.conflictReport}
-  <GitDialog kind="conflicts" conflicts={store.conflictReport} onclose={() => (store.conflictReport = null)} />
+  {#await import("./lib/GitDialog.svelte") then m}
+    <m.default kind="conflicts" conflicts={store.conflictReport} onclose={() => (store.conflictReport = null)} />
+  {/await}
 {/if}
 
 {#if showTrash && !isMobile}
-  <TrashDialog
-    onclose={() => (showTrash = false)}
-    onrestored={(id) => {
-      showTrash = false;
-      jump(id);
-    }}
-  />
+  {#await import("./lib/TrashDialog.svelte") then m}
+    <m.default
+      onclose={() => (showTrash = false)}
+      onrestored={(id) => {
+        showTrash = false;
+        jump(id);
+      }}
+    />
+  {/await}
 {/if}
 
 <div class="toast-wrap">
