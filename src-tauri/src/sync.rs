@@ -6,7 +6,7 @@ use serde::Serialize;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
 
 /// Network operations give up after this long (10 s when quitting).
@@ -29,6 +29,8 @@ pub struct GitState {
     pub finished: AtomicBool,
     /// Bumped whenever the timer is (re)started; stale timer threads exit.
     pub generation: AtomicU64,
+    /// The running timer thread, woken on reconfigure so it exits at once.
+    timer: Mutex<Option<std::thread::Thread>>,
 }
 
 #[derive(Debug, Clone, Serialize, Default)]
@@ -96,20 +98,31 @@ pub async fn locked<T: Send + 'static>(
 pub fn configure(app: AppHandle, state: &GitState, enabled: bool, interval_min: u32) {
     state.enabled.store(enabled, Ordering::SeqCst);
     let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+    if let Some(old) = state.timer.lock().unwrap().take() {
+        old.unpark();
+    }
     if !enabled || interval_min == 0 {
         return;
     }
     let period = Duration::from_secs(u64::from(interval_min) * 60);
-    std::thread::spawn(move || loop {
-        std::thread::sleep(period);
+    let handle = std::thread::spawn(move || loop {
+        let deadline = Instant::now() + period;
         let state = app.state::<crate::state::AppState>();
-        if state.git.generation.load(Ordering::SeqCst) != gen {
+        let stale = || state.git.generation.load(Ordering::SeqCst) != gen;
+        while let Some(left) = deadline.checked_duration_since(Instant::now()) {
+            if stale() {
+                return;
+            }
+            std::thread::park_timeout(left);
+        }
+        if stale() {
             return;
         }
         if let Err(e) = app.emit("git-tick", ()) {
             eprintln!("git-tick: {e}");
         }
     });
+    *state.timer.lock().unwrap() = Some(handle.thread().clone());
 }
 
 /// Whether a close/exit waits for a final sync; the first call emits `git-quit` and holds it.
