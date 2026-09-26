@@ -69,6 +69,8 @@ function hasMarkers(body: string): boolean {
 
 class Store {
   path = $state<string | null>(null);
+  /** The last project is being reopened at launch; the welcome screen waits for it. */
+  restoring = $state(!!localStorage.getItem(LAST_KEY));
   notes = $state<Note[]>([]);
   viewport = $state<Viewport>({ x: 0, y: 0, zoom: 1 });
   tagColors = $state<Record<string, string>>({});
@@ -625,7 +627,11 @@ class Store {
   /** Reopen whatever was open last time (called once at startup). */
   async restore() {
     const last = localStorage.getItem(LAST_KEY);
-    if (last) await this.openRef(last);
+    try {
+      if (last) await this.openRef(last);
+    } finally {
+      this.restoring = false;
+    }
   }
 
   close() {
@@ -633,6 +639,7 @@ class Store {
     void backend.unwatchProject();
     if (this.syncs) void backend.gitConfigure(false, this.gitInterval);
     localStorage.removeItem(LAST_KEY);
+    this.restoring = false;
     this.path = null;
     this.notes = [];
     this.selectedId = null;

@@ -534,9 +534,7 @@
   onMount(() => {
     const unsub = backend.subscribe((m) => store.applySync(m));
     const unwatch = backend.onProjectChanged((c) => store.applyExternal(c));
-    const ungit = standaloneId
-      ? () => {}
-      : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.tick() : store.quitSync(reason)));
+    const ungit = standaloneId ? () => {} : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.tick() : store.quitSync(reason)));
     if (standaloneId && standalonePath) {
       store.syncs = false;
       store.open(standalonePath).then(() => store.select(standaloneId));
@@ -747,6 +745,8 @@
       {/if}
     {/if}
   </div>
+{:else if store.restoring}
+  <div class="welcome" data-tauri-drag-region={isMobile ? undefined : true}></div>
 {:else}
   <div class="welcome" data-tauri-drag-region={isMobile ? undefined : true}>
     <div class="card">

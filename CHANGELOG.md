@@ -20,6 +20,8 @@ All notable changes to Dagobert are documented here. The format follows
 - Git sync no longer checks the remote while the app sits unused in the background; it catches up when you come back.
 - Files that haven't changed are no longer rewritten on save.
 - Update checks wait until the app has finished starting, and a downloaded update no longer sits in memory.
+- Faster launch: a smaller app bundle, and plain note titles skip the markdown renderer.
+- No welcome-screen flash while the last project reopens at launch.
 
 ## [0.9.0] - 2026-09-25
 
