@@ -1,5 +1,6 @@
 <script lang="ts">
   import { setContext, untrack, type Component, type Snippet } from "svelte";
+  import { fade } from "svelte/transition";
   import { TILES, layout, saveLayout, setLayout, type TilesHandle } from "./panes.svelte";
   import {
     POPUP,
@@ -189,7 +190,7 @@
 </div>
 
 {#if preview}
-  <div class="drop" style={at(preview)}></div>
+  <div class="drop" style={at(preview)} transition:fade={{ duration: 100 }}></div>
 {/if}
 
 {#if menu}
