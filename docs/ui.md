@@ -15,8 +15,11 @@ dialogs/popovers, icons, or CI/release.
   dialogs. Test: `tests/keys.test.mjs`.
 - `menu.ts` — builds the native app menu from `paletteActions` in `App.svelte` (each
   `Action` has `id`, `menu` section, optional `menuLabel`, `hint` → accelerator,
-  `enabled`). Rebuilt only when `menuSignature` or the appearance changes; menu closures
-  must read live state (`store.selected`) rather than captured values. A menu accelerator
+  `enabled`). Updated only when `menuSignature` or the appearance changes: when just
+  labels or enabled flags differ the live items are patched (`setText` / `setEnabled`),
+  otherwise it's rebuilt and the old menu's native resources are closed. Items run the
+  latest action with their id, and closures must read live state (`store.selected`)
+  rather than captured values. A menu accelerator
   and the window `keydown` handler can both fire for one key, so actions run through
   `once(id, fn)` (150 ms dedupe) and `store.undo/redo` dedupe themselves. The Edit menu
   keeps the native Cut/Copy/Paste/SelectAll items; menu Undo/Redo call `execCommand`

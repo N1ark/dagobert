@@ -1,4 +1,4 @@
-import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, type PredefinedMenuItemOptions } from "@tauri-apps/api/menu";
 import { sfSymbolImage } from "./sfsymbol";
 import { inTauri, isMobile } from "./backend";
 import type { Action } from "./QuickOpen.svelte";
@@ -38,17 +38,62 @@ export function menuSignature(actions: Action[]): string {
     .join("\n");
 }
 
-/** Rebuild the app menu from the palette actions, grouped by `action.menu`. */
-export async function setAppMenu(actions: Action[]) {
-  if (!inTauri || isMobile) return;
+type Entry = MenuItem | IconMenuItem | PredefinedMenuItem | Submenu;
+type Item = Entry | Menu;
+
+/** The live menu: its layout, its items by action id, and every native resource it holds. */
+let live: {
+  layout: string;
+  items: Map<string, { item: MenuItem | IconMenuItem; text: string; enabled: boolean }>;
+  resources: Item[];
+} | null = null;
+/** Latest actions by id, so menu items always run the current closure. */
+const current = new Map<string, Action>();
+let queue = Promise.resolve();
+
+/** Show the palette actions in the app menu, grouped by `action.menu`; calls run in order. */
+export function setAppMenu(actions: Action[]): Promise<void> {
+  if (!inTauri || isMobile) return Promise.resolve();
+  const run = queue.then(() => apply(actions));
+  queue = run.catch(() => {});
+  return run;
+}
+
+async function apply(actions: Action[]) {
+  current.clear();
+  for (const a of actions) if (a.menu) current.set(a.id, a);
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const layout = `${dark}|${[...current.values()].map((a) => `${a.menu}|${a.id}|${a.hint}|${a.symbol}`).join("\n")}`;
+  // Same items in the same places: only labels and enabled flags changed, so patch those.
+  if (live?.layout === layout) {
+    const ops: Promise<void>[] = [];
+    for (const a of current.values()) {
+      const l = live.items.get(a.id)!;
+      const text = a.menuLabel ?? a.label;
+      const enabled = a.enabled !== false;
+      if (l.text !== text) ops.push(l.item.setText((l.text = text)));
+      if (l.enabled !== enabled) ops.push(l.item.setEnabled((l.enabled = enabled)));
+    }
+    await Promise.all(ops);
+    return;
+  }
+  const next = { layout, items: new Map(), resources: [] as Item[] };
+  const keep = <T extends Item>(r: T) => (next.resources.push(r), r);
+  await build(actions, dark, next.items, keep);
+  const old = live;
+  live = next;
+  // The old menu is no longer shown; free its native items.
+  if (old) await Promise.all(old.resources.map((r) => r.close().catch(() => {})));
+}
+
+async function build(actions: Action[], dark: boolean, handles: NonNullable<typeof live>["items"], keep: <T extends Item>(r: T) => T) {
   const groups = new Map<string, Action[]>();
   for (const a of actions) {
     if (!a.menu) continue;
     (groups.get(a.menu) ?? groups.set(a.menu, []).get(a.menu)!).push(a);
   }
   // SF Symbols, tinted for the current appearance (the menu bar follows the system).
-  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const items = async (list: Action[]): Promise<(MenuItem | IconMenuItem | PredefinedMenuItem)[]> =>
+  const items = async (list: Action[]): Promise<(MenuItem | IconMenuItem)[]> =>
     Promise.all(
       list.map(async (a) => {
         const base = {
@@ -56,62 +101,45 @@ export async function setAppMenu(actions: Action[]) {
           text: a.menuLabel ?? a.label,
           accelerator: accelerator(a.hint),
           enabled: a.enabled !== false,
-          action: () => a.run(),
+          action: () => current.get(a.id)?.run(),
         };
         const icon = a.symbol ? await sfSymbolImage(a.symbol, dark) : null;
-        return icon ? IconMenuItem.new({ ...base, icon }) : MenuItem.new(base);
+        const item = keep(await (icon ? IconMenuItem.new({ ...base, icon }) : MenuItem.new(base)));
+        handles.set(a.id, { item, text: base.text, enabled: base.enabled });
+        return item;
       }),
     );
 
-  // The app menu is native apart from its own actions (Settings…), placed after About.
-  const app = await Submenu.new({
-    text: t(SECTIONS.App),
-    items: [
-      await PredefinedMenuItem.new({ item: { About: null } }),
-      await PredefinedMenuItem.new({ item: "Separator" }),
-      ...(await items(groups.get("App") ?? [])),
-      await PredefinedMenuItem.new({ item: "Separator" }),
-      await PredefinedMenuItem.new({ item: "Services" }),
-      await PredefinedMenuItem.new({ item: "Separator" }),
-      await PredefinedMenuItem.new({ item: "Hide" }),
-      await PredefinedMenuItem.new({ item: "HideOthers" }),
-      await PredefinedMenuItem.new({ item: "ShowAll" }),
-      await PredefinedMenuItem.new({ item: "Separator" }),
-      await PredefinedMenuItem.new({ item: "Quit" }),
-    ],
-  });
+  const native = async (item: PredefinedMenuItemOptions["item"]) => keep(await PredefinedMenuItem.new({ item }));
+  const submenu = async (text: string, items: Entry[]) => keep(await Submenu.new({ text, items }));
 
-  const submenus = [app];
+  // The app menu is native apart from its own actions (Settings…), placed after About.
+  const submenus = [
+    await submenu(t(SECTIONS.App), [
+      await native({ About: null }),
+      await native("Separator"),
+      ...(await items(groups.get("App") ?? [])),
+      await native("Separator"),
+      await native("Services"),
+      await native("Separator"),
+      await native("Hide"),
+      await native("HideOthers"),
+      await native("ShowAll"),
+      await native("Separator"),
+      await native("Quit"),
+    ]),
+  ];
   for (const name of ORDER) {
     if (name === "App") continue;
-    const list = groups.get(name) ?? [];
-    const entries = await items(list);
-    if (name === "Edit") {
-      entries.push(
-        await PredefinedMenuItem.new({ item: "Separator" }),
-        await PredefinedMenuItem.new({ item: "Cut" }),
-        await PredefinedMenuItem.new({ item: "Copy" }),
-        await PredefinedMenuItem.new({ item: "Paste" }),
-        await PredefinedMenuItem.new({ item: "SelectAll" }),
-      );
-    }
-    if (name === "File") {
-      entries.push(await PredefinedMenuItem.new({ item: "Separator" }), await PredefinedMenuItem.new({ item: "CloseWindow" }));
-    }
+    const entries: Entry[] = await items(groups.get(name) ?? []);
+    if (name === "Edit")
+      entries.push(await native("Separator"), await native("Cut"), await native("Copy"), await native("Paste"), await native("SelectAll"));
+    if (name === "File") entries.push(await native("Separator"), await native("CloseWindow"));
     if (!entries.length) continue;
-    submenus.push(await Submenu.new({ text: t(SECTIONS[name]), items: entries }));
+    submenus.push(await submenu(t(SECTIONS[name]), entries));
   }
-  submenus.push(
-    await Submenu.new({
-      text: t("menu.window"),
-      items: [
-        await PredefinedMenuItem.new({ item: "Minimize" }),
-        await PredefinedMenuItem.new({ item: "Maximize" }),
-        await PredefinedMenuItem.new({ item: "Fullscreen" }),
-      ],
-    }),
-  );
+  submenus.push(await submenu(t("menu.window"), [await native("Minimize"), await native("Maximize"), await native("Fullscreen")]));
 
-  const menu = await Menu.new({ items: submenus });
+  const menu = keep(await Menu.new({ items: submenus }));
   await menu.setAsAppMenu();
 }
