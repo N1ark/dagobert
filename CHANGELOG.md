@@ -11,6 +11,10 @@ All notable changes to Dagobert are documented here. The format follows
 - Align selected notes from the right-click menu.
 - The minimap shows the links between notes.
 
+### Changed
+
+- Hovering anywhere on a PR or issue link shows its status, not just on the icon.
+
 ## [0.9.0] - 2026-09-25
 
 ### Added
