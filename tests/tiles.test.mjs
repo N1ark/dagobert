@@ -8,6 +8,7 @@ const only =
   (id) =>
     ids.includes(id);
 /** The tree as nested arrays of ids, sizes rounded, to compare shapes. */
+const near = (a, b) => assert.ok(Math.abs(a - b) <= 1, `${a} ≉ ${b}`);
 const shape = (t) => ("kids" in t ? { [t.dir]: t.kids.map(shape) } : t.id);
 
 test("the default layout is valid, and a broken one isn't", () => {
@@ -98,6 +99,36 @@ test("a drop that would leave the pane where it is isn't one", () => {
   assert.ok(moves(l, "note", { side: "bottom", at: "trash" }, all));
   // A closed pane in between doesn't count.
   assert.ok(!moves(l, "trash", { side: "right", at: "canvas" }, only("canvas", "trash")));
+});
+
+test("closing a panel gives its room to the tile it came from, else the canvas, so the others stay put", () => {
+  const box = { x: 0, y: 0, w: 1402, h: 600 };
+  const rects = (l, open) => arrange(visible(l.tree, open), box).rects;
+  const full = rects(DEFAULT_LAYOUT, all);
+  near(rects(DEFAULT_LAYOUT, only("canvas", "prs")).get("prs").w, full.get("prs").w);
+  near(rects(DEFAULT_LAYOUT, only("canvas", "note")).get("note").w, full.get("note").w);
+  const l = place(DEFAULT_LAYOUT, "trash", { side: "right", at: "note" }, all);
+  const shut = rects(l, only("canvas", "prs", "note"));
+  near(shut.get("canvas").w, full.get("canvas").w);
+  near(shut.get("note").w, full.get("note").w);
+});
+
+test("a divider moved while a panel is closed leaves that panel's size alone", () => {
+  const l = structuredClone(DEFAULT_LAYOUT);
+  const box = { x: 0, y: 0, w: 1402, h: 600 };
+  const noteW = arrange(visible(l.tree, all), box).rects.get("note").w;
+  const [h] = arrange(visible(l.tree, only("canvas", "prs")), box).handles;
+  resize(h, 300, h.a.size + h.b.size);
+  const { rects } = arrange(visible(l.tree, all), box);
+  near(rects.get("note").w, noteW);
+  near(rects.get("prs").w, h.lenA + 300);
+});
+
+test("a pane dropped beside the canvas while a panel is closed leaves that panel's size alone", () => {
+  const box = { x: 0, y: 0, w: 1402, h: 600 };
+  const noteW = arrange(visible(DEFAULT_LAYOUT.tree, all), box).rects.get("note").w;
+  const l = place(DEFAULT_LAYOUT, "trash", { side: "right", at: "canvas" }, only("canvas", "prs", "trash"));
+  near(arrange(visible(l.tree, all), box).rects.get("note").w, noteW);
 });
 
 test("a tile too small for the window is brought up to the minimum", () => {

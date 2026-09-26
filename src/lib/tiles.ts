@@ -9,8 +9,8 @@ export type Split = { dir: "row" | "col"; kids: Tile[]; size: number };
 export type Tile = Leaf | Split;
 export type Layout = { tree: Tile; popups: Pane[] };
 export type Rect = { x: number; y: number; w: number; h: number };
-/** A visible tile; `src` is the node in the layout that owns its size. */
-export type Shown = { size: number; src: Tile } & ({ id: Id } | { dir: "row" | "col"; kids: Shown[] });
+/** A visible tile; `src` is the node in the layout that owns its size, `parts` every node whose room it shows, with their sizes. */
+export type Shown = { size: number; src: Tile; parts: [Tile, number][] } & ({ id: Id } | { dir: "row" | "col"; kids: Shown[] });
 /** Where a dragged pane lands: against a side of a tile, of the whole layout (`at: null`), or over it. */
 export type Drop = { side: Side; at: Id | null } | "popup";
 /** The divider between two neighbouring tiles, with their lengths when it was laid out. */
@@ -63,13 +63,27 @@ export function valid(l: unknown): l is Layout {
   return JSON.stringify(ids) === JSON.stringify([...PANES, "canvas"].sort());
 }
 
+/** The open sibling a closed tile's room goes to: the one it took it from, else the canvas's side; else it's shared out. */
+function heir(s: Split, k: Tile, open: (id: Id) => boolean): Tile | undefined {
+  const holding = (id: Id) => s.kids.find((o) => o !== k && find(o, id) && visible(o, open));
+  return (!isSplit(k) && k.from && holding(k.from)) || holding("canvas");
+}
+
 /** The tree with only the open tiles; a split left holding one tile gives way to it. */
 export function visible(t: Tile, open: (id: Id) => boolean): Shown | null {
-  if (!isSplit(t)) return open(t.id) ? { id: t.id, size: t.size, src: t } : null;
-  const kids = t.kids.map((k) => visible(k, open)).filter((k): k is Shown => !!k);
+  const own = (): Pick<Shown, "size" | "src" | "parts"> => ({ size: t.size, src: t, parts: [[t, t.size]] });
+  if (!isSplit(t)) return open(t.id) ? { id: t.id, ...own() } : null;
+  const shown = t.kids.map((k) => visible(k, open));
+  const kids = shown.filter((k): k is Shown => !!k);
   if (!kids.length) return null;
-  if (kids.length === 1) return { ...kids[0], size: t.size, src: t };
-  return { dir: t.dir, kids, size: t.size, src: t };
+  t.kids.forEach((k) => {
+    const to = !visible(k, open) && shown[t.kids.indexOf(heir(t, k, open)!)];
+    if (!to) return;
+    to.size += k.size;
+    to.parts.push([k, k.size]);
+  });
+  if (kids.length === 1) return { ...kids[0], ...own() };
+  return { dir: t.dir, kids, ...own() };
 }
 
 /** Each visible tile's rect inside `r`, and the dividers between them. */
@@ -106,12 +120,21 @@ export function arrange(t: Shown, r: Rect, out = { rects: new Map<Id, Rect>(), h
   return out;
 }
 
+/** Sizes a shown tile's `parts` to `n`, out of its own room down to `floor`, and only then out of the closed tiles it's holding. */
+function fill(parts: Shown["parts"], n: number, floor: number) {
+  const [[src, own], ...held] = parts;
+  const lent = held.reduce((sum, [, s]) => sum + s, 0);
+  const keep = Math.max(n - lent, Math.min(own, floor));
+  src.size = keep;
+  for (const [t, s] of held) t.size = (s * (n - keep)) / lent;
+}
+
 /** Moves the divider `h` by `d` pixels; `total` is its two tiles' weights when the drag began. */
 export function resize(h: Handle, d: number, total: number) {
   const len = h.lenA + h.lenB;
   const a = Math.max(Math.min(MIN, len / 2), Math.min(len - Math.min(MIN, len / 2), h.lenA + d));
-  h.a.src.size = (total * a) / len;
-  h.b.src.size = total - h.a.src.size;
+  fill(h.a.parts, (total * a) / len, (total * MIN) / len);
+  fill(h.b.parts, total - (total * a) / len, (total * MIN) / len);
 }
 
 /** What a drop at (x, y), inside a layout `w` by `h` laid out as `rects`, would do with `pane`. */
@@ -227,11 +250,14 @@ export function place(from: Layout, pane: Pane, drop: Drop, open: (id: Id) => bo
     const host = beside ? p : (target as Split);
     // On the layout's edge the room comes out of the canvas's side, so the other panels keep their size.
     const lender = beside ? target : host.kids.find((k) => find(k, "canvas"))!;
-    // Weighed against what's showing, so a hidden sibling doesn't shrink or swell it.
-    const shownTotal = host.kids.filter((k) => visible(k, open)).reduce((n, k) => n + k.size, 0);
-    const size = beside ? lender.size * f : Math.min(shownTotal * f, lender.size / 2);
+    // Along with the room of the closed tiles it's showing.
+    const held = host.kids.filter((k) => !visible(k, open) && heir(host, k, open) === lender);
+    const parts = [lender, ...held].map((k): [Tile, number] => [k, k.size]);
+    const room = parts.reduce((n, [, s]) => n + s, 0);
+    const total = host.kids.reduce((n, k) => n + k.size, 0);
+    const size = beside ? room * f : Math.min(total * f, room / 2);
+    fill(parts, room - size, lender.size / 2);
     const leaf: Leaf = { id: pane, size, from: beside ? drop.at! : "canvas" };
-    lender.size -= size;
     const at = beside ? host.kids.indexOf(target) + (first(drop.side) ? 0 : 1) : first(drop.side) ? 0 : host.kids.length;
     host.kids.splice(at, 0, leaf);
     return l;
