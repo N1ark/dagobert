@@ -42,6 +42,22 @@ test("moving a pane away folds the split it leaves", () => {
   assert.deepEqual(shape(back.tree), { row: ["prs", "note", "canvas", "trash"] });
 });
 
+test("moving a pane only resizes the tile it splits, and gives the room back when it leaves", () => {
+  const sizes = (l) => Object.fromEntries(l.tree.kids.map((k) => [k.id, +k.size.toFixed(6)]));
+  let l = place(DEFAULT_LAYOUT, "prs", { side: "left", at: null }, all);
+  const start = sizes(l);
+  for (const [d, lender] of [
+    [{ side: "right", at: "canvas" }, "canvas"],
+    [{ side: "left", at: "note" }, "note"],
+    [{ side: "right", at: null }, "canvas"],
+  ]) {
+    l = place(l, "trash", d, all);
+    for (const [id, size] of Object.entries(sizes(l))) if (id !== lender && id !== "trash") assert.equal(size, start[id]);
+    l = place(l, "trash", "popup", all);
+    assert.deepEqual(sizes(l), start);
+  }
+});
+
 test("tiles fill the layout, with a divider between each", () => {
   const { rects, handles } = arrange(visible(DEFAULT_LAYOUT.tree, all), { x: 0, y: 0, w: 1002, h: 600 });
   assert.deepEqual(rects.get("prs"), { x: 0, y: 0, w: 220, h: 600 });

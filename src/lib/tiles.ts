@@ -2,7 +2,8 @@
 export type Pane = "note" | "prs" | "trash" | "settings";
 export type Id = Pane | "canvas";
 export type Side = "left" | "right" | "top" | "bottom";
-export type Leaf = { id: Id; size: number };
+/** `from` is the tile a dropped pane took its room from, and gives it back to when it moves away. */
+export type Leaf = { id: Id; size: number; from?: Id };
 /** `size` is a weight against the siblings; a row lays its kids out left to right, a column top to bottom. */
 export type Split = { dir: "row" | "col"; kids: Tile[]; size: number };
 export type Tile = Leaf | Split;
@@ -186,6 +187,8 @@ function detach(l: Layout, pane: Pane) {
   const p = leaf && parentOf(l.tree, leaf);
   if (!leaf || !p) return;
   p.kids.splice(p.kids.indexOf(leaf), 1);
+  const lender = leaf.from && p.kids.find((k) => find(k, leaf.from!));
+  if (lender) lender.size += leaf.size;
   if (p.kids.length > 1) return;
   const only = p.kids[0];
   only.size = p.size;
@@ -213,12 +216,16 @@ export function place(from: Layout, pane: Pane, drop: Drop, open: (id: Id) => bo
   if (!target) return from;
   const p = parentOf(l.tree, target);
   if (p?.dir === dir || (drop.at === null && isSplit(target) && target.dir === dir)) {
-    const host = p?.dir === dir ? p : (target as Split);
+    const beside = p?.dir === dir;
+    const host = beside ? p : (target as Split);
+    // On the layout's edge the room comes out of the canvas's side, so the other panels keep their size.
+    const lender = beside ? target : host.kids.find((k) => find(k, "canvas"))!;
     // Weighed against what's showing, so a hidden sibling doesn't shrink or swell it.
     const shownTotal = host.kids.filter((k) => visible(k, open)).reduce((n, k) => n + k.size, 0);
-    const leaf: Leaf = { id: pane, size: host === p ? target.size * f : (shownTotal * f) / (1 - f) };
-    if (host === p) target.size -= leaf.size;
-    const at = host === p ? host.kids.indexOf(target) + (first(drop.side) ? 0 : 1) : first(drop.side) ? 0 : host.kids.length;
+    const size = beside ? lender.size * f : Math.min(shownTotal * f, lender.size / 2);
+    const leaf: Leaf = { id: pane, size, from: beside ? drop.at! : "canvas" };
+    lender.size -= size;
+    const at = beside ? host.kids.indexOf(target) + (first(drop.side) ? 0 : 1) : first(drop.side) ? 0 : host.kids.length;
     host.kids.splice(at, 0, leaf);
     return l;
   }

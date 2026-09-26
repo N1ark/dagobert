@@ -49,6 +49,7 @@
 <div
   class="dock"
   class:popup={!rect}
+  class:movable={!!tiles}
   class:fit={!rect && size.fit}
   style:left={rect && `${rect.x}px`}
   style:top={rect && `${rect.y}px`}
@@ -79,6 +80,14 @@
     margin: auto;
     border-radius: 10px;
     box-shadow: var(--shadow-lg);
+  }
+  /* The header is a title bar: it drags the panel wherever there's no control. */
+  .movable > :global(* > header) {
+    cursor: grab;
+    transition: background 0.15s;
+  }
+  .movable > :global(* > header:hover:not(:has(:is(button, input, select, textarea, a, label, [contenteditable]):hover))) {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
   /* Whatever is inside fills the dock. */
   .dock > :global(*) {
