@@ -19,16 +19,15 @@ broken.
 
 ## Rust
 
-- `state.rs` holds `Recent` and `AppState` and is compiled everywhere. `watch.rs` is
-  `#[cfg(desktop)]`, because `notify` is declared only for the desktop targets.
-- `watch_project` / `unwatch_project` are commands on **every** target with no-op bodies
-  on mobile: `generate_handler!` won't take `cfg` on its entries, and a no-op also means
-  `backend.ts` needs no branch.
+- `state.rs` holds `Recent` and `AppState` and is compiled everywhere. `watch.rs` and
+  `update.rs` are `#[cfg(desktop)]`, because `notify` and the updater plugin are declared
+  only for the desktop targets; `keyboard.rs` is iOS-only.
+- `watch_project` / `unwatch_project` / `update_check` / `update_install` are commands on
+  **every** target with no-op bodies on mobile: `generate_handler!` won't take `cfg` on
+  its entries.
 - Quit interception (`on_window_event`, `ExitRequested`, `sync::intercept_quit`) is
   desktop-only; `git_quit` and `sync::finish_quit` still compile everywhere, and nothing
   emits `git-quit` on mobile, so the frontend listener is inert.
-- `git2` is built without the `ssh` feature on every target (HTTPS only), so libssh2 is
-  never in the build.
 - `capabilities/default.json` is `"platforms": ["macOS", "windows", "linux"]` — without
   that, a capability with no `platforms` applies to every target and `mobile.json` would
   add permissions rather than replace them. `mobile.json` keeps `core:default` (the event
@@ -36,22 +35,21 @@ broken.
   the dialog and window permissions. Anything dropped must also be branched in
   `backend.ts`, or the call rejects at runtime.
 
-## Projects and credentials
+## Projects
 
 There is no folder picker, so projects live in `app_data_dir()/projects`:
-`list_projects`, `project_path` and `clone_project`. The phone only ever **clones** — a
-project is always created on the Mac. `clone_project` writes `user.name` / `user.email`
-into the new repository, since there is no `~/.gitconfig` to fall back on.
+`list_projects` (the welcome screen), `project_path` and `clone_project`. The phone only
+ever **clones** — a project is always created on the Mac. `CloneDialog` needs a sign-in,
+lists the repos the GitHub App can reach (`listRepos`), clones with the session's token
+and writes its name / email into the new repository as `user.name` / `user.email` (there
+is no `~/.gitconfig` to fall back on), then turns tracking on.
 
 `store.recent` and the last-open key hold the project **name** on mobile (the container
 path carries a UUID that changes on reinstall); `openRef` resolves it through
 `project_path`. Desktop keeps absolute paths.
 
-Credentials: `pick_cred` offers the signed-in token for `USER_PASS_PLAINTEXT` and
-nothing else — the desktop works the same way. The token is threaded from the frontend
-through `git_sync` / `git_quit` → `sync::cycle` → `git::fetch` / `git::push` and is never
-written to disk by Rust. `secrets.ts` is the one place it and the GitHub API token live
-(`localStorage` for now; a keychain plugin would replace the backing there alone).
+Credentials work as on the desktop ([storage-and-sync.md](storage-and-sync.md),
+[github.md](github.md)).
 
 ## Lifecycle
 
@@ -59,9 +57,9 @@ There is no quit on iOS. `App.svelte` listens on `visibilitychange`:
 
 - **Foreground** → `store.resume()`: re-arm the tick timer (the OS froze the thread) and
   run a full sync. This is the reliable one.
-- **Background** → `store.suspend()`: flush saves, then push. Best-effort — iOS suspends
-  JS within about a second and neither step is synchronous. Nothing is lost: the commit
-  happens on the next foreground.
+- **Background** → `store.suspend()`: flush saves, then a full sync. Best-effort — iOS
+  suspends JS within about a second and neither step is synchronous. Nothing is lost:
+  the commit happens on the next foreground.
 
 The file watcher is gone, so a pull's rewrites are read back by `store.reloadFromDisk()`,
 called from `syncNow` when `SyncReport.pulled` is `fast-forward` or `merging`. It re-reads
@@ -90,20 +88,21 @@ its own mobile treatment. To add one:
 The sheet settles on the stop a flick throws it at rather than the nearest one, gives a
 little above its top stop and springs back, and dims what it covers with a `.scrim` whose
 opacity follows the drag. It reads its own position out of the live transform, so a
-gesture that starts mid-animation picks the sheet up where it is. Below its top stop, any drag on the
-contents moves the sheet in either direction (a non-passive `touchmove` keeps iOS from
-starting a scroll, which would cancel the pointer); at the top, the contents scroll first
-and only a downward drag from their top takes the sheet. `--sheet-top` is
-registered with `@property` because `getComputedStyle` hands an unregistered custom
-property its `calc()` back unevaluated.
+gesture that starts mid-animation picks the sheet up where it is. Below its top stop,
+any drag on the contents moves the sheet in either direction (a non-passive `touchmove`
+keeps iOS from starting a scroll, which would cancel the pointer); at the top, the
+contents scroll first and only a downward drag from their top takes the sheet.
+`--sheet-top` is registered with `@property` because `getComputedStyle` hands an
+unregistered custom property its `calc()` back unevaluated.
 
-The floating actions ride above a peeking sheet (`.bottombar.raised`) and drop away under
-a full one (`.tucked`); the grabber styling and the scrim are shared classes in
-`app.css`, used by `Sheet.svelte` and by the context menu's action sheet alike.
+The floating bottom bar follows the sheet frame by frame through `--sheet-lift` /
+`--sheet-dim`, which `Sheet.svelte` sets on the root, and drops away under a full one
+(`.tucked`). The grabber (`.grab`) and `.scrim` are shared classes in `app.css`, used by
+`Sheet.svelte` and by the context menu's action sheet alike.
 
-`.dialog.bare` is the no-chrome form (`app.css` also strips the safe-area padding it would
-otherwise inherit from the full-screen dialog rule). Small confirmations that don't fill
-the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
+`.dialog.bare` is the no-chrome form a sheet renders (`app.css` also strips the safe-area
+padding it would otherwise inherit from the full-screen dialog rule). Dialogs that aren't
+panels — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
 
 ## Touch
 
@@ -115,8 +114,6 @@ the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
 - A plain drag on a note **pans the canvas**; holding it (`HOLD_MS`) arms the drag.
   Holding and lifting without moving opens the context menu, which is rendered as a
   bottom action sheet. Holding the background opens it directly.
-- Double-tap is paired in `onTap` rather than left to `dblclick`, which is unreliable
-  under pointer capture with `touch-action: none`.
 - A flick leaves momentum behind: `flickVelocity` reads the last few pointer samples and
   `stepGlide` decays it once per frame, stopping early when the viewport clamp refuses
   the move. Touch only — a mouse drag is expected to stop where it was let go.
@@ -128,13 +125,12 @@ the screen — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
 
 ## Layout
 
-The note panel is a bottom sheet (`.panel-wrap.sheet`, peek or `.full`, dragged by the
-grabber in `App.svelte`); on desktop the same wrapper is `display: contents` so the flex
-row is unchanged. The toolbar keeps new note, search, tags and git and sends the rest to
-the commands palette — the same `paletteActions` registry an overflow menu would read.
-Dialogs, the PR pane and the context menu go full-width from `app.css`. The grain shader
-is off by default (battery). Safe areas come from `--safe-*`, the software keyboard from
-`--kb` (`visualViewport`, set in `main.ts`); fields are forced to 16px, below which Safari
+The toolbar keeps git, tags, the minimap toggle and a button for the commands palette
+(`paletteActions`), which holds everything else; search, new note and PRs sit in the
+floating bottom bar. The palette docks to the bottom edge, field last, and rides up with
+the keyboard. Dialogs go full-screen and the context menu becomes an action sheet from
+`app.css`. The grain shader is off by default (battery). Safe areas come from `--safe-*`,
+the software keyboard from `--kb` (below); fields are forced to 16px, below which Safari
 zooms the page on focus.
 
 ## Building
@@ -175,10 +171,9 @@ project fails — always go through the CLI. `TAURI_DEV_HOST=<lan-ip> npm run ta
 for a physical device, which also needs `bundle.iOS.developmentTeam` in `tauri.conf.json`
 (or `APPLE_DEVELOPMENT_TEAM`); the simulator needs neither a team nor signing.
 
-The app builds, installs, launches and renders in the simulator. GUI interaction needs
-`Simulator.app`, which a partial Xcode install may not have shipped yet even though the
-SDKs and `simctl` work; `xcrun simctl boot`, `install`, `launch` and `io … screenshot`
-drive it headlessly either way.
+Without `Simulator.app` (a partial Xcode install may lack it even though the SDKs work),
+`xcrun simctl boot`, `install`, `launch` and `io … screenshot` drive the simulator
+headlessly.
 
 ### Onto a phone
 
@@ -205,7 +200,7 @@ xcrun devicectl device install app --device <udid> <path to Dagobert.app>
 xcrun devicectl device process launch --device <udid> com.n1ark.dagobert
 ```
 
-`xcrun xctrace list devices` gives the udid. **`npm run install:ios`** is all of the
+`xcrun devicectl list devices` gives the udid. **`npm run install:ios`** is all of the
 above in one step: it reads the team out of the provisioning profile, picks the first
 paired device (`-- --device <udid>` to choose), builds, installs from the archive at
 `src-tauri/gen/apple/build/dagobert_iOS.xcarchive` and launches. `-- --skip-build`
@@ -216,19 +211,18 @@ supplies (`_register_plugin`, `_on_webview_created`, `_init_plugin_dialog`, …)
 undefined. What fails is the incidental `cdylib` crate-type — the `staticlib` Xcode
 actually consumes is archived, not linked, and the same cdylib links fine in debug — so
 the release profile is somehow losing swift-rs's `libTauri.a`. Unresolved; `-- --release`
-is left in for when it stops. The device must be unlocked, have Developer
-Mode on (Settings → Privacy & Security → Developer Mode, which only appears after an
+is left in for when it stops. The device must be unlocked, have Developer Mode on (Settings → Privacy & Security → Developer Mode, which only appears after an
 install has been attempted, and needs a restart), and the certificate trusted once under
 Settings → General → VPN & Device Management. Each of those surfaces as its own install
 or launch error.
 
-Signing is a free Apple ID: builds run for 7 days and are re-deployed from Xcode, so
-`npm run tauri ios build` is never the delivery step and `release.yml` keeps shipping the
-Mac app only. CI runs `cargo clippy --target aarch64-apple-ios -- -D warnings`, which
-needs no Xcode project, no CocoaPods and no signing, so the `cfg` gating can't rot.
+Signing is a free Apple ID: builds run for 7 days and are re-deployed with
+`npm run install:ios`; `release.yml` ships the Mac app only. CI runs
+`cargo clippy --target aarch64-apple-ios -- -D warnings`, which needs no Xcode project,
+no CocoaPods and no signing, so the `cfg` gating can't rot.
 
 Still to do: a keychain plugin behind `secrets.ts`, and a `beginBackgroundTask` plugin so
-the background push is reliable rather than best-effort.
+the background sync is reliable rather than best-effort.
 
 ## The software keyboard
 
@@ -256,5 +250,5 @@ keyboard, and a drag while typing scrolls the page instead of reaching the sheet
 
 Nothing in the shell scrolls, and nothing should: with `--kb` correct there is nothing to
 scroll out of the way, and a scrolling shell can put the focused field back under the
-keyboard. In the browser dev loop there is no UIKit, so `main.ts` falls back to
-`visualViewport`, which does shrink there.
+keyboard; `main.ts` scrolls the window back to 0 as a net. In the browser dev loop there
+is no UIKit, so `main.ts` falls back to `visualViewport`, which does shrink there.

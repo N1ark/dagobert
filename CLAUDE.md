@@ -42,16 +42,16 @@ The native window can't be screenshotted from the CLI.
   `state.rs` (managed state), `git.rs` / `merge.rs` / `sync.rs` (git tracking),
   `symbols.rs` (SF Symbols), `update.rs` (self-update), `lib.rs` (commands).
 - `src/lib/backend.ts` — wraps `invoke`; in-memory mock in the browser; `isMobile`.
-- `src/lib/secrets.ts` — the GitHub API token and the git push/pull token.
+- `src/lib/secrets.ts` — the GitHub sign-in session (one token for the API and git).
 - `src/lib/store.svelte.ts` — the single `store` instance: notes, viewport, selection,
   graph helpers (`wouldCycle`, `dependents`, `isReady`), debounced saves, undo, git slice.
-- `src/lib/App.svelte` — shell, window keys, palette actions, panel sizes.
+- `src/App.svelte` — shell, window keys, palette actions, panel sizes.
 - `Canvas.svelte`, `NodeCard.svelte`, `Minimap.svelte`, `Grain.svelte` — the graph.
 - `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`, `editor.ts`, `wikilinks.ts` —
   the editor.
 - `github.ts`, `prs.svelte.ts`, `PullRequests.svelte` — GitHub integration.
 - Pure modules with tests in `tests/`: `layout.ts`, `keys.ts`, `i18n.ts`, `highlight.ts`,
-  `fuzzy.ts`, `history.ts`.
+  `fuzzy.ts`, `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`.
 
 Details per area (read the one you're working in):
 
