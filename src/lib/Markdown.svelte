@@ -1,13 +1,17 @@
-<script lang="ts">
+<script lang="ts" module>
   import { marked } from "marked";
+  import { highlightExtension } from "./highlight";
+
+  // Once per app: `use` wraps the renderer again on every call.
+  marked.use(highlightExtension);
+</script>
+
+<script lang="ts">
   import DOMPurify from "dompurify";
   import { renderWikilinks } from "./wikilinks";
   import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
-  import { highlightExtension } from "./highlight";
   import { t } from "./i18n";
-
-  marked.use(highlightExtension);
 
   let { source }: { source: string } = $props();
 

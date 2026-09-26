@@ -535,7 +535,7 @@ class Store {
       this.#applyMeta(p.meta);
       this.tagFilter = [];
       this.#history.clear();
-      this.#last = new Map(p.notes.map((n) => [n.id, structuredClone(n)]));
+      this.#last = new Map(p.notes.map((n) => [n.id, $state.snapshot(n)]));
       this.#disk = new Map(p.notes.map((n) => [n.id, n.body]));
       this.#syncDepths();
       this.viewport = {
@@ -756,7 +756,7 @@ class Store {
       this.notes.push(n);
       this.#disk.set(n.id, n.body);
       this.trash = this.trash.filter((t) => t.file !== file);
-      this.#record("restore", { id: n.id, before: null, after: structuredClone(n) });
+      this.#record("restore", { id: n.id, before: null, after: $state.snapshot(n) });
       backend.broadcast({ type: "note", note: $state.snapshot(n) });
       this.select(n.id);
     } catch (e) {
@@ -873,7 +873,7 @@ class Store {
       // Edits are broadcast as they happen, so the latest message is the truth.
       if (local) Object.assign(local, msg.note);
       else this.notes.push(msg.note);
-      this.#last.set(msg.note.id, structuredClone(msg.note));
+      this.#last.set(msg.note.id, $state.snapshot(msg.note));
       this.#disk.set(msg.note.id, msg.note.body);
     } else if (msg.type === "note-file") {
       const local = this.byId(msg.id);
@@ -909,7 +909,7 @@ class Store {
       // Match by id, so an external rename updates `file` rather than duplicating.
       if (local) Object.assign(local, incoming);
       else this.notes.push(incoming);
-      this.#last.set(incoming.id, structuredClone(incoming));
+      this.#last.set(incoming.id, $state.snapshot(incoming));
       this.#dropDanglingDeps();
     } else if (change.kind === "note-removed") {
       const local = this.notes.find((n) => n.file === change.file);
@@ -993,7 +993,7 @@ class Store {
     if (existing)
       existing.after = diff.after; // keep the earliest "before"
     else this.#pending.diffs.push(diff);
-    if (diff.after) this.#last.set(diff.id, structuredClone(diff.after));
+    if (diff.after) this.#last.set(diff.id, $state.snapshot(diff.after));
     else this.#last.delete(diff.id);
   }
 
@@ -1067,7 +1067,7 @@ class Store {
           this.notes.push(fresh);
           this.save(d.id, true);
         }
-        this.#last.set(d.id, structuredClone(target));
+        this.#last.set(d.id, $state.snapshot(target));
       }
       this.#dropDanglingDeps();
     } finally {
