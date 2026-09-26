@@ -5,6 +5,8 @@
   import { relative, absolute } from "./time";
   import LiveEditor from "./LiveEditor.svelte";
   import LinkPicker from "./LinkPicker.svelte";
+  import DockButton from "./DockButton.svelte";
+  import { tooltip } from "./tooltip";
   import TagColorPicker from "./TagColorPicker.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
@@ -23,7 +25,6 @@
   let tagInput = $state("");
   let confirmDelete = $state(false);
   let picking = $state<string | null>(null);
-  let editingWorkflows = $state(false);
   let adding = $state<string | null>(null);
   // The panel is re-keyed per note, so the initial value is the right one.
   // svelte-ignore state_referenced_locally
@@ -132,16 +133,6 @@
   }
 </script>
 
-{#if editingWorkflows && !isMobile}
-  {#await import("./WorkflowEditor.svelte") then m}
-    <m.default
-      section={note.tracking ? "tracking" : "workflows"}
-      workflow={note.tracking ? null : note.workflow}
-      onclose={() => (editingWorkflows = false)}
-    />
-  {/await}
-{/if}
-
 <aside class="panel" class:standalone bind:this={panelEl}>
   <header>
     {#if progress}
@@ -180,18 +171,21 @@
       {/if}
     </span>
     {#if !standalone && !isMobile}
-      <button
-        class="ghost close"
-        onclick={() => store.openInWindow(note.id)}
-        title={t("panel.openWindow")}
-        aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={16} /></button
-      >
-      <button
-        class="ghost close"
-        onclick={() => store.select(null)}
-        title={t("panel.close", { key: keys.escape })}
-        aria-label={t("panel.close.aria")}><X size={16} /></button
-      >
+      <span class="pane-tools">
+        <DockButton />
+        <button
+          class="ghost icon"
+          onclick={() => store.openInWindow(note.id)}
+          use:tooltip={t("panel.openWindow")}
+          aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={15} /></button
+        >
+        <button
+          class="ghost icon"
+          onclick={() => store.select(null)}
+          use:tooltip={t("panel.close", { key: keys.escape })}
+          aria-label={t("panel.close.aria")}><X size={15} /></button
+        >
+      </span>
     {/if}
   </header>
 
@@ -232,10 +226,7 @@
         </select>
         <button
           class="ghost edit-wf"
-          onclick={() =>
-            isMobile
-              ? store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)
-              : (editingWorkflows = true)}
+          onclick={() => store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)}
           title={t("panel.manageWorkflows")}><GearSix size={15} /></button
         >
       </div>
@@ -346,11 +337,8 @@
 
 <style>
   .panel {
-    flex: none; /* only the canvas gives way when a sidebar opens */
-    width: var(--panel-w);
     height: 100%;
     background: var(--bg2);
-    border-left: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -414,10 +402,6 @@
   .title-md :global(.inline-md) {
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-  .close {
-    font-size: 12px;
-    padding: 4px 8px;
   }
   .workflow-row {
     display: flex;

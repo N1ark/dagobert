@@ -3,19 +3,21 @@
   import type { IssueRef } from "./github";
   import { prCache, linkedRefs, refreshPRs, type Linked } from "./prs.svelte";
   import PrIcon from "./PrIcon.svelte";
+  import DockButton from "./DockButton.svelte";
   import { relative, absolute } from "./time";
   import { tooltip } from "./tooltip";
   import { t, plural } from "./i18n";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import InlineMd from "./InlineMd.svelte";
   import { inlineHtml } from "./inline";
+  import { isMobile } from "./backend";
   import X from "phosphor-svelte/lib/X";
   import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
   import ChatCircle from "phosphor-svelte/lib/ChatCircle";
   import EyeSlash from "phosphor-svelte/lib/EyeSlash";
   import WarningCircle from "phosphor-svelte/lib/WarningCircle";
 
-  let { onclose, onjump, sheet = false }: { onclose: () => void; onjump: (id: string) => void; sheet?: boolean } = $props();
+  let { onclose, onjump }: { onclose: () => void; onjump: (id: string) => void } = $props();
 
   const HIDE_KEY = "dagobert.prsHideClosed";
   let hideClosed = $state(localStorage.getItem(HIDE_KEY) === "1");
@@ -91,7 +93,7 @@
   </div>
 {/snippet}
 
-<aside class="prs" class:bare={sheet}>
+<aside class="prs">
   <header>
     <h3>
       {t("prs.title")}
@@ -102,8 +104,9 @@
       ><EyeSlash size={15} /></button
     >
     <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={t("prs.refresh")}><ArrowsClockwise size={15} /></button>
-    {#if !sheet}
-      <button class="ghost icon" onclick={onclose} aria-label={t("prs.close")}><X size={15} /></button>
+    {#if !isMobile}
+      <DockButton />
+      <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
     {/if}
   </header>
   <div class="list">
@@ -166,23 +169,13 @@
 </aside>
 
 <style>
-  /* Inside the mobile sheet it just fills what it is given. */
-  .prs.bare {
-    width: 100%;
-    border-right: none;
-  }
   .prs {
     -webkit-user-select: none;
     user-select: none;
-    flex: none;
-    width: var(--prs-w, 300px);
     height: 100%;
-    background: var(--bg2);
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    z-index: 2;
   }
   header {
     display: flex;
@@ -202,9 +195,6 @@
     font-weight: 400;
     color: var(--color-dim);
     margin-left: 4px;
-  }
-  .icon {
-    padding: 3px 5px;
   }
   .icon.on {
     color: var(--accent2);

@@ -24,7 +24,6 @@
   --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --dur-sheet: 340ms;
   --toolbar-h: 44px;
-  --panel-w: 440px;
   --safe-top: 0px;
   --safe-bottom: 0px;
   --safe-left: 0px;
@@ -587,7 +586,15 @@ a {
   border-bottom: 1px solid var(--border);
 }
 
+/* A panel header's buttons: the dock button, and whatever else sits by the close. */
+.pane-tools {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
 .dialog h3 {
+  flex: 1;
   margin: 0;
   color: var(--color2);
 }

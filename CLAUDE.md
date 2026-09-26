@@ -45,13 +45,15 @@ The native window can't be screenshotted from the CLI.
 - `src/lib/secrets.ts` — the GitHub sign-in session (one token for the API and git).
 - `src/lib/store.svelte.ts` — the single `store` instance: notes, viewport, selection,
   graph helpers (`wouldCycle`, `dependents`, `isReady`), debounced saves, undo, git slice.
-- `src/App.svelte` — shell, window keys, palette actions, panel sizes.
+- `src/App.svelte` — shell, window keys, palette actions, the panes.
+- `Tiles.svelte`, `Dock.svelte`, `DockButton.svelte`, `tiles.ts`, `panes.svelte.ts` — the
+  desktop's tiled panels (Zed-style splits, or popups); `Sheet.svelte` holds them on a phone.
 - `Canvas.svelte`, `NodeCard.svelte`, `Minimap.svelte`, `Grain.svelte` — the graph.
 - `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`, `editor.ts`, `wikilinks.ts` —
   the editor.
 - `github.ts`, `prs.svelte.ts`, `PullRequests.svelte` — GitHub integration.
 - Pure modules with tests in `tests/`: `layout.ts`, `keys.ts`, `i18n.ts`, `highlight.ts`,
-  `fuzzy.ts`, `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`.
+  `fuzzy.ts`, `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`.
 
 Details per area (read the one you're working in):
 
@@ -63,7 +65,7 @@ Details per area (read the one you're working in):
   wikilinks / mentions, rendering & highlighting, templates.
 - [docs/github.md](docs/github.md) — repo aliases, PR cache, sidebar, icons.
 - [docs/ui.md](docs/ui.md) — shortcuts & native menu, i18n, undo, multiple windows,
-  dialogs/popovers, icons & assets, CI/release, auto-update.
+  panels (tiling), dialogs/popovers, icons & assets, CI/release, auto-update.
 - [docs/mobile.md](docs/mobile.md) — the `isMobile` flag, `cfg(desktop)` gating, sandboxed
   projects, token credentials, the foreground/background lifecycle, touch, phone layout.
 

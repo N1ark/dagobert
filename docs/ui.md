@@ -73,6 +73,36 @@ macOS window uses `titleBarStyle: Overlay`; the toolbar has 84px left padding fo
 traffic lights and `data-tauri-drag-region` (only elements carrying the attribute drag,
 not their children; needs `core:window:allow-start-dragging` in the capability).
 
+## Panels
+
+Note, pull requests, trash and settings are **panes** (`Pane` in `tiles.ts`), and every one
+lives in the same container: `Dock.svelte` on the desktop, `Sheet.svelte` on a phone. A
+component renders only its content (Trash and Settings as `.dialog.bare`); App's `pane`
+snippet picks it, so the same markup goes into either container. `isOpen` / `close` in
+`App.svelte` map each pane to its state (`store.selected`, `showPRs`, …).
+
+On the desktop the canvas and the panes are **tiled**, as in Zed: `Layout.tree` is a tree of
+row / column splits whose leaves are the canvas and the panes, each `size` a weight against
+its siblings; `Layout.popups` holds the panes shown as a centred modal instead (Escape closes
+the topmost). `panes.svelte.ts` keeps it in localStorage. Closed panes stay in the tree:
+`visible` prunes them and folds a split left with one tile, so a pane reopens where it was.
+`arrange` turns the visible tree into rects (1px gaps show `.main`'s border colour as the
+dividers, and no tile is laid out below `MIN`) and the dividers, which `resize` drags.
+
+`Tiles.svelte` owns `.main`: the canvas and every open `Dock` are absolutely positioned
+siblings, so moving a pane (or popping it up) never remounts it or the canvas. A pane is
+dragged by its header (not its controls) or by `DockButton` in it, which also opens the menu
+of the layout's four edges and "Pop up". `dropAt` resolves the pointer to a side of the
+tile under it, a side of the whole layout within 24px of its edge, or a popup from the
+middle of the canvas; `place` detaches the pane and splits there. When the canvas's corner
+moves for any reason but a pane moving, `onshift` shifts the viewport so the graph stays put.
+`DockButton` finds its `Dock` through context and renders nothing outside `Tiles` (in a
+sheet, or the settings popup of a standalone window).
+
+To add a pane: extend `Pane`, `DEFAULT_LAYOUT` (a stored layout missing it is reset) and
+`POPUP`, the `pane` snippet, `isOpen` / `close` and `mobilePanel`, and put `<DockButton />`
+beside its close button.
+
 ## Dialogs and popovers
 
 - Anything shown only on demand (QuickOpen, WorkflowEditor, PullRequests, TrashDialog,
@@ -83,10 +113,10 @@ not their children; needs `core:window:allow-start-dragging` in the capability).
   (`fuzzyMatch`: prefix > word-start > substring > subsequence; `parseQuery`: a leading
   `#tag` filters notes). Commands come from App's `paletteActions` prop so the palette
   stays dumb.
-- `WorkflowEditor.svelte` — settings dialog; `section` picks "workflows", "tracking",
+- `WorkflowEditor.svelte` — the settings pane; `section` picks "workflows", "tracking",
   "github" or "git". `workflows.ts` has `DEFAULT_WORKFLOW` (todo → done, id `""`, never
   stored, name from the locale) and `stageColor`.
-- `TrashDialog.svelte` — lists `trash/` with restore / reveal file / delete forever /
+- `TrashDialog.svelte` — the trash pane; lists `trash/` with restore / reveal file / delete forever /
   empty. `GitDialog.svelte` — see [storage-and-sync.md](storage-and-sync.md).
 - `ColorPicker.svelte` — shared swatch popover (tag and stage colours; `allowAuto` adds an
   "Automatic" swatch). `tags.ts` holds the built-in palette (index 0 is the default) and

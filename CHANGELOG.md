@@ -10,6 +10,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Align selected notes from the right-click menu.
 - The minimap shows the links between notes.
+- Panels (note, pull requests, trash, settings) can be dragged anywhere: beside or under one another, along any edge of the window, or popped up.
 
 ### Changed
 

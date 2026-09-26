@@ -225,7 +225,6 @@ export default {
   "prs.showClosed": "Show closed and merged",
   "prs.hideClosed": "Hide closed and merged",
   "prs.refresh": "Refresh",
-  "prs.close": "close",
   "prs.noRepos": "No repos configured. Add an alias under Tools → GitHub repos…, then write `alias#123` in a note.", // markdown
   "prs.noRefs": "No `alias#123` references in your notes yet.", // markdown
   "prs.allClosed.one": "All {n} linked PR is closed or merged.",
@@ -252,7 +251,6 @@ export default {
 
   // Trash dialog
   "trash.title": "Trash",
-  "trash.close": "close",
   "trash.loading": "Loading…",
   "trash.empty": "Nothing here. Deleted notes are kept in the project's `trash/` folder.", // markdown
   "trash.deleted": "deleted {when}",
@@ -290,7 +288,6 @@ export default {
   "settings.group.workflows": "Workflows",
   "settings.github": "GitHub",
   "settings.git": "Git tracking",
-  "settings.close": "close",
   "settings.nav.todo": "Todo",
   "settings.nav.tracking": "Tracking issue",
   "settings.nav.builtin": "Built-in",
@@ -332,6 +329,14 @@ export default {
   "ctx.dismiss": "Dismiss",
   "panel.sheet.expand": "Expand",
   "panel.sheet.collapse": "Collapse",
+  "dock.move": "Move panel",
+  "pane.close": "Close",
+  "dock.move.tip": "Move panel: drag it, or click to choose",
+  "dock.left": "Dock left",
+  "dock.right": "Dock right",
+  "dock.top": "Dock top",
+  "dock.bottom": "Dock bottom",
+  "dock.popup": "Pop up",
   "settings.github.repos": "Repositories",
   "settings.github.help": "Type `alias#` in a note to pick an issue or PR; `alias#123` then links to it.", // markdown
   "settings.github.remove": "remove {alias}",

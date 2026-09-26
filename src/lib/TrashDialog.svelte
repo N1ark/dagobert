@@ -4,13 +4,14 @@
   import { isMobile } from "./backend";
   import { relative, absolute } from "./time";
   import InlineMd from "./InlineMd.svelte";
+  import DockButton from "./DockButton.svelte";
+  import { tooltip } from "./tooltip";
   import X from "phosphor-svelte/lib/X";
   import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
   import Trash from "phosphor-svelte/lib/Trash";
   import { t, plural } from "./i18n";
-  import { onEscape } from "./keys";
 
-  let { onclose, onrestored, sheet = false }: { onclose: () => void; onrestored: (id: string) => void; sheet?: boolean } = $props();
+  let { onclose, onrestored }: { onclose: () => void; onrestored: (id: string) => void } = $props();
 
   let confirmEmpty = $state(false);
   let loading = $state(true);
@@ -26,13 +27,14 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => onEscape(e, onclose)} />
-
-{#snippet panel()}
+<div class="dialog bare">
   <header>
     <h3>{t("trash.title")} <span class="count">{store.trash.length}</span></h3>
-    {#if !sheet}
-      <button class="ghost" onclick={onclose} aria-label={t("trash.close")}><X size={16} /></button>
+    {#if !isMobile}
+      <span class="pane-tools">
+        <DockButton />
+        <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
+      </span>
     {/if}
   </header>
   <div class="list">
@@ -80,26 +82,9 @@
       {/if}
     </footer>
   {/if}
-{/snippet}
-
-{#if sheet}
-  <div class="dialog bare">{@render panel()}</div>
-{:else}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="backdrop" onclick={onclose}>
-    <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("trash.title")} tabindex="-1">
-      {@render panel()}
-    </div>
-  </div>
-{/if}
+</div>
 
 <style>
-  .dialog {
-    width: 560px;
-    max-height: calc(100vh - 80px);
-    display: flex;
-    flex-direction: column;
-  }
   footer {
     display: flex;
     align-items: center;
@@ -117,6 +102,8 @@
     margin-left: 4px;
   }
   .list {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     padding: 6px;
   }

@@ -6,6 +6,7 @@
   import ArrowDown from "phosphor-svelte/lib/ArrowDown";
   import Plus from "phosphor-svelte/lib/Plus";
   import ColorPicker from "./ColorPicker.svelte";
+  import DockButton from "./DockButton.svelte";
   import { stageColor } from "./workflows";
   import GitHubSignIn from "./GitHubSignIn.svelte";
   import { isMobile } from "./backend";
@@ -16,15 +17,9 @@
   import { relative } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
-  import { onEscape } from "./keys";
 
   type Section = "workflows" | "tracking" | "github" | "git";
-  let {
-    onclose,
-    section = "workflows",
-    workflow,
-    sheet = false,
-  }: { onclose: () => void; section?: Section; workflow?: string | null; sheet?: boolean } = $props();
+  let { onclose, section = "workflows", workflow }: { onclose: () => void; section?: Section; workflow?: string | null } = $props();
 
   // svelte-ignore state_referenced_locally
   let page = $state<Section>(section);
@@ -89,24 +84,20 @@
   }
 </script>
 
-<!-- The no-repo dialog stacked on top takes the Escape. -->
-<svelte:window
-  onkeydown={(e) => {
-    if (!store.needsRepo) onEscape(e, onclose);
-  }}
-/>
-
 {#snippet template(get: () => string, set: (v: string) => void, save: () => void, placeholder: string)}
   <h4>{t("settings.template")}</h4>
   <p class="help">{t("settings.template.hint")}</p>
   <textarea class="template" rows="6" bind:value={get, set} onchange={save} {placeholder} spellcheck="false"></textarea>
 {/snippet}
 
-{#snippet panel()}
+<div class="dialog bare">
   <header>
     <h3>{t("settings.title")}</h3>
-    {#if !sheet}
-      <button class="ghost" onclick={onclose} aria-label={t("settings.close")}><X size={16} /></button>
+    {#if !isMobile}
+      <span class="pane-tools">
+        <DockButton />
+        <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
+      </span>
     {/if}
   </header>
   <div class="cols">
@@ -312,37 +303,17 @@
       {/if}
     </section>
   </div>
-{/snippet}
-
-{#if sheet}
-  <div class="dialog bare">{@render panel()}</div>
-{:else}
-  <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="backdrop" onclick={onclose}>
-    <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("settings.aria")} tabindex="-1">
-      {@render panel()}
-    </div>
-  </div>
-{/if}
+</div>
 
 <style>
-  .dialog.bare .cols {
-    flex: 1;
-    min-height: 0;
-    height: auto;
-    max-height: none;
-  }
-  .dialog {
-    width: 600px;
-  }
   .dialog h3 {
     font-size: 15px;
   }
   .cols {
+    flex: 1;
+    min-height: 0;
     display: grid;
     grid-template-columns: 170px 1fr;
-    height: 460px;
-    max-height: calc(100vh - 100px);
   }
   nav {
     display: flex;

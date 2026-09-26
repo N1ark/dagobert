@@ -7,6 +7,10 @@
   import type { Action } from "./lib/QuickOpen.svelte";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
   import Sheet from "./lib/Sheet.svelte";
+  import Dock from "./lib/Dock.svelte";
+  import Tiles from "./lib/Tiles.svelte";
+  import { layout } from "./lib/panes.svelte";
+  import { PANES, type Pane } from "./lib/tiles";
   import { auth } from "./lib/auth.svelte";
   import { updater } from "./lib/updater.svelte";
   import { syncPRs } from "./lib/prs.svelte";
@@ -74,69 +78,18 @@
     localStorage.setItem(GRAIN_KEY, grain ? "1" : "0");
   }
 
-  // Left sidebar listing the GitHub PRs referenced across notes.
+  // The GitHub PRs referenced across notes.
   const PRS_KEY = "dagobert.prs";
-  const PRS_W_KEY = "dagobert.prsWidth";
-  // Remembered where it's a sidebar; a phone opens with nothing over the canvas.
-  let showPRs = $state(!isMobile && localStorage.getItem(PRS_KEY) === "1");
-  let prsW = $state(Number(localStorage.getItem(PRS_W_KEY)) || 300);
-
-  /** Pointer handlers for a resizer that drags a width, remembered under `key` once let go. */
-  function widthDrag(key: string, width: () => number, resize: (startW: number, dx: number) => void) {
-    let from = $state<{ x: number; w: number } | null>(null);
-    return {
-      get active() {
-        return !!from;
-      },
-      down(e: PointerEvent) {
-        e.preventDefault(); // otherwise the drag also starts a text selection
-        from = { x: e.clientX, w: width() };
-        (e.target as HTMLElement).setPointerCapture(e.pointerId);
-      },
-      move(e: PointerEvent) {
-        if (from) resize(from.w, e.clientX - from.x);
-      },
-      up() {
-        if (!from) return;
-        from = null;
-        localStorage.setItem(key, String(width()));
-      },
-    };
-  }
-
-  /** Shift the viewport with the canvas's left edge so the graph stays put on screen. */
-  function absorb(dx: number) {
-    if (!store.path || !dx) return;
-    store.viewport.x -= dx;
-    store.saveViewport();
-  }
+  // Remembered where it's docked; a phone, or a popup, opens with nothing over the canvas.
+  let showPRs = $state(!isMobile && !layout.popups.includes("prs") && localStorage.getItem(PRS_KEY) === "1");
   function togglePRs() {
     showPRs = !showPRs;
-    // A phone opens it as a sheet: nothing to push aside, and nothing to remember.
     if (isMobile) {
       if (showPRs) store.sheetFull = true;
       return;
     }
     localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
-    absorb(showPRs ? prsW : -prsW);
   }
-  const prsDrag = widthDrag(
-    PRS_W_KEY,
-    () => prsW,
-    (w0, dx) => {
-      const w = Math.round(Math.max(220, Math.min(window.innerWidth * 0.5, w0 + dx)));
-      absorb(w - prsW);
-      prsW = w;
-    },
-  );
-
-  const PANEL_KEY = "dagobert.panelWidth";
-  let panelW = $state(Number(localStorage.getItem(PANEL_KEY)) || 440);
-  const panelDrag = widthDrag(
-    PANEL_KEY,
-    () => panelW,
-    (w0, dx) => (panelW = Math.round(Math.max(320, Math.min(window.innerWidth * 0.8, w0 - dx)))),
-  );
 
   // The phone has no folder picker: projects live in the app's data directory.
   let projects = $state<ProjectRef[]>([]);
@@ -172,11 +125,14 @@
   let showWorkflows = $state(false);
   let settingsSection = $state<"workflows" | "tracking" | "github" | "git">("workflows");
   let settingsWorkflow = $state<string | null | undefined>(undefined);
+  /** Bumped per opening, so an already open settings pane goes to the page asked for. */
+  let settingsKey = $state(0);
 
   function openSettings(section: typeof settingsSection, workflow?: string | null) {
     settingsSection = section;
     settingsWorkflow = workflow;
     showWorkflows = true;
+    settingsKey++;
   }
   store.openSettings = openSettings;
 
@@ -202,6 +158,33 @@
   function closePanel() {
     hidePanels();
     store.select(null);
+  }
+
+  const isOpen: Record<Pane, () => boolean> = {
+    note: () => !!store.selected,
+    prs: () => showPRs,
+    trash: () => showTrash,
+    settings: () => showWorkflows,
+  };
+  const close: Record<Pane, () => void> = {
+    note: () => store.select(null),
+    prs: togglePRs,
+    trash: () => (showTrash = false),
+    settings: () => (showWorkflows = false),
+  };
+  /** The desktop's open panels, each in a `Dock`. */
+  const openPanes = $derived(isMobile || !store.path ? [] : PANES.filter((p) => isOpen[p]()));
+
+  /** The graph stays put on screen when panels open, close or resize around it. */
+  function shift(dx: number, dy: number) {
+    store.viewport.x -= dx;
+    store.viewport.y -= dy;
+    store.saveViewport();
+  }
+
+  function restored(id: string) {
+    if (layout.popups.includes("trash")) showTrash = false;
+    jump(id);
   }
 
   /** Tooltip for the git status item in the toolbar. */
@@ -571,6 +554,28 @@
   });
 </script>
 
+{#snippet pane(p: Pane)}
+  {#if p === "note" && store.selected}
+    {#key store.selected.id}
+      <NotePanel note={store.selected} onjump={jump} />
+    {/key}
+  {:else if p === "prs"}
+    {#await import("./lib/PullRequests.svelte") then m}
+      <m.default onclose={togglePRs} onjump={jump} />
+    {/await}
+  {:else if p === "trash"}
+    {#await import("./lib/TrashDialog.svelte") then m}
+      <m.default onclose={() => (showTrash = false)} onrestored={restored} />
+    {/await}
+  {:else if p === "settings"}
+    {#key settingsKey}
+      {#await import("./lib/WorkflowEditor.svelte") then m}
+        <m.default section={settingsSection} workflow={settingsWorkflow} onclose={() => (showWorkflows = false)} />
+      {/await}
+    {/key}
+  {/if}
+{/snippet}
+
 {#if standaloneId}
   <div class="standalone">
     {#if store.selected}
@@ -579,6 +584,9 @@
       {/key}
     {:else if store.path}
       <div class="gone">{t("standalone.gone")}</div>
+    {/if}
+    {#if showWorkflows}
+      <Dock pane="settings" onclose={() => (showWorkflows = false)}>{@render pane("settings")}</Dock>
     {/if}
   </div>
 {:else if store.path}
@@ -679,39 +687,9 @@
         >
       {/if}
     </div>
-    <div class="main" class:resizing={panelDrag.active || prsDrag.active} style="--panel-w:{panelW}px; --prs-w:{prsW}px">
-      {#if showPRs && !isMobile}
-        {#await import("./lib/PullRequests.svelte") then m}
-          <m.default onclose={togglePRs} onjump={jump} />
-        {/await}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="resizer left"
-          class:active={prsDrag.active}
-          onpointerdown={prsDrag.down}
-          onpointermove={prsDrag.move}
-          onpointerup={prsDrag.up}
-          onpointercancel={prsDrag.up}
-        ></div>
-      {/if}
+    <Tiles open={openPanes} {pane} onclose={(p) => close[p]()} onshift={shift}>
       <Canvas bind:this={canvas} {matches} {focus} {grain} />
-      {#if store.selected && !isMobile}
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="resizer"
-          class:active={panelDrag.active}
-          onpointerdown={panelDrag.down}
-          onpointermove={panelDrag.move}
-          onpointerup={panelDrag.up}
-          onpointercancel={panelDrag.up}
-        ></div>
-        <div class="panel-wrap">
-          {#key store.selected.id}
-            <NotePanel note={store.selected} onjump={jump} />
-          {/key}
-        </div>
-      {/if}
-    </div>
+    </Tiles>
     {#if isMobile}
       <!-- Rides above a peeking sheet, and gets out of the way of a full one. -->
       <div class="bottombar" class:tucked={!!mobilePanel && store.sheetFull}>
@@ -727,23 +705,7 @@
       </div>
       {#if mobilePanel}
         <Sheet bind:this={sheet} bind:full={store.sheetFull} onclose={closePanel}>
-          {#if mobilePanel === "note" && store.selected}
-            {#key store.selected.id}
-              <NotePanel note={store.selected} onjump={jump} />
-            {/key}
-          {:else if mobilePanel === "prs"}
-            {#await import("./lib/PullRequests.svelte") then m}
-              <m.default sheet onclose={togglePRs} onjump={jump} />
-            {/await}
-          {:else if mobilePanel === "trash"}
-            {#await import("./lib/TrashDialog.svelte") then m}
-              <m.default sheet onclose={() => (showTrash = false)} onrestored={(id) => jump(id)} />
-            {/await}
-          {:else if mobilePanel === "settings"}
-            {#await import("./lib/WorkflowEditor.svelte") then m}
-              <m.default sheet section={settingsSection} workflow={settingsWorkflow} onclose={() => (showWorkflows = false)} />
-            {/await}
-          {/if}
+          {@render pane(mobilePanel)}
         </Sheet>
       {/if}
     {/if}
@@ -817,12 +779,6 @@
   {/key}
 {/if}
 
-{#if showWorkflows && !isMobile}
-  {#await import("./lib/WorkflowEditor.svelte") then m}
-    <m.default section={settingsSection} onclose={() => (showWorkflows = false)} />
-  {/await}
-{/if}
-
 {#if store.needsRepo}
   {#await import("./lib/GitDialog.svelte") then m}
     <m.default kind="norepo" onclose={() => (store.needsRepo = false)} />
@@ -830,18 +786,6 @@
 {:else if store.conflictReport}
   {#await import("./lib/GitDialog.svelte") then m}
     <m.default kind="conflicts" conflicts={store.conflictReport} onclose={() => (store.conflictReport = null)} />
-  {/await}
-{/if}
-
-{#if showTrash && !isMobile}
-  {#await import("./lib/TrashDialog.svelte") then m}
-    <m.default
-      onclose={() => (showTrash = false)}
-      onrestored={(id) => {
-        showTrash = false;
-        jump(id);
-      }}
-    />
   {/await}
 {/if}
 
@@ -960,9 +904,6 @@
       transform: rotate(360deg);
     }
   }
-  .panel-wrap {
-    display: contents;
-  }
 
   /* Floats over the canvas rather than taking a strip of it. */
   .bottombar {
@@ -998,33 +939,6 @@
   }
   .bottombar .create {
     width: 56px;
-  }
-  .main {
-    flex: 1;
-    display: flex;
-    min-height: 0;
-    position: relative;
-  }
-  .main.resizing {
-    -webkit-user-select: none;
-    user-select: none;
-    cursor: col-resize;
-  }
-  .resizer {
-    flex: none;
-    width: 5px;
-    margin-right: -5px;
-    z-index: 5;
-    cursor: col-resize;
-    transition: background 0.15s;
-  }
-  .resizer.left {
-    margin-right: 0;
-    margin-left: -5px;
-  }
-  .resizer:hover,
-  .resizer.active {
-    background: var(--accent);
   }
   .standalone {
     height: 100%;
