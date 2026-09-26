@@ -536,7 +536,7 @@
     const unwatch = backend.onProjectChanged((c) => store.applyExternal(c));
     const ungit = standaloneId
       ? () => {}
-      : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.syncNow(false) : store.quitSync(reason)));
+      : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.tick() : store.quitSync(reason)));
     if (standaloneId && standalonePath) {
       store.syncs = false;
       store.open(standalonePath).then(() => store.select(standaloneId));
@@ -559,8 +559,10 @@
       else if (lifecycle) void store.suspend();
       else flush();
     };
+    const onFocus = () => store.focused();
     window.addEventListener("beforeunload", flush);
     window.addEventListener("pagehide", flush);
+    window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       unsub();
@@ -570,6 +572,7 @@
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("beforeunload", flush);
       window.removeEventListener("pagehide", flush);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   });

@@ -154,7 +154,10 @@ moment earlier, and reach the store through `applyExternal`.
 and on a phone foreground/background ([mobile.md](mobile.md)). `open()` starts the
 watcher before its first sync, since the pull may rewrite files. No `origin` ⇒ commit only
 (toolbar icon greyed "local"). `syncs` (false in standalone note windows, set by
-`App.svelte`) gates the timer and every cycle.
+`App.svelte`) gates the timer and every cycle. A timer tick while the window is unfocused (hidden on
+mobile) is skipped when nothing was written since the last cycle (`#unsynced`: saves,
+deletes, meta, other windows, watcher events); the skipped cycle runs on the next focus
+(`store.focused()`), so an app left in the background never touches the network.
 
 State: `gitStatus`, `gitState` (`idle | syncing | error`) + `gitError`, `gitLastSync`,
 `conflictIds` (notes whose body has conflict markers; `hasConflict`, `nextConflict`),

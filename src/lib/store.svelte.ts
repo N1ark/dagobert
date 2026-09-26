@@ -270,7 +270,8 @@ class Store {
   /** Writes outside `#inflight` (meta, deletes) still in flight. */
   #writes = new Set<Promise<unknown>>();
 
-  #track<T>(p: Promise<T>): Promise<T> {
+  #track<T>(p: Promise<T>, local = false): Promise<T> {
+    if (!local) this.#unsynced = true;
     this.#writes.add(p);
     void p.finally(() => this.#writes.delete(p)).catch(() => {});
     return p;
@@ -280,6 +281,23 @@ class Store {
   async flushAndWait() {
     this.flushAll();
     await Promise.allSettled([...this.#inflight.values(), ...this.#writes]);
+  }
+
+  /** Something may need committing since the last cycle started. */
+  #unsynced = true;
+  /** A timer cycle skipped while the app was in the background, run on the next focus. */
+  #missed = false;
+
+  /** The timer's cycle; in the background with nothing to commit, it waits for focus instead of fetching. */
+  tick() {
+    const away = isMobile ? document.hidden : !document.hasFocus();
+    if (away && !this.#unsynced) this.#missed = true;
+    else void this.syncNow(false);
+  }
+
+  /** The window came to the front: catch up on a cycle the timer skipped. */
+  focused() {
+    if (this.#missed) void this.syncNow(false);
   }
 
   #syncing: Promise<void> | null = null;
@@ -303,6 +321,7 @@ class Store {
     }
     const path = this.path;
     this.#syncingPath = path;
+    this.#missed = this.#unsynced = false;
     this.gitState = "syncing";
     this.#syncing = (async () => {
       try {
@@ -312,6 +331,7 @@ class Store {
         if (r.status) this.gitStatus = r.status;
         if (r.conflicts.length) this.conflictReport = r.conflicts;
         if (r.error) {
+          this.#unsynced = true;
           this.gitState = "error";
           this.gitError = r.error;
           if (manual) this.fail(r.error);
@@ -325,6 +345,7 @@ class Store {
         }
       } catch (e) {
         if (this.path !== path) return;
+        this.#unsynced = true;
         this.gitState = "error";
         this.gitError = String(e);
         if (manual) this.fail(e);
@@ -878,6 +899,8 @@ class Store {
 
   /** Apply a change made in another window. */
   applySync(msg: SyncMessage) {
+    // Another window wrote to disk.
+    this.#unsynced = true;
     if (msg.type === "note") {
       if (this.#deleted.has(msg.note.id)) return;
       const local = this.byId(msg.note.id);
@@ -900,6 +923,7 @@ class Store {
 
   /** Apply a change made on disk outside the app (from the file watcher). */
   async applyExternal(change: ProjectChange) {
+    this.#unsynced = true;
     if (change.kind === "note") {
       const incoming = change.note;
       // A note we trashed that is back on disk (a merge restored it) is authoritative.
@@ -1096,6 +1120,7 @@ class Store {
   // ---- persistence ---------------------------------------------------------
 
   save(id: string, immediate = false) {
+    this.#unsynced = true;
     const prev = this.#saveTimers.get(id);
     if (prev) clearTimeout(prev);
     if (immediate) {
@@ -1157,7 +1182,7 @@ class Store {
 
   #flushLocal() {
     if (!this.path) return;
-    this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) })).catch((e) => this.fail(e));
+    this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) }), true).catch((e) => this.fail(e));
   }
 
   #metaSave = debounced(400, () => this.#flushMeta());
