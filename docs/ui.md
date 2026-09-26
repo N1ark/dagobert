@@ -61,7 +61,10 @@ BroadcastChannel in the browser) and `openNoteWindow` (a `note-<id>` WebviewWind
 focused if it already exists; `window.open` in the browser). A standalone window renders
 just `NotePanel` (`standalone` prop) full-window, sets `store.syncs = false` and skips the
 menu, window shortcuts and updater. `touch` broadcasts the note immediately (not after the
-debounced save); other messages are `note-file`, `note-removed` and `meta`.
+debounced save); other messages are `note-file`, `note-removed` and `meta`. In Tauri a message
+is only emitted when another window is open (`peers`, recounted on a `dagobert-hello`
+from each new window and at most every 5 s while broadcasting), so typing in a single
+window doesn't round-trip every edit through Rust.
 `store.applySync` applies them as-is — the latest message wins — ignoring notes this window
 deleted. Capability `windows` includes `note-*`. The last-opened project is in
 localStorage and reopened on startup (`store.restore`).

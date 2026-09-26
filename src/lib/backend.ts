@@ -2,7 +2,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
-import { WebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
@@ -28,6 +28,14 @@ export type SyncMessage =
   | { type: "meta"; meta: MetaPatch };
 
 const channel = inTauri ? null : new BroadcastChannel("dagobert");
+
+/** How many other windows are open; edits are only broadcast when there are some. */
+let peers = 0;
+let countedAt = -Infinity;
+function countPeers() {
+  countedAt = performance.now();
+  void getAllWebviewWindows().then((w) => (peers = w.length - 1));
+}
 
 /** Listen to a Tauri event; the returned unsubscribe also works before `listen` has resolved. */
 function on<T>(event: string, cb: (payload: T) => void): () => void {
@@ -294,8 +302,10 @@ export const backend = {
 
   /** Broadcast a change to every other window of this app. */
   broadcast(msg: SyncMessage) {
-    if (channel) channel.postMessage(msg);
-    else emit("dagobert-sync", { ...msg, from: getCurrentWindow().label }).catch(console.error);
+    if (channel) return channel.postMessage(msg);
+    // A closed window is noticed within a few seconds; a new one says hello (see `subscribe`).
+    if (performance.now() - countedAt > 5000) countPeers();
+    if (peers > 0) emit("dagobert-sync", { ...msg, from: getCurrentWindow().label }).catch(console.error);
   },
 
   /** Receive changes from other windows. Returns an unsubscribe function. */
@@ -306,10 +316,17 @@ export const backend = {
       return () => channel.removeEventListener("message", h);
     }
     const me = getCurrentWindow().label;
-    return on<SyncMessage & { from?: string }>("dagobert-sync", (msg) => {
+    countPeers();
+    const unhello = on("dagobert-hello", countPeers);
+    emit("dagobert-hello").catch(console.error);
+    const unsync = on<SyncMessage & { from?: string }>("dagobert-sync", (msg) => {
       // Tauri delivers our own emits back to us; ignore those.
       if (msg.from !== me) cb(msg);
     });
+    return () => {
+      unhello();
+      unsync();
+    };
   },
 
   /** Open (or focus) a window for one note; false when there are none to open (mobile). */
