@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Align selected notes from the right-click menu.
+
 ## [0.9.0] - 2026-09-25
 
 ### Added

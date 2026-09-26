@@ -8,6 +8,13 @@
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Trash from "phosphor-svelte/lib/Trash";
   import FolderOpen from "phosphor-svelte/lib/FolderOpen";
+  import AlignLeft from "phosphor-svelte/lib/AlignLeft";
+  import AlignCenterHorizontal from "phosphor-svelte/lib/AlignCenterHorizontal";
+  import AlignRight from "phosphor-svelte/lib/AlignRight";
+  import AlignTop from "phosphor-svelte/lib/AlignTop";
+  import AlignCenterVertical from "phosphor-svelte/lib/AlignCenterVertical";
+  import AlignBottom from "phosphor-svelte/lib/AlignBottom";
+  import { tooltip } from "./tooltip";
   import { t } from "./i18n";
   import { keys } from "./keys";
 
@@ -17,6 +24,8 @@
     | { kind: "edge"; from: string; to: string }
     | { kind: "background"; wx: number; wy: number };
 
+  export type Align = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
+
   let {
     x,
     y,
@@ -24,6 +33,7 @@
     onclose,
     oncreate,
     onpaste,
+    onalign,
   }: {
     x: number;
     y: number;
@@ -31,7 +41,17 @@
     onclose: () => void;
     oncreate: (wx: number, wy: number) => void;
     onpaste: (wx: number, wy: number) => void;
+    onalign: (ids: string[], how: Align) => void;
   } = $props();
+
+  const ALIGNS = [
+    ["left", AlignLeft, "ctx.align.left"],
+    ["hcenter", AlignCenterHorizontal, "ctx.align.hcenter"],
+    ["right", AlignRight, "ctx.align.right"],
+    ["top", AlignTop, "ctx.align.top"],
+    ["vcenter", AlignCenterVertical, "ctx.align.vcenter"],
+    ["bottom", AlignBottom, "ctx.align.bottom"],
+  ] as const;
 
   let el = $state<HTMLDivElement | null>(null);
   let newTag = $state("");
@@ -237,6 +257,14 @@
     {/if}
   {:else if target.kind === "group"}
     <div class="section">{t("ctx.group.selected", { n: group.length })}</div>
+    <div class="aligns">
+      {#each ALIGNS as [how, Icon, label], i (how)}
+        {#if i === 3}<span class="vsep"></span>{/if}
+        <button class="item" aria-label={t(label)} use:tooltip={t(label)} onclick={() => run(() => onalign(target.ids, how))}
+          ><Icon size={16} /></button
+        >
+      {/each}
+    </div>
     <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, true)))}>{t("ctx.group.allDone")}</button>
     <button class="item" onclick={() => run(() => group.forEach((n) => store.setDone(n.id, false)))}>{t("ctx.group.allNotDone")}</button>
     {@render tags(groupHas, groupToggleTag, t("ctx.group.addTag"), groupAddTag)}
@@ -353,6 +381,21 @@
     width: 100%;
     font-size: 12px;
     padding: 3px 8px;
+  }
+  .aligns {
+    display: flex;
+    align-items: center;
+    padding: 2px 4px;
+  }
+  .aligns .item {
+    width: auto;
+    padding: 5px;
+  }
+  .vsep {
+    width: 1px;
+    height: 16px;
+    margin: 0 4px;
+    background: var(--border2);
   }
   .sep {
     height: 1px;

@@ -3,7 +3,7 @@
   import { store } from "./store.svelte";
   import { isMobile } from "./backend";
   import NodeCard from "./NodeCard.svelte";
-  import ContextMenu, { type MenuTarget } from "./ContextMenu.svelte";
+  import ContextMenu, { type Align, type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
@@ -420,6 +420,25 @@
       store.touch(n.id, { immediate: true, silent: true, label: "tidy" });
     }
     fitAll();
+  }
+
+  /** Line the notes up on the edge or centre of their bounding box. */
+  function align(ids: string[], how: Align) {
+    const ns = store.notes.filter((n) => ids.includes(n.id));
+    if (ns.length < 2) return;
+    const x0 = Math.min(...ns.map((n) => n.x));
+    const x1 = Math.max(...ns.map((n) => n.x + widthOf(n)));
+    const y0 = Math.min(...ns.map((n) => n.y));
+    const y1 = Math.max(...ns.map((n) => n.y + h(n.id)));
+    for (const n of ns) {
+      const w = widthOf(n);
+      const x = how === "left" ? x0 : how === "right" ? x1 - w : how === "hcenter" ? (x0 + x1 - w) / 2 : n.x;
+      const y = how === "top" ? y0 : how === "bottom" ? y1 - h(n.id) : how === "vcenter" ? (y0 + y1 - h(n.id)) / 2 : n.y;
+      if (x === n.x && y === n.y) continue;
+      n.x = x;
+      n.y = y;
+      store.touch(n.id, { immediate: true, silent: true, label: "align" });
+    }
   }
 
   // ---- pointer handling ----------------------------------------------------
@@ -1124,7 +1143,15 @@
 
 <!-- Outside .canvas: a fixed child makes WebKit drop the canvas clip (docs/canvas.md). -->
 {#if menu}
-  <ContextMenu x={menu.x} y={menu.y} target={menu.target} onclose={() => (menu = null)} oncreate={createAt} onpaste={pasteAt} />
+  <ContextMenu
+    x={menu.x}
+    y={menu.y}
+    target={menu.target}
+    onclose={() => (menu = null)}
+    oncreate={createAt}
+    onpaste={pasteAt}
+    onalign={align}
+  />
 {/if}
 
 <style>
