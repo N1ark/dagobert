@@ -152,7 +152,10 @@ function cached(key: string, fetcher: () => Promise<IssueRef[]>): Promise<IssueR
   if (!p) {
     p = fetcher()
       .then((refs) => {
-        cache.set(key, { at: Date.now(), refs });
+        const now = Date.now();
+        // Every typed search is a key of its own; expired ones would pile up all session.
+        for (const [k, v] of cache) if (now - v.at >= TTL) cache.delete(k);
+        cache.set(key, { at: now, refs });
         return refs;
       })
       .finally(() => inflight.delete(key));
