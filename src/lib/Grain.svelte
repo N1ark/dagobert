@@ -83,12 +83,45 @@
 
   /** performance.now() of the last draw, so the loop can skip a frame the effect already drew. */
   let drawnAt = -Infinity;
+  let timer = 0;
+  let fading = false;
+  let focused = true;
+  let lastInput = 0;
 
-  function loop(t: number) {
-    raf = requestAnimationFrame(loop);
-    // The effect below already drew this frame; a second full-screen pass buys nothing.
-    if (performance.now() - drawnAt < 6) return;
-    render(t);
+  /** The twinkle is slow, so it runs at a low rate; moving sand and fades at up to 60 fps. */
+  const TWINKLE_MS = 1000 / 30;
+  const SMOOTH_MS = 1000 / 60;
+  /** With no input for this long the sand freezes, so an idle window costs nothing. */
+  const IDLE_MS = 30_000;
+
+  function animating() {
+    if (!renderer || document.hidden) return false;
+    // A halo fading in finishes even when the sand is frozen.
+    return fading || (!reduced && focused && performance.now() - lastInput < IDLE_MS);
+  }
+
+  function schedule() {
+    if (raf || timer || !animating()) return;
+    const gap = (fading || curves.length ? SMOOTH_MS : TWINKLE_MS) - (performance.now() - drawnAt);
+    if (gap > 8)
+      timer = window.setTimeout(() => {
+        timer = 0;
+        raf = requestAnimationFrame(tick);
+      }, gap - 4);
+    else raf = requestAnimationFrame(tick);
+  }
+
+  function tick(t: number) {
+    raf = 0;
+    if (!animating()) return;
+    // The effect below may have drawn this frame already; a second full-screen pass buys nothing.
+    if (performance.now() - drawnAt >= SMOOTH_MS - 4) render(t);
+    schedule();
+  }
+
+  function wake() {
+    lastInput = performance.now();
+    schedule();
   }
 
   function render(t: number) {
@@ -100,13 +133,14 @@
       t = 0;
     }
     dirty = false;
+    fading = false;
     const s = dpr();
     const now = performance.now();
     const fade = (id: string) => {
       let b = born.get(id);
       if (b === undefined) born.set(id, (b = now));
       const k = reduced ? 1 : Math.min(1, (now - b) / FADE_MS);
-      if (k < 1) dirty = true;
+      if (k < 1) fading = true;
       return k * k;
     };
     for (const id of born.keys()) if (!rects.some((r) => r.id === id) && !curves.some((c) => c.id === id)) born.delete(id);
@@ -170,19 +204,38 @@
     void grid;
     dirty = true;
     render(performance.now());
+    schedule();
   });
 
   onMount(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     reduced = mq.matches;
-    const onMq = () => (reduced = mq.matches);
+    const onMq = () => {
+      reduced = mq.matches;
+      dirty = true;
+      render(performance.now());
+      schedule();
+    };
     mq.addEventListener("change", onMq);
+
+    focused = document.hasFocus();
+    const onFocus = () => {
+      focused = document.hasFocus();
+      wake();
+    };
+    const inputs = ["pointermove", "pointerdown", "keydown", "wheel"] as const;
+    for (const e of inputs) window.addEventListener(e, wake, { passive: true, capture: true });
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("blur", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
 
     const lost = (e: Event) => {
       e.preventDefault();
       renderer = null;
     };
-    const restored = () => setup();
+    const restored = () => {
+      if (setup()) wake();
+    };
     canvas.addEventListener("webglcontextlost", lost);
     canvas.addEventListener("webglcontextrestored", restored);
 
@@ -203,10 +256,15 @@
     });
     ro.observe(canvas);
 
-    if (setup()) raf = requestAnimationFrame(loop);
+    if (setup()) wake();
 
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(timer);
+      for (const e of inputs) window.removeEventListener(e, wake, { capture: true });
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("blur", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
       ro.disconnect();
       mq.removeEventListener("change", onMq);
       canvas.removeEventListener("webglcontextlost", lost);

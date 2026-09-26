@@ -123,4 +123,7 @@ edge travellers stay in the foreground camera. Every edge in the selected node's
 dependency → dependent (`travellerCount(len)`: one per ~14 world px, 6–48). The buffer is
 resized inside a `ResizeObserver` and drawn synchronously on input changes so a stretched
 or lagging frame never shows. `Grain`'s loop skips a frame the input effect already drew.
+To save energy the loop runs at 30 fps for the twinkle alone and 60 fps while grains travel
+or haloes fade, and stops entirely (a still frame, redrawn on input changes) when the window
+is blurred, hidden, or has had no input for `IDLE_MS`; any pointer/key/wheel input wakes it.
 Toggled by the "background grain" palette action (localStorage `dagobert.grain`).
