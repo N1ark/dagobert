@@ -407,7 +407,7 @@
         () => (updater.ready ? updater.install() : updater.check(true)),
         { icon: ArrowCircleUp, symbol: ["arrow.down.circle"], menu: "App" },
       ),
-      a("settings", t("action.settings"), () => openSettings("github"), {
+      a("settings", t("action.settings"), () => (showWorkflows ? (showWorkflows = false) : openSettings("github")), {
         hint: keys.settings,
         icon: GearSix,
         symbol: ["gearshape", "gear"],

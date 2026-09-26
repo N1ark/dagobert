@@ -24,6 +24,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Faster launch: a smaller app bundle, and plain note titles skip the markdown renderer.
 - No welcome-screen flash while the last project reopens at launch.
 - The window stays responsive while a big project opens.
+- The settings shortcut closes settings when they're already open.
 
 ### Fixed
 
