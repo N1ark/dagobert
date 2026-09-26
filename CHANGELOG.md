@@ -18,6 +18,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Lower memory use in long sessions and large projects.
 - Typing in big projects uses less CPU.
 - Git sync no longer checks the remote while the app sits unused in the background; it catches up when you come back.
+- Files that haven't changed are no longer rewritten on save.
 
 ## [0.9.0] - 2026-09-25
 

@@ -397,7 +397,7 @@ pub fn save_note(root: &Path, mut note: Note) -> Result<Note, String> {
     }
     note.file = wanted;
     let text = serialize_note(&note)?;
-    fs::write(dir.join(&note.file), text).map_err(|e| e.to_string())?;
+    write_if_changed(&dir.join(&note.file), &text)?;
     Ok(note)
 }
 
@@ -521,6 +521,14 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
 
 fn write_json(path: &Path, value: &impl Serialize) -> Result<(), String> {
     let text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+    write_if_changed(path, &text)
+}
+
+/// Leaves a file that already holds `text` untouched, sparing the disk, watchers and sync clients.
+fn write_if_changed(path: &Path, text: &str) -> Result<(), String> {
+    if fs::read(path).is_ok_and(|old| old == text.as_bytes()) {
+        return Ok(());
+    }
     fs::write(path, text).map_err(|e| e.to_string())
 }
 
