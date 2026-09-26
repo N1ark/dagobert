@@ -16,6 +16,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Hovering anywhere on a PR or issue link shows its status, not just on the icon.
 - The background grain rests when the window is in the background or left idle, saving battery.
 - Lower memory use in long sessions and large projects.
+- Typing in big projects uses less CPU.
 
 ## [0.9.0] - 2026-09-25
 

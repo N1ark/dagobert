@@ -1,5 +1,6 @@
 import { t } from "./i18n";
 import { store } from "./store.svelte";
+import type { Note } from "./types";
 import { repoRefs, type RepoRef } from "./wikilinks";
 import { issue, invalidate, prKey, type IssueRef } from "./github";
 
@@ -19,17 +20,38 @@ export const prCache = $state({
   pending: false,
 });
 
+/** Per note, its refs; rescanned only when its text or the repo aliases change. */
+const noteRefs = new Map<string, { title: string; body: string; repos: string; refs: RepoRef[] }>();
+
+function refsOf(n: Note, repos: string): RepoRef[] {
+  const c = noteRefs.get(n.id);
+  if (c && c.title === n.title && c.body === n.body && c.repos === repos) return c.refs;
+  const refs = repoRefs(`${n.title}\n${n.body}`);
+  if (noteRefs.size > store.notes.length * 2) noteRefs.clear();
+  noteRefs.set(n.id, { title: n.title, body: n.body, repos, refs });
+  return refs;
+}
+
+let lastRefs: Linked[] = [];
+let lastKey = "";
+
 const refs = $derived.by((): Linked[] => {
+  const repos = JSON.stringify(store.repos);
   const by = new Map<string, Linked>();
   for (const n of store.notes) {
-    for (const r of repoRefs(`${n.title}\n${n.body}`)) {
+    for (const r of refsOf(n, repos)) {
       const key = prKey(r.repo, r.number);
       let l = by.get(key);
       if (!l) by.set(key, (l = { ...r, key, notes: [] }));
       if (!l.notes.some((x) => x.id === n.id)) l.notes.push({ id: n.id, title: n.title });
     }
   }
-  return [...by.values()];
+  // Typing rarely changes the refs; an equal result keeps the sidebar and fetch effect still.
+  const out = [...by.values()];
+  const key = JSON.stringify(out);
+  if (key === lastKey) return lastRefs;
+  lastKey = key;
+  return (lastRefs = out);
 });
 
 export function linkedRefs(): Linked[] {

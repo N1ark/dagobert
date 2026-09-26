@@ -122,7 +122,18 @@ class Store {
   /** Enabling tracking found no repository; the popup offers to create one. */
   needsRepo = $state(false);
   /** Ids of notes whose body still holds conflict markers. */
-  conflictIds = $derived(new Set(this.notes.filter((n) => hasMarkers(n.body)).map((n) => n.id)));
+  conflictIds = $derived(new Set(this.notes.filter((n) => this.#hasMarkers(n)).map((n) => n.id)));
+  /** Per note, whether its body has markers; rechecked only when that body changes. */
+  #markers = new Map<string, { body: string; hit: boolean }>();
+
+  #hasMarkers(n: Note) {
+    const c = this.#markers.get(n.id);
+    if (c?.body === n.body) return c.hit;
+    const hit = hasMarkers(n.body);
+    if (this.#markers.size > this.notes.length * 2) this.#markers.clear();
+    this.#markers.set(n.id, { body: n.body, hit });
+    return hit;
+  }
 
   #saveTimers = new Map<string, ReturnType<typeof setTimeout>>();
 

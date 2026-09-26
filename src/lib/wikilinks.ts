@@ -85,11 +85,19 @@ export function wikilinkTarget(el: HTMLElement): string | null {
 export function mentions(note: Note): Note[] {
   const t = norm(note.title);
   if (!t) return [];
-  return store.notes.filter((n) => {
-    if (n.id === note.id) return false;
-    for (const m of n.body.matchAll(WIKI_RE)) if (norm(m[1]) === t) return true;
-    return false;
-  });
+  return store.notes.filter((n) => n.id !== note.id && linkTargets(n).has(t));
+}
+
+/** Per note, the titles its body links to; rescanned only when that body changes. */
+const targets = new Map<string, { body: string; titles: Set<string> }>();
+
+function linkTargets(n: Note): Set<string> {
+  const c = targets.get(n.id);
+  if (c?.body === n.body) return c.titles;
+  const titles = new Set(Array.from(n.body.matchAll(WIKI_RE), (m) => norm(m[1])));
+  if (targets.size > store.notes.length * 2) targets.clear();
+  targets.set(n.id, { body: n.body, titles });
+  return titles;
 }
 
 /** Rewrite `[[old]]` to `[[new]]` in every note body. */
