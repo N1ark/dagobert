@@ -122,8 +122,9 @@ password; public half in `tauri.conf.json`) and `tauri.updater.conf.json` turns 
 `createUpdaterArtifacts` there only, so local builds need no key. Losing the key means
 shipping a new pubkey, which installed copies won't accept: they'd need a manual reinstall.
 `update.rs` checks and downloads (skipped in debug builds, which would replace themselves
-with the release) and keeps the bytes until `update_install` installs and calls
+with the release) and keeps the archive in the app cache dir (not in memory) until
+`update_install` installs and calls
 `request_restart`, whose `ExitRequested` skips the git quit hold. `updater.svelte.ts`
-checks on launch and every 6 h from the main window; when one is ready the toolbar shows
+checks a minute after launch and every 6 h from the main window; when one is ready the toolbar shows
 "Restart to update" and the app-menu item switches to it. Installing runs
 `store.suspend()` (flush + sync) first.
