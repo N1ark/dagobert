@@ -425,6 +425,7 @@
   function align(ids: string[], how: Align) {
     const ns = store.notes.filter((n) => ids.includes(n.id));
     if (ns.length < 2) return;
+    if (how === "hspread" || how === "vspread") return spread(ns, how === "hspread");
     const x0 = Math.min(...ns.map((n) => n.x));
     const x1 = Math.max(...ns.map((n) => n.x + widthOf(n)));
     const y0 = Math.min(...ns.map((n) => n.y));
@@ -437,6 +438,26 @@
       n.x = x;
       n.y = y;
       store.touch(n.id, { immediate: true, silent: true, label: "align" });
+    }
+  }
+
+  /** Keep the outermost notes in place and space the rest with equal gaps along one axis. */
+  function spread(ns: Note[], horizontal: boolean) {
+    const pos = (n: Note) => (horizontal ? n.x : n.y);
+    const size = (n: Note) => (horizontal ? widthOf(n) : h(n.id));
+    const sorted = [...ns].sort((a, b) => pos(a) + size(a) / 2 - (pos(b) + size(b) / 2));
+    const start = pos(sorted[0]);
+    const end = pos(sorted[sorted.length - 1]) + size(sorted[sorted.length - 1]);
+    const gap = (end - start - sorted.reduce((s, n) => s + size(n), 0)) / (sorted.length - 1);
+    let at = start;
+    for (const n of sorted) {
+      const p = Math.round(at);
+      if (pos(n) !== p) {
+        if (horizontal) n.x = p;
+        else n.y = p;
+        store.touch(n.id, { immediate: true, silent: true, label: "align" });
+      }
+      at += size(n) + gap;
     }
   }
 

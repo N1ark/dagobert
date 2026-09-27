@@ -133,6 +133,8 @@ export default {
   "ctx.align.top": "Align top edges",
   "ctx.align.vcenter": "Align vertical centres",
   "ctx.align.bottom": "Align bottom edges",
+  "ctx.align.hspread": "Distribute horizontally",
+  "ctx.align.vspread": "Distribute vertically",
   "ctx.group.addTag": "add tag to all…",
   "ctx.group.delete": "Delete {n} notes…",
   "ctx.group.reallyDelete": "Confirm {n}",

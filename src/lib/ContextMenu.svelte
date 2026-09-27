@@ -14,6 +14,7 @@
   import AlignTop from "phosphor-svelte/lib/AlignTop";
   import AlignCenterVertical from "phosphor-svelte/lib/AlignCenterVertical";
   import AlignBottom from "phosphor-svelte/lib/AlignBottom";
+  import Distribute from "./Distribute.svelte";
   import { tooltip } from "./tooltip";
   import { t } from "./i18n";
   import { keys } from "./keys";
@@ -24,7 +25,7 @@
     | { kind: "edge"; from: string; to: string }
     | { kind: "background"; wx: number; wy: number };
 
-  export type Align = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom";
+  export type Align = "left" | "hcenter" | "right" | "top" | "vcenter" | "bottom" | "hspread" | "vspread";
 
   let {
     x,
@@ -51,6 +52,11 @@
     ["top", AlignTop, "ctx.align.top"],
     ["vcenter", AlignCenterVertical, "ctx.align.vcenter"],
     ["bottom", AlignBottom, "ctx.align.bottom"],
+  ] as const;
+
+  const SPREADS = [
+    ["hspread", false, "ctx.align.hspread"],
+    ["vspread", true, "ctx.align.vspread"],
   ] as const;
 
   let el = $state<HTMLDivElement | null>(null);
@@ -262,6 +268,16 @@
         {#if i === 3}<span class="vsep"></span>{/if}
         <button class="item" aria-label={t(label)} use:tooltip={t(label)} onclick={() => run(() => onalign(target.ids, how))}
           ><Icon size={16} /></button
+        >
+      {/each}
+      <span class="vsep"></span>
+      {#each SPREADS as [how, vertical, label] (how)}
+        <button
+          class="item"
+          aria-label={t(label)}
+          use:tooltip={t(label)}
+          disabled={group.length < 3}
+          onclick={() => run(() => onalign(target.ids, how))}><Distribute size={16} {vertical} /></button
         >
       {/each}
     </div>
