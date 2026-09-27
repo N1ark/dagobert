@@ -150,3 +150,21 @@ export function stripMarkers(text: string): string {
     .filter((l) => !MARKER_RE.test(l))
     .join("\n");
 }
+
+/**
+ * `inserted` as blocks of their own, splitting block `index` at `sel` (its end when null; an index
+ * past the end appends). `after` is the index of the first block following them.
+ */
+export function insertBlocks(
+  blocks: string[],
+  index: number,
+  sel: { start: number; end: number } | null,
+  inserted: string[],
+): { blocks: string[]; after: number } {
+  const src = blocks[index] ?? "";
+  const cut = sel ?? { start: src.length, end: src.length };
+  const before = src.slice(0, cut.start).trimEnd();
+  const tail = src.slice(cut.end).replace(/^[ \t]*\n?/, "");
+  const head = splitBlocks(joinBlocks([...blocks.slice(0, index), before, ...inserted]));
+  return { blocks: splitBlocks(joinBlocks([...head, tail, ...blocks.slice(index + 1)])), after: head.length };
+}

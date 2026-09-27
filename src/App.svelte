@@ -17,6 +17,7 @@
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
+  import { stripMedia } from "./lib/media";
   import { backend, isMobile } from "./lib/backend";
   import { demo, DEMO_SELECTED } from "./lib/demo";
   import { ICON } from "./lib/icons";
@@ -208,7 +209,7 @@
       store.notes
         .filter((n) => !tags.length || n.tags.some((t) => tags.includes(t)))
         .filter((n) => {
-          const hay = `${n.title} ${n.tags.map((t) => "#" + t).join(" ")} ${stripMarkers(n.body)}`.toLowerCase();
+          const hay = `${n.title} ${n.tags.map((t) => "#" + t).join(" ")} ${stripMedia(stripMarkers(n.body), true)}`.toLowerCase();
           return terms.every((t) => hay.includes(t));
         })
         .map((n) => n.id),

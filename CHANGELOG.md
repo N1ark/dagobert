@@ -9,6 +9,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 
 - Distribute selected notes evenly, horizontally or vertically, from the right-click menu.
+- Paste images into a note. They're saved in the project's `notes/assets/` folder, and `![|300](…)` sets their width.
 
 ### Fixed
 

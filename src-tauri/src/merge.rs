@@ -685,7 +685,7 @@ mod tests {
     use super::*;
     use crate::git::tests::{pair, write_note};
     use crate::git::{commit_if_dirty, pull, push, PullOutcome};
-    use crate::store::{delete_note, open, parse_note, save_note, Note};
+    use crate::store::{delete_note, open, parse_note, save_asset, save_note, Note};
 
     fn note(id: &str, title: &str, modified: &str, deps: &[&str]) -> Note {
         Note {
@@ -1029,6 +1029,26 @@ mod tests {
             Repository::open(&b).unwrap().state(),
             git2::RepositoryState::Merge
         );
+        fs::remove_dir_all(&base).unwrap();
+    }
+
+    #[test]
+    fn media_added_on_both_sides_merges_cleanly() {
+        let (base, a, b) = seeded(
+            "merge-assets",
+            vec![note("x", "X", "2026-01-01T00:00:00.000Z", &[])],
+        );
+        let shared = save_asset(&a, b"same picture", "png").unwrap();
+        assert_eq!(save_asset(&b, b"same picture", "png").unwrap(), shared);
+        let mine = save_asset(&a, b"from a", "png").unwrap();
+        let theirs = save_asset(&b, b"from b", "mp4").unwrap();
+        edit(&a, "x", |n| n.body = format!("![]({mine})"));
+        edit(&b, "x", |n| n.body = format!("![]({theirs})"));
+        let report = sync_b(&a, &b);
+        assert_eq!(report.len(), 1);
+        for link in [&shared, &mine, &theirs] {
+            assert!(b.join("notes").join(link).exists(), "{link}");
+        }
         fs::remove_dir_all(&base).unwrap();
     }
 

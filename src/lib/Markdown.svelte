@@ -1,13 +1,23 @@
 <script lang="ts" module>
   import { marked } from "marked";
+  import DOMPurify from "dompurify";
   import { highlightExtension, highlighterReady, loadHighlighter } from "./highlight";
+  import { mediaExtension } from "./media";
+  import { backend } from "./backend";
+  import { store } from "./store.svelte";
 
   // Once per app: `use` wraps the renderer again on every call.
-  marked.use(highlightExtension);
+  marked.use(highlightExtension, mediaExtension);
+
+  // Project media load through the asset protocol, whose URLs DOMPurify's allowlist would drop.
+  const MEDIA_TAGS = new Set(["IMG", "VIDEO", "AUDIO", "SOURCE"]);
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    const src = MEDIA_TAGS.has(node.nodeName) ? node.getAttribute("src") : null;
+    if (src?.startsWith("assets/") && store.path) node.setAttribute("src", backend.assetUrl(store.path, src));
+  });
 </script>
 
 <script lang="ts">
-  import DOMPurify from "dompurify";
   import { renderWikilinks } from "./wikilinks";
   import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";

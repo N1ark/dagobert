@@ -24,9 +24,21 @@ Filenames are `slugify(title)`; a name another note holds gets `-<id>[-n]` (`fre
 and a note's own current file counts as free, so a suffixed name is stable across saves.
 The merge rule compares `modified` lexicographically, so timestamps must stay ISO strings.
 
+Media live in `notes/assets/<12 hex of sha256>.<ext>` (`save_asset`; extensions per kind in
+`media_kind`, mirrored in `media.ts`), written aside and renamed so a half-written file never
+takes a name. Content-addressed, so identical files dedupe, two machines never write different
+bytes under one name (git never conflicts on them) and renaming a note moves nothing. Being
+under `notes/`, they are staged with the notes, and `md_files`, the watcher and `merge.rs`
+already skip the subfolder. `save_asset` takes the raw IPC body (no base64) with `path` / `ext`
+percent-encoded in headers. `open_project` allows the canonicalised `notes/assets` in the asset
+protocol's scope at runtime (a static scope can't know project paths).
+
 Deletes are soft: `delete_note` moves the file to `trash/` (stamping `deleted`), never
 overwriting; `restore_note` refuses an id that is live again; `purge_trash(None)` removes
-every `.md` in `trash/`, unparseable ones included; `discard_note` hard-deletes (empty
+every `.md` in `trash/`, unparseable ones included, and then every asset whose `assets/<name>`
+appears in no file in `notes/` or `trash/` and isn't in the frontend's `keep` list (names held
+by in-memory notes, the undo stack and the clipboard; the store flushes saves first). Nothing
+else deletes assets: undo and the trash can still point at them; `discard_note` hard-deletes (empty
 notes).
 
 ## File watcher (`watch.rs`, desktop only)

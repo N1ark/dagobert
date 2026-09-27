@@ -7,6 +7,8 @@
   import Warning from "phosphor-svelte/lib/Warning";
   import ProgressRing from "./ProgressRing.svelte";
   import { MARKER_RE } from "./blocks";
+  import { firstMedia, stripMedia } from "./media";
+  import MediaIcon from "./MediaIcon.svelte";
   import { t } from "./i18n";
 
   let {
@@ -38,13 +40,15 @@
   const custom = $derived(note.workflow !== null && !note.tracking);
   const progress = $derived(note.tracking ? store.progress(note) : null);
   const conflict = $derived(store.hasConflict(note));
-  // First non-empty body line, block markers stripped so it renders as inline markdown.
+  // First non-empty body line, block markers and embeds stripped so it renders as inline markdown.
   const preview = $derived(
-    note.body
+    stripMedia(note.body)
       .split("\n")
       .map((l) => l.replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+)/, "").trim())
       .find((l) => l.length > 0 && !/^(```|---|\*\*\*|___)/.test(l) && !MARKER_RE.test(l)) ?? "",
   );
+
+  const media = $derived(firstMedia(note.body));
 
   function advance(e: MouseEvent) {
     e.stopPropagation();
@@ -112,8 +116,11 @@
       {/each}
     </div>
   {/if}
-  {#if preview}
-    <div class="preview"><InlineMd source={preview} /></div>
+  {#if preview || media}
+    <div class="preview">
+      {#if media}<span class="media"><MediaIcon kind={media} /></span>{/if}
+      <InlineMd source={preview} />
+    </div>
   {/if}
   <div class="port" data-port title={t("node.port")}></div>
   <div class="grip" data-resize title={t("node.resize")}></div>
@@ -277,6 +284,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .media {
+    display: inline-flex;
+    vertical-align: -2px;
+    margin-right: 4px;
   }
   .grip {
     position: absolute;

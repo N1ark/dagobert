@@ -7,6 +7,7 @@ import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, splitBlocks } from "./blocks";
 import { t, plural, type HistoryLabel } from "./i18n";
+import { assetNames, embed, fileExt, kindOf } from "./media";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -806,11 +807,35 @@ class Store {
   async purge(file: string | null) {
     if (!this.path) return;
     try {
-      await this.#track(backend.purgeTrash(this.path, file));
+      // Assets are swept by what's on disk, so unsaved edits get there first; undo can still want the rest.
+      await this.flushAndWait();
+      const held = [...this.notes, ...this.#history.snapshots(), ...(this.clipboard ? [this.clipboard] : [])];
+      const keep = [...new Set(held.flatMap((n) => assetNames(n.body)))];
+      await this.#track(backend.purgeTrash(this.path, file, keep));
       this.trash = file ? this.trash.filter((t) => t.file !== file) : [];
     } catch (e) {
       this.fail(e);
     }
+  }
+
+  // ---- media ---------------------------------------------------------------
+
+  /** Saves pasted or dropped files as assets and returns their embeds; unsupported files are skipped. */
+  async saveFiles(files: File[], named = true): Promise<string[]> {
+    const path = this.path;
+    if (!path) return [];
+    const out: string[] = [];
+    for (const f of files) {
+      const ext = fileExt(f);
+      if (!kindOf(ext)) continue;
+      try {
+        const link = await this.#track(backend.saveAsset(path, new Uint8Array(await f.arrayBuffer()), ext));
+        out.push(embed(link, named ? f.name : ""));
+      } catch (e) {
+        this.fail(e);
+      }
+    }
+    return out;
   }
 
   // ---- clipboard -----------------------------------------------------------

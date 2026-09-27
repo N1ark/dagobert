@@ -12,7 +12,8 @@
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
-  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict } from "./blocks";
+  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict, insertBlocks } from "./blocks";
+  import { fileExt, kindOf } from "./media";
 
   /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
   let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
@@ -238,14 +239,35 @@
     updateMention();
   }
 
-  /** Pasting a URL over selected text turns the selection into a link. */
+  /** Pasting a URL over selected text turns the selection into a link; pasted media become assets. */
   function onPaste(e: ClipboardEvent) {
     const el = e.target as HTMLTextAreaElement;
+    const files = [...(e.clipboardData?.files ?? [])].filter((f) => kindOf(fileExt(f)));
+    if (files.length) {
+      e.preventDefault();
+      void pasteMedia(files);
+      return;
+    }
     const pasted = e.clipboardData?.getData("text/plain") ?? "";
     const next = pasteLink({ text: el.value, start: el.selectionStart, end: el.selectionEnd }, pasted);
     if (!next) return;
     e.preventDefault();
     apply(el, next);
+  }
+
+  /** Saves `files` and puts them at the caret, each as a block of its own; typing goes on after them. */
+  async function pasteMedia(files: File[]) {
+    const at = active;
+    const embeds = await store.saveFiles(files, false);
+    if (!embeds.length) return;
+    const el = textarea;
+    const sel = active !== null && el ? { start: el.selectionStart, end: el.selectionEnd } : null;
+    const r = insertBlocks(withDraft(), active ?? at ?? blocks.length, sel, embeds);
+    active = null;
+    draft = "";
+    setBody(joinBlocks(r.blocks), "media");
+    if (r.after < r.blocks.length) activate(r.after, 0);
+    else appendBlock();
   }
 
   /** Put an edit's text and selection into the textarea as if it had been typed. */

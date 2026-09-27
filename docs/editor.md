@@ -79,6 +79,18 @@ same pattern. `LinkPicker.svelte` is the search dropdown for adding deps/depende
   languages, code is escaped plain text. Token colours are `.hljs-*` rules in `app.css` using the tag
   palette.
 
+## Media
+
+`![alt](assets/<hash>.<ext>)`, relative to the note, so it renders unchanged on GitHub or in
+Obsidian; `![alt|300](…)` (also `|300x200`, height ignored) sets the width. `media.ts` holds
+the pure parts (`kindOf`, `parseAlt`, `mediaHtml`, `stripMedia`, `assetNames`) and the marked
+`image` renderer `Markdown.svelte` installs. An `afterSanitizeAttributes` DOMPurify hook maps
+`assets/…` sources to `backend.assetUrl` (the asset protocol; object URLs in the browser mock)
+**after** sanitising, whose URI allowlist would drop `asset:`. Pasting files in `LiveEditor`
+saves them (`store.saveFiles`) and inserts each as its own block at the caret
+(`insertBlocks`, one undo step labelled `media`); typing resumes after them. Card previews
+drop embeds and show a kind icon (`MediaIcon`); the search box matches their alt text.
+
 ## Templates
 
 `Workflow.template` and `Meta.default_template` (for Todo) are edited in `WorkflowEditor`;

@@ -80,6 +80,15 @@ export class History {
     return e;
   }
 
+  /** Every note state undo or redo can bring back. */
+  *snapshots(): Generator<Note> {
+    for (const e of [...this.undo, ...this.redo])
+      for (const d of e.diffs) {
+        if (d.before) yield d.before;
+        if (d.after) yield d.after;
+      }
+  }
+
   clear() {
     this.undo = [];
     this.redo = [];

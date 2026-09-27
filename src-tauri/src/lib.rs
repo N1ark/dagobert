@@ -96,8 +96,71 @@ async fn clone_project(
 
 // Reads, parses and git walks run off the main thread, so the window never stalls on them.
 #[tauri::command]
-async fn open_project(path: String) -> Result<Project, String> {
+async fn open_project(app: AppHandle, path: String) -> Result<Project, String> {
+    allow_assets(&app, Path::new(&path));
     blocking(move || store::open(Path::new(&path))).await?
+}
+
+/// Lets the webview load the project's media through the asset protocol. Requests are
+/// canonicalised before matching, so the allowed directory must be too.
+fn allow_assets(app: &AppHandle, root: &Path) {
+    let dir = std::fs::canonicalize(root).map(|r| store::assets_dir(&r));
+    if let Err(e) = dir.map(|d| app.asset_protocol_scope().allow_directory(d, false)) {
+        eprintln!("asset scope: {e}");
+    }
+}
+
+/// Undoes `encodeURIComponent`, for values sent in headers (which must be ASCII).
+fn percent_decode(s: &str) -> String {
+    let b = s.as_bytes();
+    let mut out = Vec::with_capacity(b.len());
+    let mut i = 0;
+    while i < b.len() {
+        let hex = b
+            .get(i + 1..i + 3)
+            .and_then(|h| std::str::from_utf8(h).ok());
+        match hex
+            .filter(|_| b[i] == b'%')
+            .map(|h| u8::from_str_radix(h, 16))
+        {
+            Some(Ok(v)) => {
+                out.push(v);
+                i += 3;
+            }
+            _ => {
+                out.push(b[i]);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// A pasted file as the raw request body (no base64); `path` and `ext` ride in headers.
+#[tauri::command]
+async fn save_asset(
+    state: State<'_, AppState>,
+    request: tauri::ipc::Request<'_>,
+) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("expected the file's bytes".into());
+    };
+    let header = |k: &str| {
+        let v = request.headers().get(k).and_then(|v| v.to_str().ok());
+        v.map(percent_decode).ok_or(format!("missing {k}"))
+    };
+    let (root, ext, bytes) = (
+        PathBuf::from(header("path")?),
+        header("ext")?,
+        bytes.clone(),
+    );
+    let recent = state.recent.clone();
+    blocking(move || {
+        let link = store::save_asset(&root, &bytes, &ext)?;
+        recent.mark(store::notes_dir(&root).join(&link));
+        Ok(link)
+    })
+    .await?
 }
 
 #[tauri::command]
@@ -152,9 +215,10 @@ async fn restore_note(
     .await?
 }
 
+/// `keep`: asset names the app still refers to (unsaved edits, undo history).
 #[tauri::command]
-fn purge_trash(path: String, file: Option<String>) -> Result<(), String> {
-    store::purge_trash(Path::new(&path), file.as_deref())
+async fn purge_trash(path: String, file: Option<String>, keep: Vec<String>) -> Result<(), String> {
+    blocking(move || store::purge_trash(Path::new(&path), file.as_deref(), &keep)).await?
 }
 
 #[tauri::command]
@@ -342,6 +406,7 @@ pub fn run() {
             list_trash,
             restore_note,
             purge_trash,
+            save_asset,
             read_meta,
             save_meta,
             save_local,
@@ -386,4 +451,19 @@ pub fn run() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::percent_decode;
+
+    #[test]
+    fn decodes_uri_components() {
+        assert_eq!(
+            percent_decode("%2FUsers%2Fme%2FNotes%20%C3%A9"),
+            "/Users/me/Notes é"
+        );
+        assert_eq!(percent_decode("100%"), "100%");
+        assert_eq!(percent_decode("a%zz"), "a%zz");
+    }
 }

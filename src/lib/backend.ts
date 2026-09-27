@@ -1,5 +1,5 @@
 /** Thin wrapper over the Tauri commands, with an in-memory project for `npm run dev`. */
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
@@ -95,6 +95,17 @@ const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local 
       },
 };
 
+/** The browser mock's assets: name → object URL. */
+const mockAssets = new Map<string, string>();
+
+/** `assets/<12 hex of sha256>.<ext>`, as `store.rs` names them. */
+async function mockAssetLink(bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<string> {
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  const name = `${[...hash.slice(0, 6)].map((b) => b.toString(16).padStart(2, "0")).join("")}.${ext}`;
+  if (!mockAssets.has(name)) mockAssets.set(name, URL.createObjectURL(new Blob([bytes], { type: ext === "svg" ? "image/svg+xml" : "" })));
+  return `assets/${name}`;
+}
+
 const mockGitStatus: GitStatus = {
   branch: "main",
   dirty: false,
@@ -186,12 +197,28 @@ export const backend = {
     return invoke<Note>("restore_note", { path, file });
   },
 
-  async purgeTrash(path: string, file: string | null): Promise<void> {
+  /** Also deletes the assets no note refers to any more, except those named in `keep`. */
+  async purgeTrash(path: string, file: string | null, keep: string[]): Promise<void> {
     if (!inTauri) {
       mock.trash = file ? mock.trash.filter((n) => n.file !== file) : [];
       return;
     }
-    return invoke("purge_trash", { path, file });
+    return invoke("purge_trash", { path, file, keep });
+  },
+
+  // ---- media -----------------------------------------------------------------
+
+  /** Stores a pasted file under its content hash; returns its link (`assets/<name>`). */
+  async saveAsset(path: string, bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<string> {
+    if (!inTauri) return mockAssetLink(bytes, ext);
+    // The raw body skips JSON; headers must be ASCII, hence the encoding.
+    return invoke<string>("save_asset", bytes, { headers: { path: encodeURIComponent(path), ext: encodeURIComponent(ext) } });
+  },
+
+  /** The URL an `assets/<name>` link loads from. */
+  assetUrl(path: string, link: string): string {
+    if (!inTauri) return mockAssets.get(link.slice("assets/".length)) ?? link;
+    return convertFileSrc(`${path}/notes/${link}`);
   },
 
   async saveMeta(path: string, meta: MetaPatch): Promise<void> {

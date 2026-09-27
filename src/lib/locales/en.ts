@@ -412,6 +412,7 @@ export default {
   "history.unlink": "unlink",
   "history.resolveConflict": "resolve conflict",
   "history.merge": "merge from another machine",
+  "history.media": "insert media",
 
   // Relative times
   "time.justNow": "just now",

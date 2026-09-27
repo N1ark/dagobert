@@ -1,11 +1,15 @@
 //! On-disk project format: a folder of `notes/<slug>.md` (see docs/storage-and-sync.md).
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub const NOTES_DIR: &str = "notes";
+/// Media files, inside `notes/` so notes link them as `assets/<name>`.
+pub const ASSETS_DIR: &str = "assets";
 pub const TRASH_DIR: &str = "trash";
 pub const META_FILE: &str = "dagobert.json";
 pub const LOCAL_FILE: &str = "dagobert.local.json";
@@ -193,6 +197,82 @@ pub fn trash_dir(root: &Path) -> PathBuf {
 
 pub fn note_path(root: &Path, file: &str) -> PathBuf {
     notes_dir(root).join(file)
+}
+
+pub fn assets_dir(root: &Path) -> PathBuf {
+    notes_dir(root).join(ASSETS_DIR)
+}
+
+/// `image`, `audio` or `video` for a media extension (lower case); mirrored in `media.ts`.
+pub fn media_kind(ext: &str) -> Option<&'static str> {
+    match ext {
+        "png" | "jpg" | "jpeg" | "gif" | "webp" | "svg" | "avif" => Some("image"),
+        "mp3" | "m4a" | "wav" | "ogg" | "flac" => Some("audio"),
+        "mp4" | "mov" | "webm" | "m4v" => Some("video"),
+        _ => None,
+    }
+}
+
+fn media_ext(ext: &str) -> Result<String, String> {
+    let ext = ext.to_ascii_lowercase();
+    match media_kind(&ext) {
+        Some(_) => Ok(ext),
+        None => Err(format!("Unsupported file type: .{ext}")),
+    }
+}
+
+/// `assets/<12 hex of sha256>.<ext>`: identical files share a name, different ones never do.
+fn asset_link(hash: &[u8], ext: &str) -> String {
+    let hex: String = hash[..6].iter().map(|b| format!("{b:02x}")).collect();
+    format!("{ASSETS_DIR}/{hex}.{ext}")
+}
+
+/// A fresh hidden name in `assets/`: files are written there first, then renamed, so a
+/// half-written file never takes a real name.
+fn temp_asset(root: &Path) -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let n = NEXT.fetch_add(1, Ordering::Relaxed);
+    assets_dir(root).join(format!(".tmp-{}-{n}", std::process::id()))
+}
+
+/// Stores `bytes` under their content hash unless already there; returns the note-relative link.
+pub fn save_asset(root: &Path, bytes: &[u8], ext: &str) -> Result<String, String> {
+    let link = asset_link(&Sha256::digest(bytes), &media_ext(ext)?);
+    let dest = notes_dir(root).join(&link);
+    if !dest.exists() {
+        fs::create_dir_all(assets_dir(root)).map_err(|e| e.to_string())?;
+        let tmp = temp_asset(root);
+        fs::write(&tmp, bytes).map_err(|e| e.to_string())?;
+        fs::rename(&tmp, &dest).map_err(|e| e.to_string())?;
+    }
+    Ok(link)
+}
+
+/// Deletes assets no note in `notes/` or `trash/` mentions, sparing the names in `keep`.
+pub fn purge_unused_assets(root: &Path, keep: &[String]) -> Result<(), String> {
+    let dir = assets_dir(root);
+    if !dir.exists() {
+        return Ok(());
+    }
+    let mut texts = Vec::new();
+    for path in md_files(&notes_dir(root))?
+        .into_iter()
+        .chain(md_files(&trash_dir(root))?)
+    {
+        texts.push(fs::read_to_string(&path).map_err(|e| e.to_string())?);
+    }
+    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        let name = path.file_name().unwrap_or_default().to_string_lossy();
+        if !path.is_file() || name.starts_with('.') || keep.iter().any(|k| *k == name) {
+            continue;
+        }
+        let link = format!("{ASSETS_DIR}/{name}");
+        if !texts.iter().any(|t| t.contains(&link)) {
+            remove_file(&path)?;
+        }
+    }
+    Ok(())
 }
 
 /// Every `.md` file in a directory; none when it doesn't exist.
@@ -456,13 +536,15 @@ pub fn restore_note(root: &Path, file: &str) -> Result<Note, String> {
     Ok(restored)
 }
 
-/// Permanently deletes one trashed note, or the whole trash when `file` is `None`.
-pub fn purge_trash(root: &Path, file: Option<&str>) -> Result<(), String> {
+/// Permanently deletes one trashed note, or the whole trash when `file` is `None`, then the
+/// assets nothing refers to any more (`keep`: those the app still holds, e.g. for undo).
+pub fn purge_trash(root: &Path, file: Option<&str>, keep: &[String]) -> Result<(), String> {
     let trash = trash_dir(root);
     match file {
-        Some(f) => remove_file(&trash.join(f)),
-        None => md_files(&trash)?.iter().try_for_each(|p| remove_file(p)),
+        Some(f) => remove_file(&trash.join(f))?,
+        None => md_files(&trash)?.iter().try_for_each(|p| remove_file(p))?,
     }
+    purge_unused_assets(root, keep)
 }
 
 /// Partial update of `Meta`; absent fields keep their stored value.
@@ -690,11 +772,51 @@ mod tests {
             "{names:?}"
         );
 
-        purge_trash(&dir, Some("dup.md")).unwrap();
+        purge_trash(&dir, Some("dup.md"), &[]).unwrap();
         assert_eq!(list_trash(&dir).unwrap().len(), 1);
         fs::write(trash_dir(&dir).join("broken.md"), "not a note").unwrap();
-        purge_trash(&dir, None).unwrap();
+        purge_trash(&dir, None, &[]).unwrap();
         assert_eq!(fs::read_dir(trash_dir(&dir)).unwrap().count(), 0);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn assets_are_content_addressed_and_purged_when_unused() {
+        let dir = std::env::temp_dir().join(format!("dagobert-assets-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let a = save_asset(&dir, b"one", "PNG").unwrap();
+        assert!(
+            a.starts_with("assets/") && a.ends_with(".png") && a.len() == 23,
+            "{a}"
+        );
+        assert_eq!(
+            save_asset(&dir, b"one", "png").unwrap(),
+            a,
+            "same bytes, same name"
+        );
+        let b = save_asset(&dir, b"two", "mp3").unwrap();
+        let c = save_asset(&dir, b"three", "jpg").unwrap();
+        let d = save_asset(&dir, b"four", "gif").unwrap();
+        assert!(save_asset(&dir, b"x", "exe").is_err());
+        assert_eq!(fs::read(notes_dir(&dir).join(&b)).unwrap(), b"two");
+
+        let mut live = note("l", "Live");
+        live.body = format!("![]({a})");
+        save_note(&dir, live).unwrap();
+        let mut gone = note("g", "Gone");
+        gone.body = format!("![x|300]({b})");
+        let gone = save_note(&dir, gone).unwrap();
+        delete_note(&dir, &gone.file, "t").unwrap();
+        let keep = c.trim_start_matches("assets/").to_string();
+        purge_trash(&dir, Some("nothing.md"), &[keep]).unwrap();
+        let exists = |l: &str| notes_dir(&dir).join(l).exists();
+        assert!(exists(&a), "used by a live note");
+        assert!(exists(&b), "used by a trashed note");
+        assert!(exists(&c), "kept by the app");
+        assert!(!exists(&d), "unused");
+        purge_trash(&dir, None, &[]).unwrap();
+        assert!(exists(&a) && !exists(&b) && !exists(&c));
+        assert_eq!(open(&dir).unwrap().notes.len(), 1, "assets/ is not a note");
         fs::remove_dir_all(&dir).unwrap();
     }
 

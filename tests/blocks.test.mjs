@@ -42,3 +42,13 @@ assert.deepEqual(splitBlocks("<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs\n
   "z",
 ]);
 console.log("blocks ok");
+{
+  const { insertBlocks } = await import("../src/lib/blocks.ts");
+  const img = "![](assets/a.png)";
+  assert.deepEqual(insertBlocks(["one", "two words"], 1, { start: 3, end: 4 }, [img]), { blocks: ["one", "two", img, "words"], after: 3 });
+  assert.deepEqual(insertBlocks(["one"], 0, null, [img, img]), { blocks: ["one", img, img], after: 3 });
+  assert.deepEqual(insertBlocks(["one", "two"], 2, null, [img]), { blocks: ["one", "two", img], after: 3 });
+  assert.deepEqual(insertBlocks(["- a\n  - b"], 0, { start: 3, end: 3 }, [img]), { blocks: ["- a", img, "  - b"], after: 2 });
+  assert.deepEqual(insertBlocks(["x"], 0, { start: 0, end: 0 }, [img]), { blocks: [img, "x"], after: 1 });
+  console.log("insertBlocks ok");
+}
