@@ -1,5 +1,6 @@
 /** Pure text-editing commands for the markdown textarea. */
 import { keys, matches } from "./keys.ts";
+import { EMBED_RE, parseAlt } from "./media.ts";
 
 export interface Sel {
   text: string;
@@ -111,4 +112,17 @@ export function command(e: KeyboardEvent, s: Sel): Sel | null {
   if (matches(keys.strike, e)) return toggleWrap(s, "~~");
   if (matches(keys.highlight, e)) return toggleWrap(s, "==");
   return null;
+}
+
+/** Code spans first, so embeds inside them are skipped; the embed's alt is group 2. */
+const EMBED_OR_CODE = new RegExp("(`+)[^`]*?\\1|" + EMBED_RE.source, "g");
+
+/** Sets (or with null removes) the `|width` of the `index`-th embed in a block, as rendered. */
+export function setMediaWidth(block: string, index: number, width: number | null): string {
+  let n = -1;
+  return block.replace(EMBED_OR_CODE, (m, code: string | undefined, alt: string) => {
+    if (code !== undefined || ++n !== index) return m;
+    const next = parseAlt(alt).alt + (width ? `|${width}` : "");
+    return m.replace(`[${alt}]`, `[${next}]`);
+  });
 }

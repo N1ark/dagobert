@@ -413,6 +413,7 @@ export default {
   "history.resolveConflict": "resolve conflict",
   "history.merge": "merge from another machine",
   "history.media": "insert media",
+  "history.resizeMedia": "resize media",
 
   // Relative times
   "time.justNow": "just now",

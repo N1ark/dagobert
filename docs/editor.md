@@ -91,6 +91,13 @@ saves them (`store.saveFiles`) and inserts each as its own block at the caret
 (`insertBlocks`, one undo step labelled `media`); typing resumes after them. Card previews
 drop embeds and show a kind icon (`MediaIcon`); the search box matches their alt text.
 
+Images and videos render inside a `span.media` carrying a `.resize` handle, shown only in
+`LiveEditor`'s rendered blocks on hover. Dragging it (`onResizeStart`; `pointerdown` stops
+propagation, the block's click ignores `.resize`) sets the width live, clamped to 32 px … the
+block's width; on release `setMediaWidth(block, index, width)` (`editor.ts`, tested; code
+spans skipped so `index` matches the rendered order) writes `|<width>` into the source, one
+undo step labelled `resizeMedia`. Double-clicking the handle removes it.
+
 ## Templates
 
 `Workflow.template` and `Meta.default_template` (for Todo) are edited in `WorkflowEditor`;

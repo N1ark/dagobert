@@ -416,6 +416,15 @@ a {
   border-radius: 6px;
   vertical-align: bottom;
 }
+.markdown .media {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+.markdown .resize {
+  display: none;
+}
 
 /* Tag chips; set --tag to the tag's colour. */
 .tag-chip {

@@ -41,7 +41,8 @@ export function mediaHtml(href: string, text: string, title?: string | null): st
   const { alt, width } = parseAlt(text);
   const w = width ? ` width="${width}"` : "";
   const tip = title ? ` title="${esc(title)}"` : "";
-  return `<img src="${esc(href)}" alt="${esc(alt)}"${w}${tip}>`;
+  // The wrapper carries the resize handle the editor shows on hover.
+  return `<span class="media"><img src="${esc(href)}" alt="${esc(alt)}"${w}${tip}><span class="resize"></span></span>`;
 }
 
 /** marked extension: `![alt|300](x)` → a sized element. */

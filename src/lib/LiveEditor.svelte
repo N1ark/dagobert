@@ -8,7 +8,7 @@
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
-  import { command, pasteLink } from "./editor";
+  import { command, pasteLink, setMediaWidth } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
@@ -195,7 +195,7 @@
 
   function onBlockClick(e: MouseEvent, i: number) {
     const target = e.target as HTMLElement;
-    if (target.closest("a")) return; // links are handled by <Markdown>
+    if (target.closest("a, .resize")) return; // links are handled by <Markdown>
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
       e.preventDefault();
       const boxes = [...(target.closest(".block")?.querySelectorAll('input[type="checkbox"]') ?? [])];
@@ -205,6 +205,51 @@
       return;
     }
     activate(i, caretFromClick(e, blocks[i]));
+  }
+
+  /** The block's `index`-th embed, rewritten to `width` (null = natural size). */
+  function resizeMedia(i: number, index: number, width: number | null) {
+    const next = [...blocks];
+    next[i] = setMediaWidth(blocks[i], index, width);
+    setBody(joinBlocks(next), "resizeMedia");
+  }
+
+  /** Dragging an embed's corner handle resizes it live; the width lands in the source on release. */
+  function onResizeStart(e: PointerEvent, i: number) {
+    const handle = (e.target as HTMLElement).closest<HTMLElement>(".resize");
+    const wrap = handle?.parentElement;
+    const media = wrap?.querySelector<HTMLElement>("img, video");
+    const block = e.currentTarget as HTMLElement;
+    if (!handle || !wrap || !media || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const index = [...block.querySelectorAll(".media")].indexOf(wrap);
+    const max = block.querySelector(".markdown")?.clientWidth ?? Infinity;
+    const start = media.getBoundingClientRect().width;
+    const x0 = e.clientX;
+    let width = start;
+    handle.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent) => {
+      width = Math.round(Math.max(32, Math.min(max, start + ev.clientX - x0)));
+      media.style.width = `${width}px`;
+    };
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      if (width !== Math.round(start)) resizeMedia(i, index, width);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  }
+
+  /** Double-clicking the handle goes back to the natural size. */
+  function onResizeReset(e: MouseEvent, i: number) {
+    const wrap = (e.target as HTMLElement).closest(".resize")?.parentElement;
+    if (!wrap) return;
+    const index = [...(e.currentTarget as HTMLElement).querySelectorAll(".media")].indexOf(wrap);
+    resizeMedia(i, index, null);
   }
 
   function onContainerClick(e: MouseEvent) {
@@ -429,7 +474,13 @@
         <ConflictBlock {block} onresolve={(keep) => resolve(i, keep)} onedit={(e) => onBlockClick(e, i)} />
       </div>
     {:else}
-      <div class="block" data-block={i} onclick={(e) => onBlockClick(e, i)}>
+      <div
+        class="block"
+        data-block={i}
+        onclick={(e) => onBlockClick(e, i)}
+        onpointerdown={(e) => onResizeStart(e, i)}
+        ondblclick={(e) => onResizeReset(e, i)}
+      >
         <Markdown source={block} />
       </div>
     {/if}
@@ -498,6 +549,28 @@
   .block :global(.markdown input[type="checkbox"]) {
     pointer-events: auto;
     cursor: pointer;
+  }
+  .block :global(.media:hover .resize) {
+    display: block;
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    border-radius: 3px;
+    background: linear-gradient(
+      135deg,
+      transparent 45%,
+      #fff 45%,
+      #fff 55%,
+      transparent 55%,
+      transparent 70%,
+      #fff 70%,
+      #fff 80%,
+      transparent 80%
+    );
+    filter: drop-shadow(0 0 1px #000a);
   }
   .editing {
     background: #ffffff06;
