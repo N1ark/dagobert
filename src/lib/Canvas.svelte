@@ -5,6 +5,7 @@
   import NodeCard from "./NodeCard.svelte";
   import ContextMenu, { type Align, type MenuTarget } from "./ContextMenu.svelte";
   import type { Note } from "./types";
+  import { stemOf, type MediaDrop } from "./media";
   import { layout } from "./layout";
   import Minimap from "./Minimap.svelte";
   import { WORLD, clampViewport, clampNode, notesBounds, edgeHandle } from "./viewport";
@@ -243,6 +244,22 @@
     const r = container.getBoundingClientRect();
     return { x: (sx - r.left - vp.x) / vp.zoom, y: (sy - r.top - vp.y) / vp.zoom };
   }
+
+  /** Files dropped on the canvas become a note there holding them, named after the first. */
+  async function onMediaDrop(e: Event) {
+    const { items, x, y } = (e as CustomEvent<MediaDrop>).detail;
+    e.stopPropagation();
+    const at = toWorld(x, y);
+    const embeds = await store.addMedia(items);
+    if (!embeds.length) return;
+    const n = store.create(Math.round(at.x), Math.round(at.y), { title: stemOf(items[0]), body: embeds.join("\n\n") });
+    store.select(n.id);
+  }
+  $effect(() => {
+    const el = container;
+    el.addEventListener("media-drop", onMediaDrop);
+    return () => el.removeEventListener("media-drop", onMediaDrop);
+  });
 
   /** Centre the viewport on a note. */
   export function focusNode(id: string) {

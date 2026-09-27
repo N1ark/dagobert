@@ -215,6 +215,27 @@ async fn restore_note(
     .await?
 }
 
+/// Copies a dropped or picked file into the project's assets; `file` may be a `file://` URL (iOS).
+#[tauri::command]
+async fn import_asset(
+    state: State<'_, AppState>,
+    path: String,
+    file: String,
+) -> Result<store::Imported, String> {
+    let recent = state.recent.clone();
+    blocking(move || {
+        let root = Path::new(&path);
+        let src = match file.strip_prefix("file://") {
+            Some(url) => PathBuf::from(percent_decode(url)),
+            None => PathBuf::from(file),
+        };
+        let imported = store::import_asset(root, &src)?;
+        recent.mark(store::notes_dir(root).join(&imported.link));
+        Ok(imported)
+    })
+    .await?
+}
+
 /// `keep`: asset names the app still refers to (unsaved edits, undo history).
 #[tauri::command]
 async fn purge_trash(path: String, file: Option<String>, keep: Vec<String>) -> Result<(), String> {
@@ -407,6 +428,7 @@ pub fn run() {
             restore_note,
             purge_trash,
             save_asset,
+            import_asset,
             read_meta,
             save_meta,
             save_local,

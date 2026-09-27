@@ -4,5 +4,5 @@
   "description": "Capability for the single mobile window",
   "platforms": ["iOS"],
   "windows": ["main"],
-  "permissions": ["core:default", "opener:default"]
+  "permissions": ["core:default", "opener:default", "dialog:allow-open"]
 }

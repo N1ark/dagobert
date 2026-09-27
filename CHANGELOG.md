@@ -11,6 +11,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Distribute selected notes evenly, horizontally or vertically, from the right-click menu.
 - Paste images into a note. They're saved in the project's `notes/assets/` folder, and `![|300](…)` sets their width.
 - Resize images by dragging their corner; double-click it to go back to the natural size.
+- Drop images into a note, or onto the canvas to make a note of them; "Insert media…" picks files to add.
 
 ### Fixed
 

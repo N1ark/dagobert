@@ -98,6 +98,16 @@ block's width; on release `setMediaWidth(block, index, width)` (`editor.ts`, tes
 spans skipped so `index` matches the rendered order) writes `|<width>` into the source, one
 undo step labelled `resizeMedia`. Double-clicking the handle removes it.
 
+Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
+streams it on the Rust side; a `File` → `save_asset`), which skips unsupported files. Tauri
+swallows HTML5 file drops, so `backend.onFileDrop` uses `onDragDropEvent` (window drag/drop
+events in the browser) and App dispatches a bubbling `media-drop` (`MediaDrop`) at the
+element under the point: `LiveEditor` inserts before the block under the pointer (after it
+past its middle), `Canvas` creates a note there named after the first file. "Insert media…"
+(`insert-media`, the dialog plugin; the photo picker on iOS) fires a cancelable window
+`insert-media` event that the selected note's editor takes to insert at the caret; unclaimed,
+`store.appendBlocks` appends.
+
 ## Templates
 
 `Workflow.template` and `Meta.default_template` (for Todo) are edited in `WorkflowEditor`;

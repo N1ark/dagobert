@@ -248,6 +248,31 @@ pub fn save_asset(root: &Path, bytes: &[u8], ext: &str) -> Result<String, String
     Ok(link)
 }
 
+/// A file copied into `assets/`: its link and size (the frontend warns about big ones).
+#[derive(Debug, Serialize)]
+pub struct Imported {
+    pub link: String,
+    pub size: u64,
+}
+
+/// Like `save_asset`, but streams from a local file, so big media never pass through memory.
+pub fn import_asset(root: &Path, src: &Path) -> Result<Imported, String> {
+    let ext = src.extension().and_then(|e| e.to_str()).unwrap_or_default();
+    let ext = media_ext(ext)?;
+    let err = |e: std::io::Error| format!("{}: {e}", src.display());
+    let mut hasher = Sha256::new();
+    let size = std::io::copy(&mut fs::File::open(src).map_err(err)?, &mut hasher).map_err(err)?;
+    let link = asset_link(&hasher.finalize(), &ext);
+    let dest = notes_dir(root).join(&link);
+    if !dest.exists() {
+        fs::create_dir_all(assets_dir(root)).map_err(|e| e.to_string())?;
+        let tmp = temp_asset(root);
+        fs::copy(src, &tmp).map_err(err)?;
+        fs::rename(&tmp, &dest).map_err(|e| e.to_string())?;
+    }
+    Ok(Imported { link, size })
+}
+
 /// Deletes assets no note in `notes/` or `trash/` mentions, sparing the names in `keep`.
 pub fn purge_unused_assets(root: &Path, keep: &[String]) -> Result<(), String> {
     let dir = assets_dir(root);
@@ -799,6 +824,12 @@ mod tests {
         let d = save_asset(&dir, b"four", "gif").unwrap();
         assert!(save_asset(&dir, b"x", "exe").is_err());
         assert_eq!(fs::read(notes_dir(&dir).join(&b)).unwrap(), b"two");
+        let src = dir.join("Talk.MP3");
+        fs::write(&src, b"two").unwrap();
+        let imported = import_asset(&dir, &src).unwrap();
+        assert_eq!((imported.link.as_str(), imported.size), (b.as_str(), 3));
+        assert!(import_asset(&dir, &dir.join("missing.png")).is_err());
+        fs::remove_file(&src).unwrap();
 
         let mut live = note("l", "Live");
         live.body = format!("![]({a})");

@@ -4,9 +4,11 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
 import { demo, demoMeta, demoNotes } from "./demo";
+import { MEDIA_EXTS, type MediaSource } from "./media";
 import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -213,6 +215,65 @@ export const backend = {
     if (!inTauri) return mockAssetLink(bytes, ext);
     // The raw body skips JSON; headers must be ASCII, hence the encoding.
     return invoke<string>("save_asset", bytes, { headers: { path: encodeURIComponent(path), ext: encodeURIComponent(ext) } });
+  },
+
+  /** Copies a dropped or picked file into the project's assets, streaming it on the Rust side. */
+  async importAsset(path: string, file: string): Promise<{ link: string; size: number }> {
+    return invoke("import_asset", { path, file });
+  },
+
+  /** Media files to insert, from the file picker (the photo picker on iOS). */
+  async pickMedia(): Promise<MediaSource[]> {
+    if (!inTauri) {
+      const input = Object.assign(document.createElement("input"), {
+        type: "file",
+        multiple: true,
+        accept: MEDIA_EXTS.map((e) => "." + e).join(),
+      });
+      return new Promise((resolve) => {
+        input.addEventListener("change", () => resolve([...(input.files ?? [])]));
+        input.addEventListener("cancel", () => resolve([]));
+        input.click();
+      });
+    }
+    const picked = await openDialog({
+      multiple: true,
+      title: t("media.pick"),
+      filters: [{ name: t("media.filter"), extensions: MEDIA_EXTS }],
+      pickerMode: "media",
+    });
+    return picked ?? [];
+  },
+
+  /** Files dropped on the window, with the drop point in CSS pixels. Returns an unsubscribe. */
+  onFileDrop(cb: (items: MediaSource[], x: number, y: number) => void): () => void {
+    if (!inTauri) {
+      const over = (e: DragEvent) => e.dataTransfer?.types.includes("Files") && e.preventDefault();
+      const drop = (e: DragEvent) => {
+        if (!e.dataTransfer?.files.length) return;
+        e.preventDefault();
+        cb([...e.dataTransfer.files], e.clientX, e.clientY);
+      };
+      window.addEventListener("dragover", over);
+      window.addEventListener("drop", drop);
+      return () => {
+        window.removeEventListener("dragover", over);
+        window.removeEventListener("drop", drop);
+      };
+    }
+    if (isMobile) return () => {};
+    let un: (() => void) | null = null;
+    let cancelled = false;
+    // Tauri takes file drops away from the page and reports them in physical pixels.
+    void getCurrentWebview()
+      .onDragDropEvent(({ payload: p }) => {
+        if (p.type === "drop") cb(p.paths, p.position.x / devicePixelRatio, p.position.y / devicePixelRatio);
+      })
+      .then((u) => (cancelled ? u() : (un = u)));
+    return () => {
+      cancelled = true;
+      un?.();
+    };
   },
 
   /** The URL an `assets/<name>` link loads from. */

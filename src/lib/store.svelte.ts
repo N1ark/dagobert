@@ -5,9 +5,9 @@ import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
-import { isConflict, splitBlocks } from "./blocks";
+import { isConflict, joinBlocks, splitBlocks } from "./blocks";
 import { t, plural, type HistoryLabel } from "./i18n";
-import { assetNames, embed, fileExt, kindOf } from "./media";
+import { assetNames, embed, extOf, fileExt, fileName, kindOf, type MediaSource } from "./media";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -820,22 +820,44 @@ class Store {
 
   // ---- media ---------------------------------------------------------------
 
-  /** Saves pasted or dropped files as assets and returns their embeds; unsupported files are skipped. */
-  async saveFiles(files: File[], named = true): Promise<string[]> {
+  /** Saves pasted, dropped or picked media as assets; returns their embeds (other files are skipped). */
+  async addMedia(items: MediaSource[], named = true): Promise<string[]> {
     const path = this.path;
     if (!path) return [];
     const out: string[] = [];
-    for (const f of files) {
-      const ext = fileExt(f);
+    for (const item of items) {
+      const ext = typeof item === "string" ? extOf(item) : fileExt(item);
       if (!kindOf(ext)) continue;
       try {
-        const link = await this.#track(backend.saveAsset(path, new Uint8Array(await f.arrayBuffer()), ext));
-        out.push(embed(link, named ? f.name : ""));
+        const link =
+          typeof item === "string"
+            ? (await this.#track(backend.importAsset(path, item))).link
+            : await this.#track(backend.saveAsset(path, new Uint8Array(await item.arrayBuffer()), ext));
+        out.push(embed(link, named ? fileName(item) : ""));
       } catch (e) {
         this.fail(e);
       }
     }
+    if (!out.length && items.length) this.fail(t("media.unsupported"));
     return out;
+  }
+
+  /** The file picker's media, saved; their embeds. */
+  async pickMedia(): Promise<string[]> {
+    try {
+      return this.addMedia(await backend.pickMedia());
+    } catch (e) {
+      this.fail(e);
+      return [];
+    }
+  }
+
+  /** Appends blocks to a note's body (media inserted with no editor open). */
+  appendBlocks(id: string, added: string[]) {
+    const n = this.byId(id);
+    if (!n) return;
+    n.body = joinBlocks([...splitBlocks(n.body), ...added]);
+    this.touch(id, { label: "media" });
   }
 
   // ---- clipboard -----------------------------------------------------------

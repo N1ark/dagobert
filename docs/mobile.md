@@ -31,8 +31,9 @@ broken.
 - `capabilities/default.json` is `"platforms": ["macOS", "windows", "linux"]` — without
   that, a capability with no `platforms` applies to every target and `mobile.json` would
   add permissions rather than replace them. `mobile.json` keeps `core:default` (the event
-  permissions `broadcast` / `subscribe` need) and `opener:default` (`openUrl`), and drops
-  the dialog and window permissions. Anything dropped must also be branched in
+  permissions `broadcast` / `subscribe` need), `opener:default` (`openUrl`) and
+  `dialog:allow-open` ("Insert media…" opens the photo picker), and drops the window
+  permissions. Anything dropped must also be branched in
   `backend.ts`, or the call rejects at runtime.
 
 ## Projects

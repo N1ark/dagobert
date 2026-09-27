@@ -26,7 +26,8 @@ The merge rule compares `modified` lexicographically, so timestamps must stay IS
 
 Media live in `notes/assets/<12 hex of sha256>.<ext>` (`save_asset`; extensions per kind in
 `media_kind`, mirrored in `media.ts`), written aside and renamed so a half-written file never
-takes a name. Content-addressed, so identical files dedupe, two machines never write different
+takes a name; `import_asset` does the same from a path (hashing and copying as a stream; a
+`file://` URL from the iOS picker is decoded). Content-addressed, so identical files dedupe, two machines never write different
 bytes under one name (git never conflicts on them) and renaming a note moves nothing. Being
 under `notes/`, they are staged with the notes, and `md_files`, the watcher and `merge.rs`
 already skip the subfolder. `save_asset` takes the raw IPC body (no base64) with `path` / `ext`

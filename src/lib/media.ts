@@ -3,6 +3,16 @@ import type { MarkedExtension } from "marked";
 
 export type MediaKind = "image" | "audio" | "video";
 
+/** A dropped or picked file: a path in the app, a `File` in the browser or from the clipboard. */
+export type MediaSource = string | File;
+
+/** Detail of the `media-drop` event App dispatches at the element under a file drop. */
+export interface MediaDrop {
+  items: MediaSource[];
+  x: number;
+  y: number;
+}
+
 /** Mirrors `media_kind` in store.rs. */
 const KINDS: Record<MediaKind, string[]> = {
   image: ["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"],
@@ -17,6 +27,14 @@ export function extOf(name: string): string {
   const m = /\.([a-z0-9]+)$/i.exec(name.replace(/[?#].*$/, ""));
   return m ? m[1].toLowerCase() : "";
 }
+
+/** A path's or file's name, without its folder. */
+export function fileName(item: MediaSource): string {
+  return typeof item === "string" ? (item.split(/[\\/]/).pop() ?? "") : item.name;
+}
+
+/** The name without its extension (a dropped file's note title). */
+export const stemOf = (item: MediaSource) => fileName(item).replace(/\.[^.]*$/, "");
 
 export function kindOf(name: string): MediaKind | null {
   const ext = extOf(name) || name.toLowerCase();

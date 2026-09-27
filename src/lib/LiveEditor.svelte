@@ -13,7 +13,7 @@
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict, insertBlocks } from "./blocks";
-  import { fileExt, kindOf } from "./media";
+  import { fileExt, kindOf, type MediaDrop } from "./media";
 
   /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
   let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
@@ -300,20 +300,58 @@
     apply(el, next);
   }
 
-  /** Saves `files` and puts them at the caret, each as a block of its own; typing goes on after them. */
   async function pasteMedia(files: File[]) {
-    const at = active;
-    const embeds = await store.saveFiles(files, false);
-    if (!embeds.length) return;
-    const el = textarea;
-    const sel = active !== null && el ? { start: el.selectionStart, end: el.selectionEnd } : null;
-    const r = insertBlocks(withDraft(), active ?? at ?? blocks.length, sel, embeds);
+    const embeds = await store.addMedia(files, false);
+    if (embeds.length) placeAtCaret(embeds);
+  }
+
+  /** `embeds` as blocks of their own at the caret, typing going on after them; appended when not editing. */
+  function placeAtCaret(embeds: string[]) {
+    const editing = active !== null;
+    const sel = editing && textarea ? { start: textarea.selectionStart, end: textarea.selectionEnd } : null;
+    const r = insertBlocks(withDraft(), active ?? blocks.length, sel, embeds);
     active = null;
     draft = "";
     setBody(joinBlocks(r.blocks), "media");
+    if (!editing) return;
     if (r.after < r.blocks.length) activate(r.after, 0);
     else appendBlock();
   }
+
+  /** Files dropped on the editor go before the block under the pointer, or after it past its middle. */
+  async function onMediaDrop(e: Event) {
+    const { items, y } = (e as CustomEvent<MediaDrop>).detail;
+    e.stopPropagation();
+    const embeds = await store.addMedia(items);
+    if (!embeds.length || !container) return;
+    deactivate();
+    const before = [...container.querySelectorAll<HTMLElement>("[data-block]")].find((el) => {
+      const r = el.getBoundingClientRect();
+      return y < r.top + r.height / 2;
+    });
+    const r = before
+      ? insertBlocks(blocks, Number(before.dataset.block), { start: 0, end: 0 }, embeds)
+      : insertBlocks(blocks, blocks.length, null, embeds);
+    setBody(joinBlocks(r.blocks), "media");
+  }
+  $effect(() => {
+    const el = container;
+    if (!el) return;
+    el.addEventListener("media-drop", onMediaDrop);
+    return () => el.removeEventListener("media-drop", onMediaDrop);
+  });
+
+  /** "Insert media…" for this note: at the caret, or at the end. */
+  function onInsertMedia(e: Event) {
+    const { id, embeds } = (e as CustomEvent<{ id: string; embeds: string[] }>).detail;
+    if (id !== note.id) return;
+    e.preventDefault();
+    placeAtCaret(embeds);
+  }
+  $effect(() => {
+    window.addEventListener("insert-media", onInsertMedia);
+    return () => window.removeEventListener("insert-media", onInsertMedia);
+  });
 
   /** Put an edit's text and selection into the textarea as if it had been typed. */
   function apply(el: HTMLTextAreaElement, next: { text: string; start: number; end: number }) {

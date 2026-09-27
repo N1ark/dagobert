@@ -17,7 +17,7 @@
   import { tooltip } from "./lib/tooltip";
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
-  import { stripMedia } from "./lib/media";
+  import { stripMedia, type MediaDrop } from "./lib/media";
   import { backend, isMobile } from "./lib/backend";
   import { demo, DEMO_SELECTED } from "./lib/demo";
   import { ICON } from "./lib/icons";
@@ -41,6 +41,7 @@
   import CheckSquare from "phosphor-svelte/lib/CheckSquare";
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Copy from "phosphor-svelte/lib/Copy";
+  import ImageSquare from "phosphor-svelte/lib/ImageSquare";
   import ClipboardText from "phosphor-svelte/lib/ClipboardText";
   import CopySimple from "phosphor-svelte/lib/CopySimple";
   import Trash from "phosphor-svelte/lib/Trash";
@@ -336,6 +337,12 @@
         menu: "Note",
         enabled: !!sel,
       }),
+      a("insert-media", t("action.insert-media"), () => insertMedia(), {
+        icon: ImageSquare,
+        symbol: ["photo.on.rectangle", "photo"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
       a("copy-note", t("action.copy-note"), () => store.selectedId && store.copy(store.selectedId), {
         icon: Copy,
         symbol: ["doc.on.doc"],
@@ -510,8 +517,20 @@
     action.run();
   }
 
+  /** Picks media for the selected note; its editor puts them at the caret, else they're appended. */
+  async function insertMedia() {
+    const id = store.selectedId;
+    const embeds = id ? await store.pickMedia() : [];
+    if (!id || !embeds.length) return;
+    if (window.dispatchEvent(new CustomEvent("insert-media", { detail: { id, embeds }, cancelable: true }))) store.appendBlocks(id, embeds);
+  }
+
   onMount(() => {
     const unsub = backend.subscribe((m) => store.applySync(m));
+    // The editor or the canvas under the pointer takes dropped files (see `media-drop` listeners).
+    const undrop = backend.onFileDrop((items, x, y) =>
+      document.elementFromPoint(x, y)?.dispatchEvent(new CustomEvent<MediaDrop>("media-drop", { bubbles: true, detail: { items, x, y } })),
+    );
     const unwatch = backend.onProjectChanged((c) => store.applyExternal(c));
     const ungit = standaloneId ? () => {} : backend.onGitEvent((kind, reason) => (kind === "tick" ? store.tick() : store.quitSync(reason)));
     if (standaloneId && standalonePath) {
@@ -543,6 +562,7 @@
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       unsub();
+      undrop();
       unwatch();
       ungit();
       unupdate();
