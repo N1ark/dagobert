@@ -13,7 +13,9 @@
   const MEDIA_TAGS = new Set(["IMG", "VIDEO", "AUDIO", "SOURCE"]);
   DOMPurify.addHook("afterSanitizeAttributes", (node) => {
     const src = MEDIA_TAGS.has(node.nodeName) ? node.getAttribute("src") : null;
-    if (src?.startsWith("assets/") && store.path) node.setAttribute("src", backend.assetUrl(store.path, src));
+    if (!src?.startsWith("assets/") || !store.path) return;
+    const [link, frag] = src.split("#");
+    node.setAttribute("src", backend.assetUrl(store.path, link) + (frag ? `#${frag}` : ""));
   });
 </script>
 

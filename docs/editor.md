@@ -91,6 +91,12 @@ saves them (`store.saveFiles`) and inserts each as its own block at the caret
 (`insertBlocks`, one undo step labelled `media`); typing resumes after them. Card previews
 drop embeds and show a kind icon (`MediaIcon`); the search box matches their alt text.
 
+The extension picks the element: `<img>`, `<video controls preload="metadata">` (its `src`
+gets `#t=0.001` so WebKit shows the first frame; the DOMPurify hook keeps the fragment) or
+`<audio>` spanning the block. Clicks on players never enter edit mode. The asset protocol
+sniffs content types and serves range requests, so video seeks without loading the whole
+file. Adding a file over 50 MB to a git-tracked project warns (GitHub refuses 100 MB).
+
 Images and videos render inside a `span.media` carrying a `.resize` handle, shown only in
 `LiveEditor`'s rendered blocks on hover. Dragging it (`onResizeStart`; `pointerdown` stops
 propagation, the block's click ignores `.resize`) sets the width live, clamped to 32 px … the

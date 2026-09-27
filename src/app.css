@@ -416,6 +416,17 @@ a {
   border-radius: 6px;
   vertical-align: bottom;
 }
+.markdown video {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  vertical-align: bottom;
+  background: #000;
+}
+.markdown audio {
+  display: block;
+  width: 100%;
+}
 .markdown .media {
   position: relative;
   display: inline-block;

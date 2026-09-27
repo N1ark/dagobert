@@ -195,7 +195,8 @@
 
   function onBlockClick(e: MouseEvent, i: number) {
     const target = e.target as HTMLElement;
-    if (target.closest("a, .resize")) return; // links are handled by <Markdown>
+    // Links are handled by <Markdown>; players keep their own clicks.
+    if (target.closest("a, .resize, video, audio")) return;
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
       e.preventDefault();
       const boxes = [...(target.closest(".block")?.querySelectorAll('input[type="checkbox"]') ?? [])];

@@ -25,4 +25,12 @@ assert.deepEqual(assetNames("![](assets/abc.png) and ![x](assets/d-e.mp3)"), ["a
 marked.use(mediaExtension);
 const html = marked.parse('![a "b"|240](assets/x.png "tip")', { gfm: true, async: false });
 assert.match(html, /<img src="assets\/x.png" alt="a &quot;b&quot;" width="240" title="tip">/);
+assert.match(
+  marked.parse("![talk|320](assets/v.mov)", { async: false }),
+  /<video src="assets\/v.mov#t=0.001" controls preload="metadata" width="320" aria-label="talk"><\/video><span class="resize">/,
+);
+assert.match(
+  marked.parse("![](assets/a.m4a)", { async: false }),
+  /<p><audio src="assets\/a.m4a" controls preload="metadata"><\/audio><\/p>/,
+);
 console.log("media ok");

@@ -185,6 +185,7 @@ export default {
   "editor.wikilink.missing": "No note with this title",
   "media.pick": "Insert media",
   "media.filter": "Images, audio and video",
+  "media.big": "{name} is {mb} MB: GitHub may refuse to sync files this big.",
   "media.unsupported": "Only images, audio and video can be added to a note.",
   "conflict.title": "Merge conflict",
   "conflict.keepMine": "Keep mine",

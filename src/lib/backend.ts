@@ -8,7 +8,7 @@ import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
 import { demo, demoMeta, demoNotes } from "./demo";
-import { MEDIA_EXTS, type MediaSource } from "./media";
+import { kindOf, MEDIA_EXTS, type MediaSource } from "./media";
 import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
@@ -104,7 +104,11 @@ const mockAssets = new Map<string, string>();
 async function mockAssetLink(bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<string> {
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   const name = `${[...hash.slice(0, 6)].map((b) => b.toString(16).padStart(2, "0")).join("")}.${ext}`;
-  if (!mockAssets.has(name)) mockAssets.set(name, URL.createObjectURL(new Blob([bytes], { type: ext === "svg" ? "image/svg+xml" : "" })));
+  // WebKit won't sniff some media from an untyped blob.
+  const type = { jpg: "image/jpeg", svg: "image/svg+xml", mp3: "audio/mpeg", m4a: "audio/mp4", mov: "video/quicktime", m4v: "video/mp4" }[
+    ext
+  ];
+  if (!mockAssets.has(name)) mockAssets.set(name, URL.createObjectURL(new Blob([bytes], { type: type ?? `${kindOf(ext)}/${ext}` })));
   return `assets/${name}`;
 }
 

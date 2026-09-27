@@ -829,11 +829,13 @@ class Store {
       const ext = typeof item === "string" ? extOf(item) : fileExt(item);
       if (!kindOf(ext)) continue;
       try {
-        const link =
+        const { link, size } =
           typeof item === "string"
-            ? (await this.#track(backend.importAsset(path, item))).link
-            : await this.#track(backend.saveAsset(path, new Uint8Array(await item.arrayBuffer()), ext));
+            ? await this.#track(backend.importAsset(path, item))
+            : { link: await this.#track(backend.saveAsset(path, new Uint8Array(await item.arrayBuffer()), ext)), size: item.size };
         out.push(embed(link, named ? fileName(item) : ""));
+        // GitHub warns over 50 MB and refuses files over 100 MB.
+        if (this.gitEnabled && size > 50e6) this.fail(t("media.big", { name: fileName(item), mb: Math.round(size / 1e6) }));
       } catch (e) {
         this.fail(e);
       }
