@@ -10,6 +10,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Distribute selected notes evenly, horizontally or vertically, from the right-click menu.
 
+### Fixed
+
+- The note's file name is only clickable on the name itself.
+
 ## [0.10.0] - 2026-09-26
 
 ### Added

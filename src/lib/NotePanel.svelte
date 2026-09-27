@@ -670,9 +670,8 @@
     border-top: 1px solid var(--border);
   }
   .file {
-    flex: 1;
     min-width: 0;
-    justify-content: flex-start;
+    margin-right: auto;
     font-family: var(--mono);
     font-size: 11px;
     color: #555;
