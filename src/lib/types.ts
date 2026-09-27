@@ -114,6 +114,14 @@ export interface Project {
   duplicates: string[];
 }
 
+/** A file in `notes/assets/`. */
+export interface Asset {
+  name: string;
+  size: number;
+  /** Unix milliseconds. */
+  modified: number;
+}
+
 /** A project in the app's data directory, addressed by name. */
 export interface ProjectRef {
   name: string;

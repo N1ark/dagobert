@@ -6,11 +6,14 @@ export type MediaKind = "image" | "audio" | "video";
 /** A dropped or picked file: a path in the app, a `File` in the browser or from the clipboard. */
 export type MediaSource = string | File;
 
-/** Detail of the `media-drop` event App dispatches at the element under a file drop. */
+/** Detail of the `media-drop` event dispatched at the element under a drop: files, or a gallery tile's embed. */
 export interface MediaDrop {
-  items: MediaSource[];
   x: number;
   y: number;
+  items?: MediaSource[];
+  embeds?: string[];
+  /** For a note the drop creates. */
+  title?: string;
 }
 
 /** Mirrors `media_kind` in store.rs. */

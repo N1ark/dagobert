@@ -1,5 +1,5 @@
 /** The desktop's panels and the canvas, tiled by a tree of splits; closed panels stay in it, hidden. */
-export type Pane = "note" | "prs" | "trash" | "settings";
+export type Pane = "note" | "prs" | "trash" | "settings" | "gallery";
 export type Id = Pane | "canvas";
 export type Side = "left" | "right" | "top" | "bottom";
 /** `from` is the tile a dropped pane took its room from, and gives it back to when it moves away. */
@@ -16,7 +16,7 @@ export type Drop = { side: Side; at: Id | null } | "popup";
 /** The divider between two neighbouring tiles, with their lengths when it was laid out. */
 export type Handle = { row: boolean; rect: Rect; a: Shown; b: Shown; lenA: number; lenB: number };
 
-export const PANES: Pane[] = ["note", "prs", "trash", "settings"];
+export const PANES: Pane[] = ["note", "prs", "trash", "settings", "gallery"];
 
 export const DEFAULT_LAYOUT: Layout = {
   tree: {
@@ -28,7 +28,7 @@ export const DEFAULT_LAYOUT: Layout = {
       { id: "note", size: 0.3 },
     ],
   },
-  popups: ["trash", "settings"],
+  popups: ["trash", "settings", "gallery"],
 };
 
 /** A popup's size belongs to the pane; `fit` makes `h` a most, not a size. */
@@ -37,6 +37,7 @@ export const POPUP: Record<Pane, { w: number; h: number; fit?: boolean }> = {
   prs: { w: 460, h: 600 },
   trash: { w: 560, h: 480, fit: true },
   settings: { w: 600, h: 520 },
+  gallery: { w: 760, h: 600 },
 };
 
 /** The divider between tiles. */
@@ -61,6 +62,17 @@ export function valid(l: unknown): l is Layout {
   if (!tree || !Array.isArray(popups)) return false;
   const ids = [...leaves(tree), ...popups].sort();
   return JSON.stringify(ids) === JSON.stringify([...PANES, "canvas"].sort());
+}
+
+/** A stored layout, with panes added since it was saved put in as (closed) popups; null when it's broken. */
+export function repair(l: unknown): Layout | null {
+  if (!l || typeof l !== "object") return null;
+  const { tree, popups } = l as Layout;
+  if (!tree || !Array.isArray(popups)) return null;
+  const ids = [...leaves(tree), ...popups];
+  const known: Id[] = [...PANES, "canvas"];
+  if (new Set(ids).size !== ids.length || !ids.includes("canvas") || ids.some((id) => !known.includes(id))) return null;
+  return { tree, popups: [...popups, ...PANES.filter((p) => !ids.includes(p))] };
 }
 
 /** The open sibling a closed tile's room goes to: the one it took it from, else the canvas's side; else it's shared out. */

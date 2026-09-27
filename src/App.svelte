@@ -42,6 +42,7 @@
   import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
   import Copy from "phosphor-svelte/lib/Copy";
   import ImageSquare from "phosphor-svelte/lib/ImageSquare";
+  import Images from "phosphor-svelte/lib/Images";
   import ClipboardText from "phosphor-svelte/lib/ClipboardText";
   import CopySimple from "phosphor-svelte/lib/CopySimple";
   import Trash from "phosphor-svelte/lib/Trash";
@@ -104,6 +105,7 @@
   let query = $state("");
   let searchEl = $state<HTMLInputElement | null>(null);
   let showTrash = $state(false);
+  let showGallery = $state(false);
   let showQuickOpen = $state(false);
   /** Which pane the palette shows. */
   let paletteMode = $state<"notes" | "commands">("notes");
@@ -141,16 +143,29 @@
   function hidePanels() {
     showWorkflows = false;
     showTrash = false;
+    showGallery = false;
     showPRs = false;
   }
 
   $effect(() => {
-    if (isMobile && (showWorkflows || showTrash)) store.sheetFull = true;
+    if (isMobile && (showWorkflows || showTrash || showGallery)) store.sheetFull = true;
   });
 
   /** The phone shows exactly one panel; this is which. */
   const mobilePanel = $derived(
-    !isMobile || !store.path ? null : showWorkflows ? "settings" : showTrash ? "trash" : showPRs ? "prs" : store.selected ? "note" : null,
+    !isMobile || !store.path
+      ? null
+      : showWorkflows
+        ? "settings"
+        : showTrash
+          ? "trash"
+          : showGallery
+            ? "gallery"
+            : showPRs
+              ? "prs"
+              : store.selected
+                ? "note"
+                : null,
   );
   let sheet = $state<Sheet | null>(null);
   /** Canvas taps ask the panel to leave, so it animates out. */
@@ -167,12 +182,14 @@
     prs: () => showPRs,
     trash: () => showTrash,
     settings: () => showWorkflows,
+    gallery: () => showGallery,
   };
   const close: Record<Pane, () => void> = {
     note: () => store.select(null),
     prs: togglePRs,
     trash: () => (showTrash = false),
     settings: () => (showWorkflows = false),
+    gallery: () => (showGallery = false),
   };
   /** The desktop's open panels, each in a `Dock`. */
   const openPanes = $derived(isMobile || !store.path ? [] : PANES.filter((p) => isOpen[p]()));
@@ -409,6 +426,13 @@
         menuLabel: t("action.grain.menu"),
       }),
       a("trash", t("action.trash"), () => (showTrash = true), { icon: Trash, symbol: ["trash"], menu: "Tools", enabled: has }),
+      a("gallery", t(showGallery ? "action.gallery.hide" : "action.gallery.show"), () => (showGallery = !showGallery), {
+        icon: Images,
+        symbol: ["photo.on.rectangle.angled", "photo"],
+        menu: "View",
+        menuLabel: t("action.gallery.menu"),
+        enabled: has,
+      }),
       a(
         "update",
         updater.ready ? t("action.update.install", { version: updater.ready }) : t("action.update.check"),
@@ -587,6 +611,10 @@
   {:else if p === "trash"}
     {#await import("./lib/TrashDialog.svelte") then m}
       <m.default onclose={() => (showTrash = false)} onrestored={restored} />
+    {/await}
+  {:else if p === "gallery"}
+    {#await import("./lib/Gallery.svelte") then m}
+      <m.default onclose={() => (showGallery = false)} />
     {/await}
   {:else if p === "settings"}
     {#key settingsKey}

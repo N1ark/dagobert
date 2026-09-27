@@ -13,6 +13,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Resize images by dragging their corner; double-click it to go back to the natural size.
 - Drop images into a note, or onto the canvas to make a note of them; "Insert media…" picks files to add.
 - Audio and video files play right in the note.
+- A media gallery lists every file in the project with the notes using it; drag one into a note, or clean up the unused ones.
 
 ### Fixed
 

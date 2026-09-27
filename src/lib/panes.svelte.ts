@@ -1,11 +1,11 @@
-import { DEFAULT_LAYOUT, valid, type Layout, type Pane } from "./tiles";
+import { DEFAULT_LAYOUT, repair, type Layout, type Pane } from "./tiles";
 
 const KEY = "dagobert.layout";
 
 function load(): Layout {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
-    if (valid(saved)) return saved;
+    const saved = repair(JSON.parse(localStorage.getItem(KEY) ?? "null"));
+    if (saved) return saved;
   } catch {}
   return structuredClone(DEFAULT_LAYOUT);
 }

@@ -71,7 +71,8 @@ would clear the undo history, the selection and the viewport and ignore in-fligh
 
 A phone shows **one** panel at a time and it is always `Sheet.svelte`: the same
 container, the same thumb, the same drag and the same stops. `mobilePanel` in `App.svelte`
-picks which — settings, trash, pull requests or the selected note, in that order — and
+picks which — settings, trash, the media gallery, pull requests or the selected note, in
+that order — and
 `closePanel` closes whichever it is. The panels themselves are the desktop's: App's `pane`
 snippet renders each one bare, into a `Sheet` here and a `Dock` on the desktop (see
 [ui.md](ui.md#panels)). Their close buttons are `{#if !isMobile}`: the thumb is the way out.

@@ -75,7 +75,7 @@ not their children; needs `core:window:allow-start-dragging` in the capability).
 
 ## Panels
 
-Note, pull requests, trash and settings are **panes** (`Pane` in `tiles.ts`), and every one
+Note, pull requests, trash, settings and the media gallery are **panes** (`Pane` in `tiles.ts`), and every one
 lives in the same container: `Dock.svelte` on the desktop, `Sheet.svelte` on a phone. A
 component renders only its content (Trash and Settings as `.dialog.bare`); App's `pane`
 snippet picks it, so the same markup goes into either container. `isOpen` / `close` in
@@ -99,9 +99,22 @@ moves for any reason but a pane moving, `onshift` shifts the viewport so the gra
 `DockButton` finds its `Dock` through context and renders nothing outside `Tiles` (in a
 sheet, or the settings popup of a standalone window).
 
-To add a pane: extend `Pane`, `DEFAULT_LAYOUT` (a stored layout missing it is reset) and
-`POPUP`, the `pane` snippet, `isOpen` / `close` and `mobilePanel`, and put `<DockButton />`
+To add a pane: extend `Pane`, `DEFAULT_LAYOUT` (`repair` adds it to a stored layout as a
+closed popup) and `POPUP`, the `LABEL` in `Dock.svelte`, the `pane` snippet, `isOpen` / `close` and `mobilePanel`, and put `<DockButton />`
 beside its close button.
+
+## Media gallery
+
+`Gallery.svelte` lists `store.assets` (`list_assets`, newest first; loaded when the pane
+opens, reloaded on the watcher's `assets` event, after adding media and on a phone after a
+pull). Which notes use a file comes from `store.assetInfo` (per note, bodies are rescanned
+only when they change), so it follows edits live; the trash's bodies (`loadTrash`) mark
+"In trash". A file neither uses is "Unused" and can be deleted (`delete_asset`, two presses),
+or all of them from the footer; unlike emptying the trash this ignores the undo history.
+Filter chips, a search over file names, alt texts and note titles, a large view (Escape or a
+click outside closes it; reveal in Finder). A tile dragged out (pointer events, since Tauri
+keeps HTML5 drags for files) dispatches `media-drop` with its embed at the element under the
+pointer, looking through a popped-up pane's `.backdrop`.
 
 ## Dialogs and popovers
 

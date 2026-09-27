@@ -8,7 +8,13 @@
   /** One panel's frame: a tile of the layout, or popped up over it when it has no `rect`. */
   let { pane, rect = null, onclose, children }: { pane: Pane; rect?: Rect | null; onclose: () => void; children: Snippet } = $props();
 
-  const LABEL: Record<Pane, Key> = { note: "menu.note", prs: "prs.title", trash: "trash.title", settings: "settings.aria" };
+  const LABEL: Record<Pane, Key> = {
+    note: "menu.note",
+    prs: "prs.title",
+    trash: "trash.title",
+    settings: "settings.aria",
+    gallery: "gallery.title",
+  };
 
   const tiles = getContext<TilesHandle | undefined>(TILES);
   if (tiles)

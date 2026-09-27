@@ -9,7 +9,20 @@ import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { t } from "./i18n";
 import { demo, demoMeta, demoNotes } from "./demo";
 import { kindOf, MEDIA_EXTS, type MediaSource } from "./media";
-import type { DeviceStart, DevicePoll, GitStatus, Local, Meta, MetaPatch, Note, Project, ProjectRef, Refreshed, SyncReport } from "./types";
+import type {
+  Asset,
+  DeviceStart,
+  DevicePoll,
+  GitStatus,
+  Local,
+  Meta,
+  MetaPatch,
+  Note,
+  Project,
+  ProjectRef,
+  Refreshed,
+  SyncReport,
+} from "./types";
 
 export const inTauri = "__TAURI_INTERNALS__" in window;
 
@@ -20,7 +33,7 @@ export const isMobile =
   (import.meta.env.DEV && new URLSearchParams(location.search).has("mobile"));
 
 /** A change on disk reported by the Rust file watcher. */
-export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" };
+export type ProjectChange = { kind: "note"; note: Note } | { kind: "note-removed"; file: string } | { kind: "meta" } | { kind: "assets" };
 
 /** Cross-window sync messages. */
 export type SyncMessage =
@@ -97,8 +110,8 @@ const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local 
       },
 };
 
-/** The browser mock's assets: name → object URL. */
-const mockAssets = new Map<string, string>();
+/** The browser mock's assets by name. */
+const mockAssets = new Map<string, Asset & { url: string }>();
 
 /** `assets/<12 hex of sha256>.<ext>`, as `store.rs` names them. */
 async function mockAssetLink(bytes: Uint8Array<ArrayBuffer>, ext: string): Promise<string> {
@@ -108,7 +121,8 @@ async function mockAssetLink(bytes: Uint8Array<ArrayBuffer>, ext: string): Promi
   const type = { jpg: "image/jpeg", svg: "image/svg+xml", mp3: "audio/mpeg", m4a: "audio/mp4", mov: "video/quicktime", m4v: "video/mp4" }[
     ext
   ];
-  if (!mockAssets.has(name)) mockAssets.set(name, URL.createObjectURL(new Blob([bytes], { type: type ?? `${kindOf(ext)}/${ext}` })));
+  const url = mockAssets.get(name)?.url ?? URL.createObjectURL(new Blob([bytes], { type: type ?? `${kindOf(ext)}/${ext}` }));
+  mockAssets.set(name, { name, url, size: bytes.length, modified: Date.now() });
   return `assets/${name}`;
 }
 
@@ -221,6 +235,22 @@ export const backend = {
     return invoke<string>("save_asset", bytes, { headers: { path: encodeURIComponent(path), ext: encodeURIComponent(ext) } });
   },
 
+  /** Every file in `notes/assets/`, for the gallery. */
+  async listAssets(path: string): Promise<Asset[]> {
+    if (!inTauri) return [...mockAssets.values()].map(({ name, size, modified }) => ({ name, size, modified }));
+    return invoke<Asset[]>("list_assets", { path });
+  },
+
+  async deleteAsset(path: string, name: string): Promise<void> {
+    if (!inTauri) return void mockAssets.delete(name);
+    return invoke("delete_asset", { path, name });
+  },
+
+  async revealAsset(path: string, name: string) {
+    if (!inTauri || isMobile) return;
+    await revealItemInDir(`${path}/notes/assets/${name}`);
+  },
+
   /** Copies a dropped or picked file into the project's assets, streaming it on the Rust side. */
   async importAsset(path: string, file: string): Promise<{ link: string; size: number }> {
     return invoke("import_asset", { path, file });
@@ -282,7 +312,7 @@ export const backend = {
 
   /** The URL an `assets/<name>` link loads from. */
   assetUrl(path: string, link: string): string {
-    if (!inTauri) return mockAssets.get(link.slice("assets/".length)) ?? link;
+    if (!inTauri) return mockAssets.get(link.slice("assets/".length))?.url ?? link;
     return convertFileSrc(`${path}/notes/${link}`);
   },
 

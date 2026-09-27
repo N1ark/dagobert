@@ -1,13 +1,13 @@
 import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backend";
 import { auth } from "./auth.svelte";
-import type { Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
+import type { Asset, Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
 import { stamp } from "./time";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, joinBlocks, splitBlocks } from "./blocks";
 import { t, plural, type HistoryLabel } from "./i18n";
-import { assetNames, embed, extOf, fileExt, fileName, kindOf, type MediaSource } from "./media";
+import { assetNames, EMBED_RE, embed, extOf, fileExt, fileName, kindOf, parseAlt, type MediaSource } from "./media";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -581,6 +581,7 @@ class Store {
       this.selectedId = null;
       this.#deleted.clear();
       this.trash = [];
+      this.assets = null;
       const ref = projectRef(p.path);
       this.#setRecent([ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT));
       localStorage.setItem(LAST_KEY, ref);
@@ -807,11 +808,8 @@ class Store {
   async purge(file: string | null) {
     if (!this.path) return;
     try {
-      // Assets are swept by what's on disk, so unsaved edits get there first; undo can still want the rest.
       await this.flushAndWait();
-      const held = [...this.notes, ...this.#history.snapshots(), ...(this.clipboard ? [this.clipboard] : [])];
-      const keep = [...new Set(held.flatMap((n) => assetNames(n.body)))];
-      await this.#track(backend.purgeTrash(this.path, file, keep));
+      await this.#track(backend.purgeTrash(this.path, file, this.#heldAssets()));
       this.trash = file ? this.trash.filter((t) => t.file !== file) : [];
     } catch (e) {
       this.fail(e);
@@ -841,6 +839,7 @@ class Store {
       }
     }
     if (!out.length && items.length) this.fail(t("media.unsupported"));
+    if (out.length && this.assets) void this.loadAssets();
     return out;
   }
 
@@ -860,6 +859,76 @@ class Store {
     if (!n) return;
     n.body = joinBlocks([...splitBlocks(n.body), ...added]);
     this.touch(id, { label: "media" });
+  }
+
+  // ---- gallery -------------------------------------------------------------
+
+  /** Files in `notes/assets/`; null until the gallery first asks. */
+  assets = $state<Asset[] | null>(null);
+  /** Per note, the assets its body names and their alt texts; rescanned only when that body changes. */
+  #scans = new Map<string, { body: string; names: string[]; alts: [string, string][] }>();
+
+  #scan(n: Note) {
+    const c = this.#scans.get(n.id);
+    if (c?.body === n.body) return c;
+    const alts: [string, string][] = [];
+    for (const m of n.body.matchAll(EMBED_RE)) {
+      const name = /(?:^|\/)assets\/([^/]+)$/.exec(m[2])?.[1];
+      const alt = parseAlt(m[1]).alt.trim();
+      if (name && alt) alts.push([name, alt]);
+    }
+    const scan = { body: n.body, names: [...new Set(assetNames(n.body))], alts };
+    if (this.#scans.size > this.notes.length * 2) this.#scans.clear();
+    this.#scans.set(n.id, scan);
+    return scan;
+  }
+
+  /** Per asset name: the live notes referring to it and the alt texts it goes by. */
+  assetInfo = $derived.by(() => {
+    const m = new Map<string, { ids: string[]; alts: Set<string> }>();
+    const at = (name: string) => m.get(name) ?? m.set(name, { ids: [], alts: new Set() }).get(name)!;
+    for (const n of this.notes) {
+      const scan = this.#scan(n);
+      for (const name of scan.names) at(name).ids.push(n.id);
+      for (const [name, alt] of scan.alts) at(name).alts.add(alt);
+    }
+    return m;
+  });
+
+  /** Asset names the app still holds: notes in memory (unsaved edits too), undo history, the clipboard. */
+  #heldAssets(): string[] {
+    const held = [...this.notes, ...this.#history.snapshots(), ...(this.clipboard ? [this.clipboard] : [])];
+    return [...new Set(held.flatMap((n) => assetNames(n.body)))];
+  }
+
+  async loadAssets() {
+    const path = this.path;
+    if (!path) return;
+    try {
+      const assets = await backend.listAssets(path);
+      if (this.path === path) this.assets = assets.sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name));
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  async deleteAsset(name: string) {
+    if (!this.path) return;
+    try {
+      await this.#track(backend.deleteAsset(this.path, name));
+      this.assets = this.assets?.filter((a) => a.name !== name) ?? null;
+    } catch (e) {
+      this.fail(e);
+    }
+  }
+
+  /** Deletes the given assets (the gallery's unused ones). */
+  async deleteAssets(names: string[]) {
+    for (const name of names) await this.deleteAsset(name);
+  }
+
+  revealAsset(name: string) {
+    if (this.path) backend.revealAsset(this.path, name).catch((e) => this.fail(e));
   }
 
   // ---- clipboard -----------------------------------------------------------
@@ -1014,6 +1083,8 @@ class Store {
       this.#disk.delete(local.id);
       this.#unlist(local.id);
       this.#dropDanglingDeps();
+    } else if (change.kind === "assets") {
+      if (this.assets) await this.loadAssets();
     } else if (change.kind === "meta") {
       if (!this.path) return;
       try {
@@ -1053,6 +1124,7 @@ class Store {
       for (const note of p.notes) await this.applyExternal({ kind: "note", note });
       for (const file of gone) await this.applyExternal({ kind: "note-removed", file });
       await this.applyExternal({ kind: "meta" });
+      await this.applyExternal({ kind: "assets" });
     } catch (e) {
       this.fail(e);
     }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_LAYOUT, arrange, dropAt, moves, place, resize, valid, visible } from "../src/lib/tiles.ts";
+import { DEFAULT_LAYOUT, arrange, dropAt, moves, place, repair, resize, valid, visible } from "../src/lib/tiles.ts";
 
 const all = () => true;
 const only =
@@ -15,6 +15,28 @@ test("the default layout is valid, and a broken one isn't", () => {
   assert.ok(valid(DEFAULT_LAYOUT));
   assert.ok(!valid({ tree: { id: "canvas", size: 1 }, popups: ["trash"] }));
   assert.ok(!valid(null));
+});
+
+test("a stored layout gains panes added since as closed popups, and a broken one is dropped", () => {
+  const old = {
+    tree: {
+      dir: "row",
+      size: 1,
+      kids: [
+        { id: "canvas", size: 0.7 },
+        { id: "note", size: 0.3 },
+      ],
+    },
+    popups: ["prs", "trash", "settings"],
+  };
+  const l = repair(old);
+  assert.deepEqual(l.popups, ["prs", "trash", "settings", "gallery"]);
+  assert.equal(l.tree, old.tree);
+  assert.ok(valid(l));
+  assert.equal(repair({ tree: { id: "canvas", size: 1 }, popups: ["canvas"] }), null, "twice");
+  assert.equal(repair({ tree: { id: "note", size: 1 }, popups: [] }), null, "no canvas");
+  assert.equal(repair({ tree: { id: "canvas", size: 1 }, popups: ["nope"] }), null, "unknown pane");
+  assert.equal(repair(null), null);
 });
 
 test("closed panes are hidden, and a split left with one tile gives way to it", () => {

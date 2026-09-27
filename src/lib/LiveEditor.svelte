@@ -321,9 +321,9 @@
 
   /** Files dropped on the editor go before the block under the pointer, or after it past its middle. */
   async function onMediaDrop(e: Event) {
-    const { items, y } = (e as CustomEvent<MediaDrop>).detail;
+    const { items = [], embeds: given, y } = (e as CustomEvent<MediaDrop>).detail;
     e.stopPropagation();
-    const embeds = await store.addMedia(items);
+    const embeds = given ?? (await store.addMedia(items));
     if (!embeds.length || !container) return;
     deactivate();
     const before = [...container.querySelectorAll<HTMLElement>("[data-block]")].find((el) => {

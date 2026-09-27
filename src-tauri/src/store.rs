@@ -273,6 +273,56 @@ pub fn import_asset(root: &Path, src: &Path) -> Result<Imported, String> {
     Ok(Imported { link, size })
 }
 
+/// A file in `assets/`, for the gallery.
+#[derive(Debug, Serialize)]
+pub struct Asset {
+    pub name: String,
+    pub size: u64,
+    /// Unix milliseconds.
+    pub modified: u64,
+}
+
+/// Every media file in `assets/` (hidden temporaries left out).
+pub fn list_assets(root: &Path) -> Result<Vec<Asset>, String> {
+    let dir = assets_dir(root);
+    if !dir.exists() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for entry in fs::read_dir(&dir).map_err(|e| e.to_string())? {
+        let entry = entry.map_err(|e| e.to_string())?;
+        let name = entry.file_name().to_string_lossy().to_string();
+        let meta = entry.metadata().map_err(|e| e.to_string())?;
+        if !meta.is_file() || name.starts_with('.') {
+            continue;
+        }
+        let modified = meta
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map_or(0, |d| d.as_millis() as u64);
+        out.push(Asset {
+            name,
+            size: meta.len(),
+            modified,
+        });
+    }
+    Ok(out)
+}
+
+/// Where asset `name` lives; a name reaching outside `assets/` is refused.
+pub fn asset_path(root: &Path, name: &str) -> Result<PathBuf, String> {
+    if name.is_empty() || name.starts_with('.') || name.contains(['/', '\\']) {
+        return Err(format!("Not an asset: {name}"));
+    }
+    Ok(assets_dir(root).join(name))
+}
+
+/// Deletes one asset (the gallery offers it only for unused ones).
+pub fn delete_asset(root: &Path, name: &str) -> Result<(), String> {
+    remove_file(&asset_path(root, name)?)
+}
+
 /// Deletes assets no note in `notes/` or `trash/` mentions, sparing the names in `keep`.
 pub fn purge_unused_assets(root: &Path, keep: &[String]) -> Result<(), String> {
     let dir = assets_dir(root);
@@ -847,6 +897,13 @@ mod tests {
         assert!(!exists(&d), "unused");
         purge_trash(&dir, None, &[]).unwrap();
         assert!(exists(&a) && !exists(&b) && !exists(&c));
+        let listed = list_assets(&dir).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(format!("assets/{}", listed[0].name), a);
+        assert_eq!(listed[0].size, 3);
+        assert!(delete_asset(&dir, "../notes").is_err());
+        delete_asset(&dir, &listed[0].name).unwrap();
+        assert!(list_assets(&dir).unwrap().is_empty());
         assert_eq!(open(&dir).unwrap().notes.len(), 1, "assets/ is not a note");
         fs::remove_dir_all(&dir).unwrap();
     }

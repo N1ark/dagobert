@@ -45,8 +45,10 @@ notes).
 ## File watcher (`watch.rs`, desktop only)
 
 `notify` + `notify-debouncer-mini` (300 ms), recursive on the project root; `classify`
-keeps only top-level `notes/*.md` and `dagobert.json` (`trash/` is ignored) and emits
-`project-changed` (`{kind: "note", note} | {kind: "note-removed", file} | {kind: "meta"}`).
+keeps only top-level `notes/*.md`, `dagobert.json` and files in `notes/assets/` (hidden
+temporaries and `trash/` are ignored) and emits `project-changed` (`{kind: "note", note} |
+{kind: "note-removed", file} | {kind: "meta"} | {kind: "assets"}`, the last at most once per
+batch).
 `Recent` (`state.rs`): the commands in `lib.rs` mark every watched path they write (a
 rename marks both names), and events for paths marked < 1 s ago are dropped so our own
 saves don't echo.

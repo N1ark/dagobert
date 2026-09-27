@@ -16,9 +16,15 @@ const DEBOUNCE: Duration = Duration::from_millis(300);
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "kind", rename_all = "kebab-case")]
 pub enum Change {
-    Note { note: Box<Note> },
-    NoteRemoved { file: String },
+    Note {
+        note: Box<Note>,
+    },
+    NoteRemoved {
+        file: String,
+    },
     Meta,
+    /// Something in `notes/assets/` (the gallery reloads).
+    Assets,
 }
 
 #[derive(Default)]
@@ -30,6 +36,10 @@ pub struct WatchState {
 fn classify(root: &Path, path: &Path) -> Option<Change> {
     if path == root.join(store::META_FILE) {
         return Some(Change::Meta);
+    }
+    if let Ok(rel) = path.strip_prefix(store::assets_dir(root)) {
+        let hidden = rel.to_string_lossy().starts_with('.');
+        return (rel.components().count() == 1 && !hidden).then_some(Change::Assets);
     }
     let rel = path.strip_prefix(store::notes_dir(root)).ok()?;
     // Only top-level `notes/*.md`.
@@ -66,6 +76,7 @@ pub fn start(app: AppHandle, state: &AppState, root: PathBuf) -> Result<(), Stri
             }
         };
         let mut seen = HashSet::new();
+        let mut assets = false;
         for ev in events {
             if ev.kind != DebouncedEventKind::Any
                 || !seen.insert(ev.path.clone())
@@ -74,6 +85,10 @@ pub fn start(app: AppHandle, state: &AppState, root: PathBuf) -> Result<(), Stri
                 continue;
             }
             if let Some(change) = classify(&cb_root, &ev.path) {
+                // A pull may bring many files; the gallery reloads once.
+                if matches!(change, Change::Assets) && std::mem::replace(&mut assets, true) {
+                    continue;
+                }
                 if let Err(e) = app.emit("project-changed", &change) {
                     eprintln!("emit failed: {e}");
                 }
@@ -115,6 +130,11 @@ mod tests {
         assert!(classify(&dir, &dir.join("trash/x.md")).is_none());
         assert!(classify(&dir, &dir.join("notes/sub/x.md")).is_none());
         assert!(classify(&dir, &dir.join("notes/x.txt")).is_none());
+        assert!(matches!(
+            classify(&dir, &dir.join("notes/assets/ab.png")),
+            Some(Change::Assets)
+        ));
+        assert!(classify(&dir, &dir.join("notes/assets/.tmp-1-0")).is_none());
         std::fs::write(
             dir.join("notes/a.md"),
             "---\nid: a\ntitle: A\ncreated: c\nmodified: m\n---\nhi",
