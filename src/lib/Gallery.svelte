@@ -8,6 +8,7 @@
   import InlineMd from "./InlineMd.svelte";
   import DockButton from "./DockButton.svelte";
   import MediaIcon from "./MediaIcon.svelte";
+  import NoteLink from "./NoteLink.svelte";
   import { tooltip } from "./tooltip";
   import X from "phosphor-svelte/lib/X";
   import Play from "phosphor-svelte/lib/Play";
@@ -160,9 +161,7 @@
             </button>
             <div class="meta">
               {#each refs as id (id)}
-                <button class="ghost link ref" onclick={() => store.jump(id)}
-                  ><InlineMd source={store.byId(id)?.title ?? ""} fallback={t("app.untitled")} /></button
-                >
+                <NoteLink {id} />
               {:else}
                 {#if inTrash.has(a.name)}
                   <span class="state">{t("gallery.inTrash")}</span>
@@ -371,18 +370,10 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 2px 8px;
+    gap: 3px;
     margin-top: 5px;
     font-size: 11px;
     color: var(--color-dim);
-  }
-  .ref {
-    max-width: 100%;
-    justify-content: flex-start;
-    font-size: 11px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   .state {
     font-style: italic;

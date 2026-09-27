@@ -10,6 +10,7 @@
   import TagColorPicker from "./TagColorPicker.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
+  import NoteLink from "./NoteLink.svelte";
   import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
@@ -298,7 +299,7 @@
         <div class="mentioned">
           <span class="label">{t("panel.mentionedIn")}</span>
           {#each mentionedIn as m (m.id)}
-            <button class="ghost ref" onclick={() => onjump(m.id)}><InlineMd source={m.title} fallback={t("app.untitled")} /></button>
+            <NoteLink id={m.id} {onjump} />
           {/each}
         </div>
       {/if}
@@ -654,11 +655,6 @@
   .mentioned .label {
     color: var(--color-dim);
     margin-right: 4px;
-  }
-  .ref {
-    padding: 1px 6px;
-    font-size: 12px;
-    color: var(--accent2);
   }
   footer {
     -webkit-user-select: none;

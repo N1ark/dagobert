@@ -9,6 +9,7 @@
   import { t, plural } from "./i18n";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import InlineMd from "./InlineMd.svelte";
+  import NoteLink from "./NoteLink.svelte";
   import { inlineHtml } from "./inline";
   import { isMobile } from "./backend";
   import X from "phosphor-svelte/lib/X";
@@ -86,9 +87,7 @@
 {#snippet notes(list: Linked["notes"])}
   <div class="notes">
     {#each list as n (n.id)}
-      <button class="ghost note" class:current={n.id === store.selectedId} onclick={() => onjump(n.id)}>
-        <InlineMd source={n.title} fallback={t("app.untitled")} />
-      </button>
+      <NoteLink id={n.id} {onjump} />
     {/each}
   </div>
 {/snippet}
@@ -330,22 +329,6 @@
     flex-wrap: wrap;
     gap: 3px;
     margin-top: 3px;
-  }
-  .note {
-    padding: 0 6px;
-    font-size: 10.5px;
-    line-height: 1.5;
-    border-radius: 999px;
-    background: #ffffff0a;
-    color: var(--color);
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .note.current {
-    background: var(--accent-soft);
-    color: var(--color2);
   }
   button.empty,
   .foot {

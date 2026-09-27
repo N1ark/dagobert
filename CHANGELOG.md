@@ -15,6 +15,10 @@ All notable changes to Dagobert are documented here. The format follows
 - Audio and video files play right in the note.
 - A media gallery lists every file in the project with the notes using it; drag one into a note, or clean up the unused ones.
 
+### Changed
+
+- Links to notes look the same in the pull requests and media panels and under "Mentioned in".
+
 ### Fixed
 
 - The note's file name is only clickable on the name itself.
