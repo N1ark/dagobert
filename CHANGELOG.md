@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-28
+
 ### Added
 
 - Distribute selected notes evenly, horizontally or vertically, from the right-click menu.
