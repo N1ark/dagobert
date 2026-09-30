@@ -6,13 +6,15 @@ dialogs/popovers, icons, or CI/release.
 
 ## Shortcuts and menu
 
-- `keys.ts` — every shortcut in display form (`keys["new-note"]` = `⌘N`). `matches(hint, e)`
-  checks a `KeyboardEvent` (`⌘` also accepts Ctrl); the window handler (`WINDOW_KEYS` in
-  `App.svelte`, main window only), `Canvas` and `editor.ts` all go through it, and
-  `menu.ts` derives accelerators from the same hints, so rebinding means changing one
-  entry. `Canvas`'s and `NotePanel`'s key handlers skip text fields; the window handler
-  doesn't, so its shortcuts work while typing. `onEscape` is the shared Escape-to-close for
-  dialogs. Test: `tests/keys.test.mjs`.
+- `keys.ts` — every shortcut in display form (`keys["new-note"]` = `⌘N`). purr's
+  `matches(hint, e)` checks a `KeyboardEvent` (`⌘` also accepts Ctrl); the window handler
+  (`WINDOW_KEYS` in `App.svelte`, main window only), `Canvas` and `LiveEditor` all go through
+  it, and `menu.ts` derives accelerators from the same hints (purr's `accelerator`), so
+  rebinding means changing one entry. `Canvas`'s and `NotePanel`'s key handlers skip text
+  fields, and `Canvas` leaves plain keys to an open menu or dialog (`hasOverlay`); the window
+  handler doesn't, so its shortcuts work while typing. Escape and a click outside close
+  overlays through purr's `registerOverlay`, topmost first; `Kbd` and tooltip `hint`s render
+  the hints.
 - `menu.ts` — builds the native app menu from `paletteActions` in `App.svelte` (each
   `Action` has `id`, `menu` section, optional `menuLabel`, `hint` → accelerator,
   `enabled`). Updated only when `menuSignature` or the appearance changes: when just
@@ -27,9 +29,9 @@ dialogs/popovers, icons, or CI/release.
 - Menu bar icons are SF Symbols: `Action.symbol` lists candidate names; the Rust
   `sf_symbol` command (`symbols.rs`, objc2-app-kit) renders the first that exists to PNG,
   and `sfsymbol.ts` centres/tints it on a canvas for the current appearance. Phosphor
-  icons are only used in-app, in the `regular`, `bold` and `fill` weights: the
-  `phosphor-weights` plugin in `vite.config.js` strips the others from each icon (add a
-  weight there before using it).
+  icons (`purr/icons`) are only used in-app, in the `regular`, `bold` and `fill` weights:
+  the `purr()` plugin in `vite.config.js` strips the others from each icon (pass `weights`
+  to it before using another).
 
 ## i18n
 
@@ -76,8 +78,8 @@ not their children; needs `core:window:allow-start-dragging` in the capability).
 ## Panels
 
 Note, pull requests, trash, settings and the media gallery are **panes** (`Pane` in `tiles.ts`), and every one
-lives in the same container: `Dock.svelte` on the desktop, `Sheet.svelte` on a phone. A
-component renders only its content (Trash and Settings as `.dialog.bare`); App's `pane`
+lives in the same container: `Dock.svelte` on the desktop, purr's `Sheet` on a phone. A
+component renders only its content (a `.pane` with purr's `PanelHeader`); App's `pane`
 snippet picks it, so the same markup goes into either container. `isOpen` / `close` in
 `App.svelte` map each pane to its state (`store.selected`, `showPRs`, …).
 
@@ -111,52 +113,59 @@ pull). Which notes use a file comes from `store.assetInfo` (per note, bodies are
 only when they change), so it follows edits live; the trash's bodies (`loadTrash`) mark
 "In trash". A file neither uses is "Unused" and can be deleted (`delete_asset`, two presses),
 or all of them from the footer; unlike emptying the trash this ignores the undo history.
-Filter chips, a search over file names, alt texts and note titles, a large view (Escape or a
-click outside closes it; reveal in Finder). A tile dragged out (pointer events, since Tauri
-keeps HTML5 drags for files) dispatches `media-drop` with its embed at the element under the
-pointer, looking through a popped-up pane's `.backdrop`.
+Filter chips, a search over file names, alt texts and note titles, a large view (purr's
+`Lightbox`: ← → step through, Escape or a click outside closes it; reveal in Finder). A tile
+dragged out (pointer events, since Tauri keeps HTML5 drags for files) dispatches `media-drop`
+with its embed at the element under the pointer, looking through a popped-up pane's `.scrim`.
 
 ## Dialogs and popovers
 
 - Anything shown only on demand (QuickOpen, WorkflowEditor, PullRequests, TrashDialog,
   GitDialog, CloneDialog) is mounted through `{#await import(…) then m}<m.default …/>`,
   so it's a separate chunk that launch doesn't load; add new dialogs the same way.
-- `QuickOpen.svelte` — `mode: "notes"` (`quick-open`) or `"commands"` (`commands`); App
-  owns `showQuickOpen`; not in standalone windows. Matching lives in `fuzzy.ts`
-  (`fuzzyMatch`: prefix > word-start > substring > subsequence; `parseQuery`: a leading
-  `#tag` filters notes). Commands come from App's `paletteActions` prop so the palette
-  stays dumb.
+- `QuickOpen.svelte` — purr's `CommandPalette` in `mode: "notes"` (`quick-open`) or
+  `"commands"` (`commands`); App owns `showQuickOpen`; not in standalone windows. Ranking is
+  purr's `rank` (exact > prefix > word start > substring > subsequence, the same in the mention
+  and link pickers); `query.ts`'s `parseQuery` makes a leading `#tag` filter notes. Commands
+  come from App's `paletteActions` (`Action`, in `menu.ts`) so the palette stays dumb.
+- `ContextMenu.svelte` — the canvas's menu: builds purr menu entries for a note, a
+  selection, a link or the background and opens them with `menu.showAt`; purr's
+  `ContextMenuHost` in `App.svelte` renders it (an action sheet on a phone). The entries are
+  a builder re-read while it is open, so kept-open tag toggles show their new state.
 - `WorkflowEditor.svelte` — the settings pane; `section` picks "workflows", "tracking",
   "github" or "git". `workflows.ts` has `DEFAULT_WORKFLOW` (todo → done, id `""`, never
   stored, name from the locale) and `stageColor`.
 - `TrashDialog.svelte` — the trash pane; lists `trash/` with restore / reveal file / delete forever /
   empty. `GitDialog.svelte` — see [storage-and-sync.md](storage-and-sync.md).
-- `ColorPicker.svelte` — shared swatch popover (tag and stage colours; `allowAuto` adds an
-  "Automatic" swatch). `tags.ts` holds the built-in palette (index 0 is the default) and
+- `ColorPicker.svelte` — shared swatch popover, purr's `ColorGrid` in a `Popover` hung off
+  the swatch that opened it (tag and stage colours; `allowAuto` adds an "Automatic" swatch). `tags.ts` holds the built-in palette (index 0 is the default) and
   `normalizeColor`; users extend it with `Meta.palette` (`store.palette`,
   `addPaletteColor` / `removePaletteColor`): the "+" swatch opens a hidden native
   `<input type="color">` (live preview on `input`, added and picked on `change`); custom
   swatches are removed by right-click. `TagColorPicker.svelte` wraps it; `TagMenu.svelte`
   is the toolbar popover listing all tags (click name = toggle filter, click dot =
   recolour).
-- `tooltip.ts` — `use:tooltip={"text"}`: an instant tooltip (one shared `.tooltip` element
-  on `<body>`). Also takes `{ html }` (must be DOMPurify output, e.g. `inlineHtml`) or a
-  function evaluated per hover. Prefer it over `title` on icon-only controls.
-- Shared styles live in `app.css`; reuse them instead of restyling: `.backdrop` + `.dialog`
-  (`.dialog.bare` full-screen), `.popover`, `button.icon`, `button.link` (acts elsewhere),
-  `button.swatch`, `.tag-chip` (set `--tag`), `.checkbox`, `@keyframes spin`. Chrome is
-  `user-select: none` (buttons globally, containers per component); inputs, textareas and
-  contenteditable re-enable it.
+- purr's `tooltip` action — `use:tooltip={"text"}`: an instant tooltip. Also takes
+  `{ text, hint }`, `{ html }` (must be DOMPurify output, e.g. `inlineHtml`) or a function
+  evaluated per hover. `IconButton` shows its label as one.
+- Bare `button` / `input` / `select` are unstyled (purr's reset). Use purr's classes and
+  components instead of restyling: `.btn` (`--primary`, `--ghost`, `--danger`, `--link`,
+  `--icon`, `--sm`, `--lg`) or `Button` / `IconButton`, `.field-input`, `.row-item`,
+  `.surface`, `.tag` (set `--tag`) or `Tag`, `.checkbox`, `.swatch`, `.spin`; `Modal` for
+  dialogs (`GitDialog`, `CloneDialog`), `Popover`, `ConfirmButton` for two-press deletes,
+  `toast()` for notices. `app.css` holds only what is Dagobert's (`.pane`, wikilinks, repo
+  refs, media in `.md`, the phone overrides).
 
 ## Icons and assets
 
-`icons.ts` `ICON` is the in-app icon size (larger on a phone). `assets/` holds the source
+Icons take their size from the button they sit in (purr's `--icon-*`, larger on a phone). `assets/` holds the source
 SVGs: `logo.svg` (rounded background; the app icon) and `icon.svg` (transparent glyph).
 Regenerate `src-tauri/icons/` with `npm run tauri icon assets/logo.svg` (then delete the
 android folder it adds; `ios/` is used, see [mobile.md](mobile.md)). `public/` holds
-copies served by Vite for the favicon, toolbar and welcome screen. `app.css` has the theme
-tokens (dark only) and `.markdown` styles. Fonts (Inter, Fira Code) are used only if
-installed locally; nothing is fetched.
+copies served by Vite for the favicon, toolbar and welcome screen. The theme tokens are
+purr's (`main.ts` applies its dark theme; `app.css` only sets the 14px `--font-size` and the
+toolbar's sizes); rendered markdown is purr's `.md`. Fonts (Inter Variable, Fira Code) are
+bundled by `purr/fonts.css`; nothing is fetched.
 
 ## CI and releases
 
@@ -178,7 +187,8 @@ shipping a new pubkey, which installed copies won't accept: they'd need a manual
 `update.rs` checks and downloads (skipped in debug builds, which would replace themselves
 with the release) and keeps the archive in the app cache dir (not in memory) until
 `update_install` installs and calls
-`request_restart`, whose `ExitRequested` skips the git quit hold. `updater.svelte.ts`
-checks a minute after launch and every 6 h from the main window; when one is ready the toolbar shows
+`request_restart`, whose `ExitRequested` skips the git quit hold. `updater.svelte.ts` is
+purr's `createUpdater` over those two commands: it checks a minute after launch and every 6 h
+from the main window; when one is ready the toolbar shows
 "Restart to update" and the app-menu item switches to it. Installing runs
 `store.suspend()` (flush + sync) first.

@@ -41,12 +41,12 @@ Performance rules (profile in Safari, not Chrome — Chrome is fine either way):
 in frontmatter (omitted = `NODE_W` 220, see `widthOf`), resized via the bottom-right grip
 (`[data-resize]`), clamped 140–640; "Reset width" in the context menu clears it.
 
-`ContextMenu.svelte` is rendered as a sibling of `.canvas`, not inside it: a
-`position: fixed` element inside the `overflow: hidden` canvas makes WebKit drop the
-canvas clip and paint the graph over the note panel. Targets: a node, a multi-selection
-(bulk done/undone, tag checklist with all/some/none state, delete), an edge (remove
-link) or the background (new note here, paste). Closes on outside pointerdown, Esc or
-window blur.
+`ContextMenu.svelte` builds the menu and purr's `ContextMenuHost` (mounted in `App.svelte`,
+outside `.canvas`) renders it: a `position: fixed` element inside the `overflow: hidden`
+canvas makes WebKit drop the canvas clip and paint the graph over the note panel. Targets: a
+node, a multi-selection (bulk done/undone, align and distribute, tag checklist with
+all/some/none state, delete), an edge (remove link) or the background (new note here, paste).
+Deletes take two presses; it closes on outside pointerdown, Esc or window blur.
 
 ## Selection, navigation, clipboard
 

@@ -9,9 +9,10 @@ adapted is everything that assumed a desktop.
 
 ## The platform flag
 
-`isMobile` in `backend.ts` is `matchMedia("(pointer: coarse)").matches && innerWidth < 700`
-— deliberately not the OS, so it needs no plugin and behaves identically in the browser
-dev loop. `main.ts` puts a `mobile` class on `<body>` from it; markup branches on the
+`isMobile` (purr's, re-exported by `backend.ts`) is `matchMedia("(pointer: coarse)").matches
+&& innerWidth < 700` — deliberately not the OS, so it needs no plugin and behaves identically
+in the browser dev loop. `main.ts` passes it to purr's `applyPlatform`, which puts a `mobile`
+class on `<body>` (and purr's touch sizes with it); markup branches on the
 flag, CSS on the class (the phone-only rules live at the end of `app.css`, because they
 override component styles). In `npm run dev`, `?mobile` forces it on, so the layout can
 be worked on without a device. An iPad falls on the desktop side: out of scope, not
@@ -69,7 +70,7 @@ would clear the undo history, the selection and the viewport and ignore in-fligh
 
 ## Panels
 
-A phone shows **one** panel at a time and it is always `Sheet.svelte`: the same
+A phone shows **one** panel at a time and it is always purr's `Sheet`: the same
 container, the same thumb, the same drag and the same stops. `mobilePanel` in `App.svelte`
 picks which — settings, trash, the media gallery, pull requests or the selected note, in
 that order — and
@@ -84,17 +85,16 @@ gesture that starts mid-animation picks the sheet up where it is. Below its top 
 any drag on the contents moves the sheet in either direction (a non-passive `touchmove`
 keeps iOS from starting a scroll, which would cancel the pointer); at the top, the
 contents scroll first and only a downward drag from their top takes the sheet.
-`--sheet-top` is registered with `@property` because `getComputedStyle` hands an
-unregistered custom property its `calc()` back unevaluated.
+`--sheet-top` (set in `app.css` to clear the toolbar) is registered with `@property` by
+purr, because `getComputedStyle` hands an unregistered custom property its `calc()` back
+unevaluated.
 
 The floating bottom bar follows the sheet frame by frame through `--sheet-lift` /
-`--sheet-dim`, which `Sheet.svelte` sets on the root, and drops away under a full one
-(`.tucked`). The grabber (`.grab`) and `.scrim` are shared classes in `app.css`, used by
-`Sheet.svelte` and by the context menu's action sheet alike.
+`--sheet-dim`, which the `Sheet` sets on the root, and drops away under a full one
+(`.tucked`). The context menu's action sheet is purr's too, with the same grabber and scrim.
 
-`.dialog.bare` is the no-chrome form a sheet renders (`app.css` also strips the safe-area
-padding it would otherwise inherit from the full-screen dialog rule). Dialogs that aren't
-panels — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
+A pane renders as a bare `.pane` in a sheet. Dialogs that aren't panels — `GitDialog`,
+`CloneDialog` — are purr `Modal`s, which fill the screen on a phone.
 
 ## Touch
 
@@ -120,8 +120,8 @@ panels — `GitDialog`, `CloneDialog` — stay ordinary dialogs.
 The toolbar keeps git, tags, the minimap toggle and a button for the commands palette
 (`paletteActions`), which holds everything else; search, new note and PRs sit in the
 floating bottom bar. The palette docks to the bottom edge, field last, and rides up with
-the keyboard. Dialogs go full-screen and the context menu becomes an action sheet from
-`app.css`. The grain shader is off by default (battery). Safe areas come from `--safe-*`,
+the keyboard. Dialogs go full-screen and the context menu becomes an action sheet (all
+purr's). The grain shader is off by default (battery). Safe areas come from `--safe-*`,
 the software keyboard from `--kb` (below); fields are forced to 16px, below which Safari
 zooms the page on focus.
 
@@ -221,8 +221,9 @@ the background sync is reliable rather than best-effort.
 WKWebView never tells the web layer about the keyboard — `visualViewport` doesn't shrink,
 so every web-only trick for keeping a field visible is guesswork. `keyboard.rs` observes
 `UIKeyboardWillChangeFrameNotification` and `UIKeyboardWillHideNotification` and emits the
-end frame's height, which in points is the same unit as a CSS pixel. `main.ts` puts it in
-`--kb` and toggles `body.keyboard`; `body.mobile .app` and the panels shrink by it.
+end frame's height, which in points is the same unit as a CSS pixel. `main.ts` hands
+`backend.onKeyboard` to purr's `applyPlatform`, which puts it in `--kb` and toggles
+`body.keyboard`; `body.mobile .app` and the panels shrink by it.
 
 While the keyboard is up the phone is compact: a sheet climbs to the status bar
 (`--sheet-top`) and drops the home-indicator inset the keyboard already covers; a field
@@ -242,5 +243,5 @@ keyboard, and a drag while typing scrolls the page instead of reaching the sheet
 
 Nothing in the shell scrolls, and nothing should: with `--kb` correct there is nothing to
 scroll out of the way, and a scrolling shell can put the focused field back under the
-keyboard; `main.ts` scrolls the window back to 0 as a net. In the browser dev loop there
-is no UIKit, so `main.ts` falls back to `visualViewport`, which does shrink there.
+keyboard; `applyPlatform` scrolls the window back to 0 as a net. In the browser dev loop
+there is no UIKit, so it falls back to `visualViewport`, which does shrink there.

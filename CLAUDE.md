@@ -2,6 +2,9 @@
 
 DAG-shaped note-taking/task app. Tauri 2 + Svelte 5 (runes) + Vite, no SvelteKit.
 Keep it lightweight: avoid adding dependencies unless they clearly pay for themselves.
+The shared UI (tokens, buttons, fields, menus, dialogs, palette, sheet, toasts, tooltips, icons,
+fuzzy ranking, shortcuts, times) is `purr` (`../purr`, linked with `file:`); read its CLAUDE.md
+before touching the chrome, and use it rather than restyling bare elements.
 
 ## Commands
 
@@ -28,8 +31,8 @@ The native window can't be screenshotted from the CLI.
   added.
 - **Every user-facing string lives in `src/lib/locales/en.ts`** (`t(key)`); shortcuts come
   from `keys.ts` and are never spelled out in strings.
-- Icons are `phosphor-svelte`, imported per icon. When nothing there fits, hand-draw a
-  Phosphor-style SVG component (see `GitPullRequestClosed.svelte`); never unicode symbols.
+- Icons come from `purr/icons` (all of Phosphor plus purr's hand-drawn ones), sized by the
+  button they sit in. When nothing there fits, hand-draw one in purr; never unicode symbols.
 - Lint: `svelte/prefer-svelte-reactivity` is off on purpose (plain Set/Map for scratch
   state); declare an `$effect` dependency you don't otherwise use with `void dep;`;
   `{@html}` is only ever DOMPurify output and carries an eslint-disable comment saying so.
@@ -47,13 +50,14 @@ The native window can't be screenshotted from the CLI.
   graph helpers (`wouldCycle`, `dependents`, `isReady`), debounced saves, undo, git slice.
 - `src/App.svelte` — shell, window keys, palette actions, the panes.
 - `Tiles.svelte`, `Dock.svelte`, `DockButton.svelte`, `tiles.ts`, `panes.svelte.ts` — the
-  desktop's tiled panels (Zed-style splits, or popups); `Sheet.svelte` holds them on a phone.
+  desktop's tiled panels (Zed-style splits, or popups); purr's `Sheet` holds them on a phone.
 - `Canvas.svelte`, `NodeCard.svelte`, `Minimap.svelte`, `Grain.svelte` — the graph.
 - `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`, `editor.ts`, `wikilinks.ts` —
   the editor.
 - `github.ts`, `prs.svelte.ts`, `PullRequests.svelte` — GitHub integration.
-- Pure modules with tests in `tests/`: `layout.ts`, `keys.ts`, `i18n.ts`, `highlight.ts`,
-  `fuzzy.ts`, `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`.
+- Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
+  `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`. They run under
+  plain Node, so they must not import `purr`.
 
 Details per area (read the one you're working in):
 

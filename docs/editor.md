@@ -76,8 +76,8 @@ same pattern. `LinkPicker.svelte` is the search dropdown for adding deps/depende
   language list (import per language; add there, plus aliases like `svelte` → `xml`) and
   is a separate chunk: `Markdown` loads it (`loadHighlighter`) when its source has a fence
   with a language and re-renders once it's in; until then, and for unknown or missing
-  languages, code is escaped plain text. Token colours are `.hljs-*` rules in `app.css` using the tag
-  palette.
+  languages, code is escaped plain text. Token colours are purr's `code.css`, which maps
+  `.hljs-*` onto its `--code-*` tokens.
 
 ## Media
 
