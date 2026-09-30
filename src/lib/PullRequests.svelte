@@ -4,28 +4,21 @@
   import { prCache, linkedRefs, refreshPRs, type Linked } from "./prs.svelte";
   import PrIcon from "./PrIcon.svelte";
   import DockButton from "./DockButton.svelte";
-  import { relative, absolute } from "./time";
-  import { tooltip } from "./tooltip";
+  import { formatAbsolute, IconButton, PanelHeader, persistedFlag, tooltip } from "purr";
+  import { relative } from "./time";
   import { t, plural } from "./i18n";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import InlineMd from "./InlineMd.svelte";
   import NoteLink from "./NoteLink.svelte";
   import { inlineHtml } from "./inline";
   import { isMobile } from "./backend";
-  import X from "phosphor-svelte/lib/X";
-  import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
-  import ChatCircle from "phosphor-svelte/lib/ChatCircle";
-  import EyeSlash from "phosphor-svelte/lib/EyeSlash";
-  import WarningCircle from "phosphor-svelte/lib/WarningCircle";
+  import { ArrowsClockwise, ChatCircle, EyeSlash, WarningCircle } from "purr/icons";
 
   let { onclose, onjump }: { onclose: () => void; onjump: (id: string) => void } = $props();
 
-  const HIDE_KEY = "dagobert.prsHideClosed";
-  let hideClosed = $state(localStorage.getItem(HIDE_KEY) === "1");
-  function toggleHide() {
-    hideClosed = !hideClosed;
-    localStorage.setItem(HIDE_KEY, hideClosed ? "1" : "0");
-  }
+  const hide = persistedFlag("dagobert.prsHideClosed", false);
+  const hideClosed = $derived(hide.value);
+  const toggleHide = () => (hide.value = !hide.value);
 
   const refs = $derived(linkedRefs());
   const details = $derived(prCache.details);
@@ -93,21 +86,21 @@
 {/snippet}
 
 <aside class="prs">
-  <header>
-    <h3>
-      {t("prs.title")}
-      {#if rows.length || hiddenCount}<span class="count">{rows.length}</span>{/if}
-    </h3>
-    {#if pending}<span class="spin" use:tooltip={t("prs.loading")}><ArrowsClockwise size={13} /></span>{/if}
-    <button class="ghost icon" class:on={hideClosed} onclick={toggleHide} use:tooltip={t(hideClosed ? "prs.showClosed" : "prs.hideClosed")}
-      ><EyeSlash size={15} /></button
-    >
-    <button class="ghost icon" onclick={refreshPRs} disabled={pending} use:tooltip={t("prs.refresh")}><ArrowsClockwise size={15} /></button>
-    {#if !isMobile}
+  <PanelHeader
+    title={t("prs.title")}
+    count={rows.length || hiddenCount ? rows.length : undefined}
+    onclose={isMobile ? undefined : onclose}
+    closeLabel={t("pane.close")}
+  >
+    {#if pending}<span class="spin" use:tooltip={t("prs.loading")}><ArrowsClockwise /></span>{/if}
+    {#snippet actions()}
+      <IconButton label={t(hideClosed ? "prs.showClosed" : "prs.hideClosed")} pressed={hideClosed} onclick={toggleHide}
+        ><EyeSlash /></IconButton
+      >
+      <IconButton label={t("prs.refresh")} disabled={pending} onclick={refreshPRs}><ArrowsClockwise /></IconButton>
       <DockButton />
-      <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
-    {/if}
-  </header>
+    {/snippet}
+  </PanelHeader>
   <div class="list">
     {#if noRepos}
       <p class="empty"><InlineMd source={t("prs.noRepos")} /></p>
@@ -115,7 +108,7 @@
       <p class="empty"><InlineMd source={t("prs.noRefs")} /></p>
     {:else if !rows.length && !pending && !failed.length}
       {#if hiddenCount}
-        <button class="ghost empty" onclick={toggleHide}>{plural("prs.allClosed", hiddenCount)}</button>
+        <button class="empty" onclick={toggleHide}>{plural("prs.allClosed", hiddenCount)}</button>
       {:else}
         <p class="empty">{t("prs.none")}</p>
       {/if}
@@ -126,18 +119,14 @@
         <div class="row">
           <span class="state"><PrIcon key={ref.key} /></span>
           <div class="body">
-            <button
-              class="ghost link title"
-              onclick={() => open(pr.url)}
-              use:tooltip={(n) => (overflows(n) ? { html: inlineHtml(pr.title) } : null)}
-            >
+            <button class="title" onclick={() => open(pr.url)} use:tooltip={(n) => (overflows(n) ? { html: inlineHtml(pr.title) } : null)}>
               <span class="t"><InlineMd source={pr.title} /></span>
             </button>
             <div class="meta">
               <span class="ref">{ref.alias}#{pr.number}</span>
               <span class="author">{pr.author}</span>
-              <span use:tooltip={absolute(pr.updated)}>{relative(pr.updated)}</span>
-              {#if pr.comments}<span class="comments"><ChatCircle size={11} /> {pr.comments}</span>{/if}
+              <span use:tooltip={formatAbsolute(pr.updated)}>{relative(pr.updated)}</span>
+              {#if pr.comments}<span class="comments"><ChatCircle /> {pr.comments}</span>{/if}
             </div>
             {@render notes(ref.notes)}
           </div>
@@ -148,7 +137,7 @@
       <div class="divider fail"><span>{repo}</span></div>
       {#each messages as [message, list] (message)}
         <div class="row">
-          <span class="state fail"><WarningCircle size={15} /></span>
+          <span class="state fail"><WarningCircle /></span>
           <div class="body">
             <p class="msg">{message}</p>
             {#each list as ref (ref.key)}
@@ -162,7 +151,7 @@
       {/each}
     {/each}
     {#if hiddenCount && rows.length}
-      <button class="ghost foot" onclick={toggleHide}>{t("prs.hidden", { n: hiddenCount })}</button>
+      <button class="foot" onclick={toggleHide}>{t("prs.hidden", { n: hiddenCount })}</button>
     {/if}
   </div>
 </aside>
@@ -176,81 +165,58 @@
     flex-direction: column;
     overflow: hidden;
   }
-  header {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    padding: 8px 8px 8px 14px;
-    border-bottom: 1px solid var(--border);
-  }
-  h3 {
-    flex: 1;
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color2);
-  }
-  .count {
-    font-weight: 400;
-    color: var(--color-dim);
-    margin-left: 4px;
-  }
-  .icon.on {
-    color: var(--accent2);
-  }
   .spin {
-    display: inline-flex;
-    margin-right: 4px;
-    color: var(--accent2);
-    animation: spin 0.8s linear infinite;
+    margin-right: var(--gap-2);
+    font-size: var(--icon-sm);
+    color: var(--theme2);
   }
   .list {
     flex: 1;
     overflow-y: auto;
-    padding: 4px;
+    padding: var(--gap-2);
   }
   .empty {
     margin: 0;
-    padding: 20px 12px;
+    padding: 20px var(--sp-4);
     text-align: center;
-    color: var(--color-dim);
-    font-size: 12px;
+    color: var(--muted);
+    font-size: var(--fs-xs);
     line-height: 1.5;
   }
   .empty :global(code) {
     font-family: var(--mono);
-    font-size: 11px;
+    font-size: var(--fs-micro);
   }
   .divider {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 8px 4px 2px;
+    gap: var(--gap-4);
+    margin: var(--gap-4) var(--gap-2) var(--gap-1);
     font-family: var(--mono);
-    font-size: 10px;
-    color: var(--color-dim);
+    font-size: var(--fs-nano);
+    color: var(--muted);
     white-space: nowrap;
   }
   .divider::after {
     content: "";
     flex: 1;
-    border-top: 1px solid var(--border2);
+    border-top: 1px solid var(--border-strong);
   }
   .divider:first-child {
     margin-top: 2px;
   }
   .divider.fail {
-    color: var(--red);
+    color: var(--danger);
   }
   .row {
     display: flex;
-    gap: 7px;
-    padding: 4px 8px;
+    gap: var(--sp-3);
+    padding: var(--gap-2) var(--gap-4);
     border-radius: var(--radius);
   }
   @media (hover: hover) {
     .row:hover {
-      background: #ffffff06;
+      background: var(--bg3);
     }
   }
   .state {
@@ -259,11 +225,11 @@
     margin-top: 2px;
   }
   .state.fail {
-    color: var(--red);
+    color: var(--danger);
   }
   .msg {
     margin: 0;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     line-height: 1.3;
     color: var(--color2);
   }
@@ -279,21 +245,21 @@
     width: 100%;
     text-align: left;
     color: var(--color2);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-weight: 500;
     line-height: 1.3;
   }
   @media (hover: hover) {
     .title:hover {
-      color: var(--accent2);
+      color: var(--theme2);
     }
   }
   .t :global(code) {
     font-family: var(--mono);
     font-size: 0.92em;
     background: var(--code-bg);
-    padding: 0 3px;
-    border-radius: 3px;
+    padding: 0 var(--gap-1);
+    border-radius: var(--radius-sm);
   }
   .t {
     display: -webkit-box;
@@ -305,15 +271,15 @@
   .meta {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: var(--sp-3);
     margin-top: 1px;
-    font-size: 10.5px;
-    color: var(--color-dim);
+    font-size: var(--fs-micro);
+    color: var(--muted);
     white-space: nowrap;
   }
   .ref {
     font-family: var(--mono);
-    color: var(--accent2);
+    color: var(--theme2);
   }
   .author {
     overflow: hidden;
@@ -338,14 +304,14 @@
   @media (hover: hover) {
     button.empty:hover,
     .foot:hover {
-      color: var(--accent2);
+      color: var(--theme2);
     }
   }
   .foot {
-    margin: 4px 0 0;
-    padding: 8px;
+    margin: var(--gap-2) 0 0;
+    padding: var(--gap-4);
     text-align: center;
-    font-size: 11px;
-    color: #555;
+    font-size: var(--fs-micro);
+    color: var(--faint);
   }
 </style>

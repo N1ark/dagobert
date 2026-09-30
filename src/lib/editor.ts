@@ -1,5 +1,4 @@
 /** Pure text-editing commands for the markdown textarea. */
-import { keys, matches } from "./keys.ts";
 import { EMBED_RE, parseAlt } from "./media.ts";
 
 export interface Sel {
@@ -97,21 +96,6 @@ export function indent(s: Sel, out: boolean): Sel {
     start: Math.max(from, start + firstDelta),
     end: Math.max(from, end + delta),
   };
-}
-
-/** Map a keydown to a command, or null. */
-export function command(e: KeyboardEvent, s: Sel): Sel | null {
-  const mod = e.metaKey || e.ctrlKey;
-  if (e.key === "Enter" && !mod && !e.shiftKey) return continueList(s);
-  if (e.key === "Tab") return indent(s, e.shiftKey);
-  if (!mod) return null;
-  if (matches(keys.bold, e)) return toggleWrap(s, "**");
-  if (matches(keys.italic, e)) return toggleWrap(s, "*");
-  if (matches(keys.code, e) || matches(keys["code-alt"], e)) return toggleWrap(s, "`");
-  if (matches(keys.link, e)) return link(s);
-  if (matches(keys.strike, e)) return toggleWrap(s, "~~");
-  if (matches(keys.highlight, e)) return toggleWrap(s, "==");
-  return null;
 }
 
 /** Code spans first, so embeds inside them are skipped; the embed's alt is group 2. */

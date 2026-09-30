@@ -9,17 +9,23 @@
   const note = $derived(store.byId(id));
 </script>
 
-<button class="ghost note-link" class:current={id === store.selectedId} onclick={() => onjump(id)}>
+<button
+  class="note-link"
+  class:current={id === store.selectedId}
+  aria-current={id === store.selectedId || undefined}
+  onclick={() => onjump(id)}
+>
   <InlineMd source={note?.title ?? ""} fallback={t("app.untitled")} />
 </button>
 
 <style>
   .note-link {
-    padding: 0 6px;
-    font-size: 10.5px;
+    display: inline-flex;
+    padding: 0 var(--gap-3);
+    font-size: var(--fs-micro);
     line-height: 1.5;
-    border-radius: 999px;
-    background: #ffffff0a;
+    border-radius: var(--radius-pill);
+    background: var(--chip);
     color: var(--color);
     max-width: 100%;
     overflow: hidden;
@@ -27,7 +33,7 @@
     white-space: nowrap;
   }
   .note-link.current {
-    background: var(--accent-soft);
+    background: var(--theme-mid);
     color: var(--color2);
   }
 </style>

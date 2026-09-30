@@ -1,13 +1,10 @@
 <script lang="ts">
+  import { Modal, PanelHeader } from "purr";
+  import { Warning, Check, GitBranch } from "purr/icons";
   import { store } from "./store.svelte";
   import type { Conflict } from "./types";
   import InlineMd from "./InlineMd.svelte";
-  import X from "phosphor-svelte/lib/X";
-  import Warning from "phosphor-svelte/lib/Warning";
-  import Check from "phosphor-svelte/lib/Check";
-  import GitBranch from "phosphor-svelte/lib/GitBranch";
   import { t } from "./i18n";
-  import { onEscape } from "./keys";
 
   /** "norepo": offer to create a repository; "conflicts": what the last pull merged. */
   let { kind, conflicts = [], onclose }: { kind: "norepo" | "conflicts"; conflicts?: Conflict[]; onclose: () => void } = $props();
@@ -18,114 +15,98 @@
   }
 </script>
 
-<svelte:window onkeydown={(e) => onEscape(e, onclose)} />
-
-<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="backdrop" onclick={onclose}>
-  <div class="dialog" onclick={(e) => e.stopPropagation()} role="dialog" aria-label={t("git.aria")} tabindex="-1">
-    <header>
-      <h3>
-        {#if kind === "norepo"}<GitBranch size={15} /> {t("git.title")}{:else}<Warning size={15} /> {t("git.conflicts.title")}{/if}
-      </h3>
-      <button class="ghost" onclick={onclose} aria-label={t("git.close")}><X size={16} /></button>
-    </header>
+<Modal label={t("git.aria")} {onclose} width="480px" closeLabel={t("git.close")}>
+  <PanelHeader
+    title={t(kind === "norepo" ? "git.title" : "git.conflicts.title")}
+    icon={kind === "norepo" ? GitBranch : Warning}
+    {onclose}
+    closeLabel={t("git.close")}
+  />
+  {#if kind === "norepo"}
+    <div class="body">
+      <p>{t("git.norepo")}</p>
+      <p class="help"><InlineMd source={t("git.norepo.help")} /></p>
+    </div>
+  {:else}
+    <div class="body">
+      <p class="help"><InlineMd source={t("git.conflicts.help")} /></p>
+      <ul>
+        {#each conflicts as c (c.id)}
+          <li>
+            <button class="title" onclick={() => jump(c.id)}><InlineMd source={c.title} fallback={t("app.untitled")} /></button>
+            {#if c.body_conflict}
+              <span class="hint attention"><Warning /> {t("git.conflicts.attention")}</span>
+            {:else}
+              <span class="hint"><Check /> {t("git.conflicts.merged")}</span>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    </div>
+  {/if}
+  {#snippet footer()}
     {#if kind === "norepo"}
-      <div class="body">
-        <p>{t("git.norepo")}</p>
-        <p class="help"><InlineMd source={t("git.norepo.help")} /></p>
-      </div>
-      <footer>
-        <button class="ghost" onclick={onclose}>{t("git.norepo.cancel")}</button>
-        <button class="primary" onclick={() => store.initRepo().then(onclose)}>{t("git.norepo.init")}</button>
-      </footer>
+      <button class="btn btn--ghost" onclick={onclose}>{t("git.norepo.cancel")}</button>
+      <button class="btn btn--primary" onclick={() => store.initRepo().then(onclose)}>{t("git.norepo.init")}</button>
     {:else}
-      <div class="body">
-        <p class="help"><InlineMd source={t("git.conflicts.help")} /></p>
-        <ul>
-          {#each conflicts as c (c.id)}
-            <li>
-              <button class="ghost title" onclick={() => jump(c.id)}><InlineMd source={c.title} fallback={t("app.untitled")} /></button>
-              {#if c.body_conflict}
-                <span class="hint attention"><Warning size={12} /> {t("git.conflicts.attention")}</span>
-              {:else}
-                <span class="hint"><Check size={12} /> {t("git.conflicts.merged")}</span>
-              {/if}
-            </li>
-          {/each}
-        </ul>
-      </div>
-      <footer>
-        <button class="primary" onclick={onclose}>{t("git.conflicts.ok")}</button>
-      </footer>
+      <button class="btn btn--primary" onclick={onclose}>{t("git.conflicts.ok")}</button>
     {/if}
-  </div>
-</div>
+  {/snippet}
+</Modal>
 
 <style>
-  .dialog {
-    width: 480px;
-  }
-  .dialog h3 {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-  }
   .body {
-    padding: 12px 16px;
+    padding: var(--sp-4) var(--sp-5);
     max-height: 60vh;
     overflow: auto;
   }
   .body p {
-    margin: 0 0 8px;
+    margin: 0 0 var(--gap-4);
   }
   .help {
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
-  .dialog :global(code) {
+  .body :global(code) {
     font-family: var(--mono);
     font-size: 0.9em;
     background: var(--code-bg);
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 1px var(--gap-2);
+    border-radius: var(--radius-sm);
   }
   ul {
     list-style: none;
-    margin: 8px 0 0;
+    margin: var(--gap-4) 0 0;
     padding: 0;
   }
   li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 0;
+    gap: var(--gap-4);
+    padding: var(--gap-1) 0;
   }
   .title {
     flex: 1;
     min-width: 0;
-    text-align: left;
     color: var(--color2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  @media (hover: hover) {
+    .title:hover {
+      color: var(--theme2);
+    }
+  }
   .hint {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--color-dim);
+    gap: var(--gap-2);
+    font-size: var(--fs-micro);
+    color: var(--muted);
     white-space: nowrap;
   }
   .hint.attention {
-    color: var(--yellow);
-  }
-  footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 10px 16px;
-    border-top: 1px solid var(--border);
+    color: var(--warn);
   }
 </style>

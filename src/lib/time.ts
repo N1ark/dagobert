@@ -1,25 +1,9 @@
+import { formatRelative, type TimeInput } from "purr";
 import { t } from "./i18n.ts";
 
-export function relative(iso: string): string {
-  const ms = new Date(iso).getTime();
-  if (Number.isNaN(ms)) return t("app.dash");
-  const s = Math.round((Date.now() - ms) / 1000);
-  if (s < 45) return t("time.justNow");
-  const m = Math.round(s / 60);
-  if (m < 60) return t("time.minutes", { n: m });
-  const h = Math.round(m / 60);
-  if (h < 24) return t("time.hours", { n: h });
-  const d = Math.round(h / 24);
-  if (d < 30) return t("time.days", { n: d });
-  const mo = Math.round(d / 30);
-  if (mo < 12) return t("time.months", { n: mo });
-  return t("time.years", { n: Math.round(mo / 12) });
-}
-
-export function absolute(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+/** `5m ago`, in the platform's locale; only "just now" and the unreadable date are ours. */
+export function relative(when: TimeInput): string {
+  return formatRelative(when, { justNow: t("time.justNow"), invalid: t("app.dash") });
 }
 
 /** `YYYY-MM-DD HH:mm` in local time (commit messages). */

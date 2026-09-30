@@ -1,9 +1,7 @@
 <script lang="ts">
   import { store } from "./store.svelte";
-  import CaretDown from "phosphor-svelte/lib/CaretDown";
-  import MapTrifold from "phosphor-svelte/lib/MapTrifold";
+  import { CaretDown, MapTrifold } from "purr/icons";
   import { t } from "./i18n";
-  import { ICON } from "./icons";
   import { minimap, toggleMinimap } from "./minimapState.svelte";
   import { isMobile } from "./backend";
   import { notesBounds, edgeHandle } from "./viewport";
@@ -110,12 +108,12 @@
 <div class="minimap" class:collapsed onpointerdown={(e) => e.stopPropagation()} ondblclick={(e) => e.stopPropagation()}>
   {#if !isMobile}
     <button
-      class="ghost toggle"
+      class="btn btn--ghost btn--icon btn--lg toggle"
       onclick={toggleMinimap}
       title={t(collapsed ? "minimap.show" : "minimap.hide")}
       aria-label={t("minimap.toggle")}
     >
-      {#if collapsed}<MapTrifold size={ICON} />{:else}<CaretDown size={ICON} />{/if}
+      {#if collapsed}<MapTrifold />{:else}<CaretDown />{/if}
     </button>
   {/if}
   {#if !collapsed}
@@ -148,7 +146,7 @@
     bottom: 12px;
     background: var(--bg2);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    box-shadow: var(--box-shadow);
     overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
@@ -159,9 +157,8 @@
   }
   .toggle {
     position: absolute;
-    top: 2px;
-    right: 2px;
-    padding: 2px 4px;
+    top: var(--gap-1);
+    right: var(--gap-1);
     z-index: 1;
     opacity: 0.5;
   }
@@ -169,7 +166,7 @@
     position: static;
     opacity: 0.7;
     background: var(--bg2);
-    box-shadow: var(--shadow);
+    box-shadow: var(--box-shadow);
   }
   .minimap:hover .toggle {
     opacity: 1;
@@ -180,7 +177,7 @@
   }
   .edges {
     fill: none;
-    stroke: #333;
+    stroke: var(--border-strong);
     stroke-width: 0.75;
     vector-effect: non-scaling-stroke;
   }
@@ -191,11 +188,11 @@
     fill: #262626;
   }
   .node.selected {
-    fill: var(--accent2);
+    fill: var(--theme2);
   }
   .view {
-    fill: #8a2aa214;
-    stroke: var(--accent2);
+    fill: var(--theme-soft);
+    stroke: var(--theme2);
     stroke-width: 1;
     pointer-events: none;
   }

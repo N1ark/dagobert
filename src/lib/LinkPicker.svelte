@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onEscape, rank } from "purr";
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import InlineMd from "./InlineMd.svelte";
@@ -27,14 +28,14 @@
   let active = $state(0);
   let input: HTMLInputElement;
 
-  const results = $derived.by(() => {
-    const q = query.trim().toLowerCase();
-    return store.notes
-      .filter((n) => !exclude.has(n.id) && filter(n))
-      .filter((n) => !q || n.title.toLowerCase().includes(q) || n.tags.some((t) => t.toLowerCase().includes(q)))
-      .sort((a, b) => b.modified.localeCompare(a.modified))
-      .slice(0, 8);
-  });
+  // Best match first, then most recently edited.
+  const results = $derived(
+    rank(
+      store.notes.filter((n) => !exclude.has(n.id) && filter(n)).sort((a, b) => b.modified.localeCompare(a.modified)),
+      query,
+      { keys: [(n) => n.title, (n) => n.tags.join(" ")], limit: 8 },
+    ).map((r) => r.item),
+  );
 
   $effect(() => {
     void results;
@@ -58,15 +59,17 @@
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (results[active]) pick(results[active].id);
-    } else if (e.key === "Escape") {
-      open = false;
-      input.blur();
-    }
+    } else
+      onEscape(e, () => {
+        open = false;
+        input.blur();
+      });
   }
 </script>
 
 <div class="picker">
   <input
+    class="field-input"
     bind:this={input}
     bind:value={query}
     {placeholder}
@@ -75,12 +78,12 @@
     onkeydown={onKey}
   />
   {#if open && results.length}
-    <ul class="results popover">
+    <ul class="results surface">
       {#each results as n, i (n.id)}
         <li>
           <button
-            class="ghost"
-            class:active={i === active}
+            class="row-item"
+            class:is-cursor={i === active}
             onmousedown={(e) => e.preventDefault()}
             onclick={() => pick(n.id)}
             onmouseenter={() => (active = i)}
@@ -92,7 +95,7 @@
       {/each}
     </ul>
   {:else if open && query}
-    <ul class="results popover"><li class="none">{t("picker.noMatches")}</li></ul>
+    <ul class="results surface"><li class="none">{t("picker.noMatches")}</li></ul>
   {/if}
 </div>
 
@@ -100,33 +103,21 @@
   .picker {
     position: relative;
   }
-  input {
-    width: 100%;
-    font-size: 13px;
-  }
   .results {
     position: absolute;
-    z-index: 5;
+    z-index: var(--z-popover);
     left: 0;
     right: 0;
-    top: calc(100% + 4px);
+    top: calc(100% + var(--gap-2));
     margin: 0;
-    padding: 4px;
+    padding: var(--gap-2);
     list-style: none;
     max-height: 240px;
     overflow-y: auto;
+    box-shadow: var(--shadow-lg);
   }
   .results button {
-    width: 100%;
-    text-align: left;
-    display: flex;
     justify-content: space-between;
-    gap: 8px;
-    color: var(--color);
-  }
-  .results button.active {
-    background: #ffffff10;
-    color: var(--color2);
   }
   .t {
     overflow: hidden;
@@ -135,16 +126,16 @@
   }
   .t.done {
     text-decoration: line-through;
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .tags {
-    color: var(--color-dim);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: var(--fs-micro);
     flex: none;
   }
   .none {
-    padding: 6px 10px;
-    color: #555;
-    font-size: 13px;
+    padding: var(--gap-3) var(--sp-4);
+    color: var(--faint);
+    font-size: var(--fs-sm);
   }
 </style>

@@ -8,7 +8,8 @@
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
-  import { command, pasteLink, setMediaWidth } from "./editor";
+  import { matches } from "purr";
+  import { continueList, indent, link, pasteLink, setMediaWidth, toggleWrap, type Sel } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
@@ -37,6 +38,21 @@
   let pendingCaret: number | null = null;
 
   const activeIsCode = $derived(isCode(draft));
+
+  /** Map a keydown to a command, or null. */
+  function command(e: KeyboardEvent, s: Sel): Sel | null {
+    const mod = e.metaKey || e.ctrlKey;
+    if (e.key === "Enter" && !mod && !e.shiftKey) return continueList(s);
+    if (e.key === "Tab") return indent(s, e.shiftKey);
+    if (!mod) return null;
+    if (matches(keys.bold, e)) return toggleWrap(s, "**");
+    if (matches(keys.italic, e)) return toggleWrap(s, "*");
+    if (matches(keys.code, e) || matches(keys["code-alt"], e)) return toggleWrap(s, "`");
+    if (matches(keys.link, e)) return link(s);
+    if (matches(keys.strike, e)) return toggleWrap(s, "~~");
+    if (matches(keys.highlight, e)) return toggleWrap(s, "==");
+    return null;
+  }
 
   function edited(label?: HistoryLabel) {
     store.touch(note.id, { label });
@@ -225,7 +241,7 @@
     e.preventDefault();
     e.stopPropagation();
     const index = [...block.querySelectorAll(".media")].indexOf(wrap);
-    const max = block.querySelector(".markdown")?.clientWidth ?? Infinity;
+    const max = block.querySelector(".md")?.clientWidth ?? Infinity;
     const start = media.getBoundingClientRect().width;
     const x0 = e.clientX;
     let width = start;
@@ -576,16 +592,18 @@
     padding: 2px 8px;
     margin: 0 -8px;
   }
-  .block:hover:not(.editing) {
-    background: #ffffff05;
+  @media (hover: hover) {
+    .block:hover:not(.editing) {
+      background: color-mix(in srgb, var(--color2) 2%, transparent);
+    }
   }
-  .block :global(.markdown > :first-child) {
+  .block :global(.md > :first-child) {
     margin-top: 0.3em;
   }
-  .block :global(.markdown > :last-child) {
+  .block :global(.md > :last-child) {
     margin-bottom: 0.3em;
   }
-  .block :global(.markdown input[type="checkbox"]) {
+  .block :global(.md input[type="checkbox"]) {
     pointer-events: auto;
     cursor: pointer;
   }
@@ -612,7 +630,7 @@
     filter: drop-shadow(0 0 1px #000a);
   }
   .editing {
-    background: #ffffff06;
+    background: color-mix(in srgb, var(--color2) 2.5%, transparent);
   }
   textarea {
     display: block;
@@ -622,27 +640,28 @@
     border-radius: 0;
     background: transparent;
     padding: 0.3em 0;
-    font-family: var(--sans);
-    font-size: 14px;
+    font-family: var(--font);
+    font-size: var(--fs-base);
     line-height: 1.55;
     overflow: hidden;
   }
   .code textarea {
     font-family: var(--mono);
-    font-size: 13px;
+    font-size: var(--fs-sm);
   }
   .placeholder {
     -webkit-user-select: none;
     user-select: none;
-    color: #555;
+    color: var(--faint);
     font-style: italic;
   }
   .hint {
     display: block;
-    margin-top: 4px;
-    font-size: 11px;
+    margin-top: var(--gap-2);
+    font-size: var(--fs-micro);
     font-style: normal;
-    color: #444;
+    color: var(--faint);
+    opacity: 0.8;
   }
   .tail {
     min-height: 48px;

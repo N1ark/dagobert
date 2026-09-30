@@ -20,9 +20,9 @@ export function renderTemplate(template: string, title = ""): string {
 /** Colour for a stage pill based on where it sits in the workflow. */
 export function stageColor(wf: Workflow, status: string): string {
   const i = wf.stages.findIndex((s) => s.name === status);
-  if (i < 0) return "var(--color-dim)";
+  if (i < 0) return "var(--muted)";
   if (wf.stages[i].color) return wf.stages[i].color!;
-  if (wf.stages[i].done) return "var(--green)";
-  if (i === 0) return "var(--color-dim)";
-  return "var(--yellow)";
+  if (wf.stages[i].done) return "var(--success)";
+  if (i === 0) return "var(--muted)";
+  return "var(--warn)";
 }

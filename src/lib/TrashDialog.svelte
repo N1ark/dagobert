@@ -2,13 +2,11 @@
   import { onMount } from "svelte";
   import { store } from "./store.svelte";
   import { isMobile } from "./backend";
-  import { relative, absolute } from "./time";
+  import { ConfirmButton, formatAbsolute, PanelHeader } from "purr";
+  import { relative } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import DockButton from "./DockButton.svelte";
-  import { tooltip } from "./tooltip";
-  import X from "phosphor-svelte/lib/X";
-  import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
-  import Trash from "phosphor-svelte/lib/Trash";
+  import { ArrowCounterClockwise, Trash } from "purr/icons";
   import { t, plural } from "./i18n";
 
   let { onclose, onrestored }: { onclose: () => void; onrestored: (id: string) => void } = $props();
@@ -27,16 +25,10 @@
   }
 </script>
 
-<div class="dialog bare">
-  <header>
-    <h3>{t("trash.title")} <span class="count">{store.trash.length}</span></h3>
-    {#if !isMobile}
-      <span class="pane-tools">
-        <DockButton />
-        <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
-      </span>
-    {/if}
-  </header>
+<div class="pane">
+  <PanelHeader title={t("trash.title")} count={store.trash.length} onclose={isMobile ? undefined : onclose} closeLabel={t("pane.close")}>
+    {#snippet actions()}<DockButton />{/snippet}
+  </PanelHeader>
   <div class="list">
     {#if loading}
       <p class="empty">{t("trash.loading")}</p>
@@ -45,27 +37,27 @@
     {:else}
       <ul>
         {#each store.trash as n (n.file)}
-          <li>
+          <li class="hoverable">
             <div class="info">
               <div class="title" class:untitled={!n.title}><InlineMd source={n.title} fallback={t("app.untitled")} /></div>
               <div class="sub">
                 {#if n.tags.length}
                   {#each n.tags as tag (tag)}
-                    <span class="tag-chip tag" style="--tag:{store.tagColor(tag)}">{tag}</span>
+                    <span class="tag" style:--tag={store.tagColor(tag)}>{tag}</span>
                   {/each}
                 {/if}
-                <span title={n.deleted ? absolute(n.deleted) : ""}
+                <span title={n.deleted ? formatAbsolute(n.deleted) : ""}
                   >{t("trash.deleted", { when: n.deleted ? relative(n.deleted) : t("app.dash") })}</span
                 >
                 {#if isMobile}
                   <span class="file">{n.file}</span>
                 {:else}
-                  <button class="ghost link file" title={t("panel.reveal")} onclick={() => store.revealTrashed(n.file)}>{n.file}</button>
+                  <button class="btn btn--link file" title={t("panel.reveal")} onclick={() => store.revealTrashed(n.file)}>{n.file}</button>
                 {/if}
               </div>
             </div>
-            <button class="sm" onclick={() => restore(n.file)}><ArrowCounterClockwise size={13} /> {t("trash.restore")}</button>
-            <button class="ghost sm danger" onclick={() => store.purge(n.file)}><Trash size={13} /> {t("trash.purge")}</button>
+            <button class="btn btn--sm" onclick={() => restore(n.file)}><ArrowCounterClockwise /> {t("trash.restore")}</button>
+            <button class="btn btn--ghost btn--danger btn--sm" onclick={() => store.purge(n.file)}><Trash /> {t("trash.purge")}</button>
           </li>
         {/each}
       </ul>
@@ -75,11 +67,15 @@
     <footer>
       {#if confirmEmpty}
         <span class="warn">{plural("trash.confirm", store.trash.length)}</span>
-        <button class="danger sm" onclick={() => store.purge(null).then(() => (confirmEmpty = false))}>{t("trash.emptyNow")}</button>
-        <button class="ghost sm" onclick={() => (confirmEmpty = false)}>{t("trash.cancel")}</button>
-      {:else}
-        <button class="ghost sm danger" onclick={() => (confirmEmpty = true)}>{t("trash.emptyAsk")}</button>
       {/if}
+      <ConfirmButton
+        variant="ghost"
+        size="sm"
+        class="btn--danger"
+        bind:armed={confirmEmpty}
+        confirmLabel={t("trash.emptyNow")}
+        onconfirm={() => store.purge(null)}>{t("trash.emptyAsk")}</ConfirmButton
+      >
     </footer>
   {/if}
 </div>
@@ -89,33 +85,25 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: var(--gap-4);
+    padding: var(--sp-4) var(--sp-5);
     border-top: 1px solid var(--border);
-  }
-  .dialog h3 {
-    font-size: 15px;
-  }
-  .count {
-    font-weight: 400;
-    color: var(--color-dim);
-    margin-left: 4px;
   }
   .list {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 6px;
+    padding: var(--gap-3);
   }
   .empty {
     padding: 24px;
     text-align: center;
-    color: var(--color-dim);
-    font-size: 13px;
+    color: var(--muted);
+    font-size: var(--fs-sm);
   }
   .empty :global(code) {
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   ul {
     list-style: none;
@@ -125,12 +113,9 @@
   li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    gap: var(--gap-4);
+    padding: var(--gap-4) var(--sp-4);
     border-radius: var(--radius);
-  }
-  li:hover {
-    background: #ffffff06;
   }
   .info {
     flex: 1;
@@ -144,7 +129,7 @@
     white-space: nowrap;
   }
   .title.untitled {
-    color: #666;
+    color: var(--faint);
     font-style: italic;
     font-weight: 400;
   }
@@ -152,37 +137,25 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 2px 6px;
-    margin-top: 2px;
-    font-size: 11px;
-    color: var(--color-dim);
-  }
-  .tag {
-    padding: 0 6px;
-    font-size: 10px;
+    gap: var(--gap-1) var(--gap-3);
+    margin-top: var(--gap-1);
+    font-size: var(--fs-micro);
+    color: var(--muted);
   }
   .file {
     flex-basis: 100%;
     max-width: 100%;
     justify-content: flex-start;
     font-family: var(--mono);
-    font-size: 11px;
-    color: #555;
+    font-size: var(--fs-micro);
+    color: var(--faint);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .file:hover {
-    color: var(--accent2);
-  }
-  .sm {
-    font-size: 12px;
-    padding: 3px 8px;
-    flex: none;
-  }
   .warn {
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
     margin-right: auto;
   }
 </style>

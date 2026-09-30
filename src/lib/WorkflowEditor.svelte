@@ -1,19 +1,13 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import type { Workflow } from "./types";
-  import X from "phosphor-svelte/lib/X";
-  import ArrowUp from "phosphor-svelte/lib/ArrowUp";
-  import ArrowDown from "phosphor-svelte/lib/ArrowDown";
-  import Plus from "phosphor-svelte/lib/Plus";
+  import { X, ArrowUp, ArrowDown, Plus, GithubLogo, GitBranch, Circuitry } from "purr/icons";
   import ColorPicker from "./ColorPicker.svelte";
   import DockButton from "./DockButton.svelte";
   import { stageColor } from "./workflows";
   import GitHubSignIn from "./GitHubSignIn.svelte";
   import { isMobile } from "./backend";
-  import GithubLogo from "phosphor-svelte/lib/GithubLogo";
-  import GitBranch from "phosphor-svelte/lib/GitBranch";
-  import Circuitry from "phosphor-svelte/lib/Circuitry";
-  import { tooltip } from "./tooltip";
+  import { IconButton, PanelHeader, tooltip } from "purr";
   import { relative } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
@@ -44,7 +38,7 @@
     newRepo = "";
   }
 
-  let picking = $state<number | null>(null);
+  let picking = $state<{ index: number; anchor: HTMLElement } | null>(null);
   const wf = $derived(store.workflows.find((w) => w.id === selectedId) ?? null);
   const usage = $derived(wf ? store.notes.filter((n) => n.workflow === wf.id).length : 0);
 
@@ -87,53 +81,59 @@
 {#snippet template(get: () => string, set: (v: string) => void, save: () => void, placeholder: string)}
   <h4>{t("settings.template")}</h4>
   <p class="help">{t("settings.template.hint")}</p>
-  <textarea class="template" rows="6" bind:value={get, set} onchange={save} {placeholder} spellcheck="false"></textarea>
+  <textarea class="field-input template" rows="6" bind:value={get, set} onchange={save} {placeholder} spellcheck="false"></textarea>
 {/snippet}
 
-<div class="dialog bare">
-  <header>
-    <h3>{t("settings.title")}</h3>
-    {#if !isMobile}
-      <span class="pane-tools">
-        <DockButton />
-        <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
-      </span>
-    {/if}
-  </header>
+<div class="pane settings">
+  <PanelHeader title={t("settings.title")} onclose={isMobile ? undefined : onclose} closeLabel={t("pane.close")}>
+    {#snippet actions()}<DockButton />{/snippet}
+  </PanelHeader>
   <div class="cols">
     <nav>
       <div class="nav-group">
         <span class="group">{t("settings.group.general")}</span>
-        <button class="ghost item" class:active={page === "github"} onclick={() => (page = "github")}
-          ><GithubLogo size={14} /> {t("settings.github")}</button
+        <button
+          class="row-item item"
+          class:is-current={page === "github"}
+          aria-current={page === "github"}
+          onclick={() => (page = "github")}><GithubLogo /> {t("settings.github")}</button
         >
-        <button class="ghost item" class:active={page === "git"} onclick={() => (page = "git")}
-          ><GitBranch size={14} /> {t("settings.git")}</button
+        <button class="row-item item" class:is-current={page === "git"} aria-current={page === "git"} onclick={() => (page = "git")}
+          ><GitBranch /> {t("settings.git")}</button
         >
       </div>
       <div class="nav-sep"></div>
       <div class="nav-group">
         <span class="group">{t("settings.group.workflows")}</span>
         <button
-          class="ghost item"
-          class:active={page === "workflows" && selectedId === null}
+          class="row-item item"
+          class:is-current={page === "workflows" && selectedId === null}
+          aria-current={page === "workflows" && selectedId === null}
           onclick={() => ((page = "workflows"), (selectedId = null))}
         >
           {t("settings.nav.todo")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
+          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry /></span>
         </button>
-        <button class="ghost item" class:active={page === "tracking"} onclick={() => (page = "tracking")}>
+        <button
+          class="row-item item"
+          class:is-current={page === "tracking"}
+          aria-current={page === "tracking"}
+          onclick={() => (page = "tracking")}
+        >
           {t("settings.nav.tracking")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry size={13} /></span>
+          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry /></span>
         </button>
         {#each store.workflows as w (w.id)}
+          {@const current = page === "workflows" && w.id === selectedId}
           <button
-            class="ghost item"
-            class:active={page === "workflows" && w.id === selectedId}
-            onclick={() => ((page = "workflows"), (selectedId = w.id))}>{w.name || t("settings.nav.unnamed")}</button
+            class="row-item item"
+            class:is-current={current}
+            aria-current={current}
+            onclick={() => ((page = "workflows"), (selectedId = w.id))}
+            ><span class="truncate">{w.name || t("settings.nav.unnamed")}</span></button
           >
         {/each}
-        <button class="ghost add" onclick={() => ((page = "workflows"), add())}><Plus size={13} /> {t("settings.nav.new")}</button>
+        <button class="row-item add" onclick={() => ((page = "workflows"), add())}><Plus /> {t("settings.nav.new")}</button>
       </div>
     </nav>
     <section>
@@ -151,6 +151,7 @@
           <label class="row">
             <input
               type="checkbox"
+              class="checkbox"
               checked={store.gitEnabled}
               onchange={async (e) => {
                 const box = e.currentTarget;
@@ -167,7 +168,7 @@
           <label class="row">
             {t("settings.git.every")}
             <input
-              class="num"
+              class="field-input num"
               type="number"
               min="1"
               max="120"
@@ -197,7 +198,9 @@
             </dd>
           </dl>
           <div class="actions">
-            <button onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}>{t("settings.git.syncNow")}</button>
+            <button class="btn" onclick={() => store.syncNow(true)} disabled={store.gitState === "syncing"}
+              >{t("settings.git.syncNow")}</button
+            >
           </div>
         {/if}
       {:else if page === "github"}
@@ -209,8 +212,8 @@
               <span class="alias">{alias}</span>
               <span class="arrow">→</span>
               <span class="repo">{repo}</span>
-              <button class="ghost sm" onclick={() => store.setRepo(alias, null)} aria-label={t("settings.github.remove", { alias })}
-                ><X size={13} /></button
+              <IconButton label={t("settings.github.remove", { alias })} size="sm" danger onclick={() => store.setRepo(alias, null)}
+                ><X /></IconButton
               >
             </li>
           {/each}
@@ -222,69 +225,64 @@
             addRepo();
           }}
         >
-          <input placeholder={t("settings.github.alias")} bind:value={newAlias} spellcheck="false" />
-          <input class="grow" placeholder={t("settings.github.repo")} bind:value={newRepo} spellcheck="false" />
-          <button type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus size={13} /> {t("settings.github.add")}</button>
+          <input class="field-input" placeholder={t("settings.github.alias")} bind:value={newAlias} spellcheck="false" />
+          <input class="field-input grow" placeholder={t("settings.github.repo")} bind:value={newRepo} spellcheck="false" />
+          <button class="btn" type="submit" disabled={!newAlias.trim() || !newRepo.trim()}><Plus /> {t("settings.github.add")}</button>
         </form>
         <h4>{t("settings.github.account")}</h4>
         <p class="help"><InlineMd source={t("settings.github.signin.help")} /></p>
         <GitHubSignIn />
       {:else if wf}
-        <input class="name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
+        <input class="field-input name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
         <p class="help">{t("settings.wf.help")}</p>
         <ol>
           {#each wf.stages as stage, i (i)}
             <li>
               <span class="n">{i + 1}</span>
-              <span class="swatch-wrap">
-                <button
-                  class="swatch"
-                  style="--c:{stageColor(wf, stage.name)}"
-                  title={t("settings.wf.pillColor")}
-                  aria-label={t("settings.wf.colorOf", { stage: stage.name })}
-                  onclick={() => (picking = picking === i ? null : i)}
-                ></button>
-                {#if picking === i}
-                  <ColorPicker
-                    value={stage.color ?? null}
-                    allowAuto
-                    onpick={(c) => {
-                      stage.color = c;
-                      commit(wf);
-                    }}
-                    onclose={() => (picking = null)}
-                    label={t("settings.wf.stageColor")}
-                  />
-                {/if}
-              </span>
-              <input class="stage" bind:value={stage.name} onchange={() => commit(wf)} />
+              <button
+                class="swatch"
+                style:--c={stageColor(wf, stage.name)}
+                title={t("settings.wf.pillColor")}
+                aria-label={t("settings.wf.colorOf", { stage: stage.name })}
+                onclick={(e) => (picking = picking?.index === i ? null : { index: i, anchor: e.currentTarget })}
+              ></button>
+              {#if picking?.index === i}
+                <ColorPicker
+                  anchor={picking.anchor}
+                  value={stage.color ?? null}
+                  allowAuto
+                  onpick={(c) => {
+                    stage.color = c;
+                    commit(wf);
+                  }}
+                  onclose={() => (picking = null)}
+                  label={t("settings.wf.stageColor")}
+                />
+              {/if}
+              <input class="field-input stage" bind:value={stage.name} onchange={() => commit(wf)} />
               <label class="done" title={t("settings.wf.countsDone")}>
-                <input type="checkbox" bind:checked={stage.done} onchange={() => commit(wf)} />
+                <input type="checkbox" class="checkbox" bind:checked={stage.done} onchange={() => commit(wf)} />
                 {t("settings.wf.done")}
               </label>
-              <button class="ghost sm" disabled={i === 0} onclick={() => move(wf, i, -1)} aria-label={t("settings.wf.up")}
-                ><ArrowUp size={13} /></button
+              <IconButton label={t("settings.wf.up")} size="sm" disabled={i === 0} onclick={() => move(wf, i, -1)}><ArrowUp /></IconButton>
+              <IconButton label={t("settings.wf.down")} size="sm" disabled={i === wf.stages.length - 1} onclick={() => move(wf, i, 1)}
+                ><ArrowDown /></IconButton
               >
-              <button
-                class="ghost sm"
-                disabled={i === wf.stages.length - 1}
-                onclick={() => move(wf, i, 1)}
-                aria-label={t("settings.wf.down")}><ArrowDown size={13} /></button
-              >
-              <button
-                class="ghost sm"
+              <IconButton
+                label={t("settings.wf.removeStage")}
+                size="sm"
+                danger
                 disabled={wf.stages.length <= 1}
-                onclick={() => removeStage(wf, i)}
-                aria-label={t("settings.wf.removeStage")}><X size={13} /></button
+                onclick={() => removeStage(wf, i)}><X /></IconButton
               >
             </li>
           {/each}
         </ol>
         <div class="actions">
-          <button onclick={() => addStage(wf)}><Plus size={13} /> {t("settings.wf.addStage")}</button>
+          <button class="btn btn--sm" onclick={() => addStage(wf)}><Plus /> {t("settings.wf.addStage")}</button>
           <span class="spacer"></span>
           <span class="usage">{plural("settings.wf.usage", usage)}</span>
-          <button class="ghost danger" onclick={() => remove(wf)}>{t("settings.wf.delete")}</button>
+          <button class="btn btn--ghost btn--danger btn--sm" onclick={() => remove(wf)}>{t("settings.wf.delete")}</button>
         </div>
         {@render template(
           () => wf.template,
@@ -306,9 +304,6 @@
 </div>
 
 <style>
-  .dialog h3 {
-    font-size: 15px;
-  }
   .cols {
     flex: 1;
     min-height: 0;
@@ -318,8 +313,8 @@
   nav {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: 8px;
+    gap: var(--gap-1);
+    padding: var(--gap-4);
     border-right: 1px solid var(--border);
     overflow-y: auto;
   }
@@ -328,52 +323,44 @@
     display: contents;
   }
   .group {
-    padding: 4px 8px 2px;
-    font-size: 10px;
+    padding: var(--gap-2) var(--gap-4) var(--gap-1);
+    font-size: var(--fs-nano);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-dim);
-  }
-  .item {
-    text-align: left;
-    color: var(--color);
-  }
-  .item.active {
-    background: #ffffff10;
-    color: var(--color2);
+    color: var(--muted);
   }
   /* Built-in marker: pushed to the right edge of the item; the tooltip explains it. */
   .builtin {
     display: inline-flex;
     margin-left: auto;
-    padding-left: 8px;
+    padding-left: var(--gap-4);
     flex-shrink: 0;
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .nav-sep {
     height: 1px;
-    margin: 6px 4px;
-    background: var(--border2);
+    margin: var(--gap-3) var(--gap-2);
+    background: var(--border-strong);
   }
   .repos {
     list-style: none;
-    margin: 0 0 8px;
+    margin: 0 0 var(--gap-4);
     padding: 0;
   }
   .repos li {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 0;
-    font-size: 13px;
+    gap: var(--gap-4);
+    padding: var(--gap-1) 0;
+    font-size: var(--fs-sm);
   }
   .alias {
     font-family: var(--mono);
-    color: var(--accent2);
+    color: var(--theme2);
   }
   .arrow {
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .repo {
     flex: 1;
@@ -381,12 +368,11 @@
   }
   .add-repo {
     display: flex;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: var(--gap-3);
+    margin-bottom: var(--gap-2);
   }
   .add-repo input {
     width: 110px;
-    font-size: 13px;
   }
   .add-repo .grow {
     flex: 1;
@@ -394,62 +380,54 @@
   .row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin: 6px 0;
-    font-size: 13px;
+    gap: var(--gap-3);
+    margin: var(--gap-3) 0;
+    font-size: var(--fs-sm);
     color: var(--color);
-  }
-  .row input[type="checkbox"] {
-    accent-color: var(--accent);
-    margin: 0;
   }
   .num {
     width: 60px;
-    font-size: 13px;
   }
   .info {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 4px 12px;
-    margin: 6px 0 0;
-    font-size: 13px;
+    gap: var(--gap-2) var(--sp-4);
+    margin: var(--gap-3) 0 0;
+    font-size: var(--fs-sm);
   }
   .info dt {
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .info dd {
     margin: 0;
     color: var(--color);
   }
   .err {
-    color: var(--red);
+    color: var(--danger);
   }
   section :global(code) {
     font-family: var(--mono);
     font-size: 0.9em;
     background: var(--code-bg);
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 1px var(--gap-2);
+    border-radius: var(--radius-sm);
   }
   .add {
-    color: var(--accent2);
-    text-align: left;
+    color: var(--theme2);
   }
   section {
-    padding: 12px 16px;
+    padding: var(--sp-4) var(--sp-5);
     overflow-x: hidden;
     overflow-y: auto;
   }
   .name {
-    width: 100%;
-    font-size: 15px;
+    font-size: var(--fs-lg);
     font-weight: 600;
-    color: var(--color2);
   }
   .help {
-    margin: 8px 0 12px;
-    font-size: 12px;
-    color: var(--color-dim);
+    margin: var(--gap-4) 0 var(--sp-4);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   ol {
     list-style: none;
@@ -457,76 +435,87 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--gap-2);
   }
   li {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--gap-3);
     min-width: 0;
   }
   .n {
     width: 16px;
-    font-size: 11px;
-    color: var(--color-dim);
+    font-size: var(--fs-micro);
+    color: var(--muted);
     text-align: right;
   }
   .stage {
     flex: 1;
     /* Without this an input refuses to shrink past its intrinsic width and the
        row scrolls sideways to fit the buttons. */
+    width: auto;
     min-width: 0;
-    font-size: 13px;
-    padding: 4px 8px;
   }
   .done {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 12px;
-    color: var(--color-dim);
+    gap: var(--gap-2);
+    font-size: var(--fs-xs);
+    color: var(--muted);
     cursor: pointer;
-  }
-  .done input {
-    accent-color: var(--green);
-    margin: 0;
-  }
-  .sm {
-    padding: 2px 6px;
-    font-size: 12px;
   }
   .actions {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 12px;
+    gap: var(--gap-4);
+    margin-top: var(--sp-4);
   }
   .spacer {
     flex: 1;
   }
   .usage {
-    font-size: 11px;
-    color: var(--color-dim);
-  }
-  .actions button {
-    font-size: 12px;
+    font-size: var(--fs-micro);
+    color: var(--muted);
   }
   h4 {
-    margin: 16px 0 0;
-    font-size: 11px;
+    margin: var(--sp-5) 0 0;
+    font-size: var(--fs-micro);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-dim);
+    color: var(--muted);
   }
   h4 + .help {
-    margin-top: 4px;
+    margin-top: var(--gap-2);
   }
   .template {
-    width: 100%;
-    resize: vertical;
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     line-height: 1.5;
+  }
+  /* Two rows on a phone, not two columns: the nav sits on top with its groups side by side. */
+  :global(body.mobile) .cols {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100%;
+    max-height: none;
+  }
+  :global(body.mobile) nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 0 var(--gap-4);
+    max-height: 38vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  :global(body.mobile) .nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-1);
+    min-width: 0;
+  }
+  :global(body.mobile) .nav-sep {
+    display: none;
   }
 </style>

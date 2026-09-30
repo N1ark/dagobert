@@ -1,23 +1,12 @@
+import { readJson, writeJson } from "purr";
 import { DEFAULT_LAYOUT, repair, type Layout, type Pane } from "./tiles";
 
 const KEY = "dagobert.layout";
 
-function load(): Layout {
-  try {
-    const saved = repair(JSON.parse(localStorage.getItem(KEY) ?? "null"));
-    if (saved) return saved;
-  } catch {}
-  return structuredClone(DEFAULT_LAYOUT);
-}
-
 /** Where every desktop panel lives, remembered across launches. */
-export const layout = $state(load());
+export const layout = $state(repair(readJson(KEY, null)) ?? structuredClone(DEFAULT_LAYOUT));
 
-export function saveLayout() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify($state.snapshot(layout)));
-  } catch {}
-}
+export const saveLayout = () => writeJson(KEY, $state.snapshot(layout));
 
 export function setLayout(l: Layout) {
   layout.tree = l.tree;
@@ -29,10 +18,9 @@ export function setLayout(l: Layout) {
 export type TilesHandle = {
   grab: (e: PointerEvent, pane: Pane) => void;
   toggle: (button: HTMLElement, pane: Pane) => void;
-  readonly menu: Pane | null;
 };
 export const TILES = Symbol("tiles");
 
 /** What a panel's header reaches its dock through; absent where the panel can't move. */
-export type DockHandle = { grab: (e: PointerEvent) => void; toggle: (button: HTMLElement) => void; readonly open: boolean };
+export type DockHandle = { grab: (e: PointerEvent) => void; toggle: (button: HTMLElement) => void };
 export const DOCK = Symbol("dock");

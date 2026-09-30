@@ -1,22 +1,25 @@
 import { IconMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu, type PredefinedMenuItemOptions } from "@tauri-apps/api/menu";
 import { sfSymbolImage } from "./sfsymbol";
 import { inTauri, isMobile } from "./backend";
-import type { Action } from "./QuickOpen.svelte";
+import type { Component } from "svelte";
+import { accelerator } from "purr";
 import { t, type Key } from "./i18n";
 
-const NAMED: Record<string, string> = { "↩": "Enter", "⌫": "Backspace", "⎋": "Escape" };
-
-/** "⇧⌘Z" → "CmdOrCtrl+Shift+Z" (Tauri accelerator syntax). */
-export function accelerator(hint?: string): string | undefined {
-  if (!hint) return undefined;
-  const parts: string[] = [];
-  if (hint.includes("⌘")) parts.push("CmdOrCtrl");
-  if (hint.includes("⇧")) parts.push("Shift");
-  if (hint.includes("⌥")) parts.push("Alt");
-  if (hint.includes("⌃")) parts.push("Ctrl");
-  const key = hint.replace(/[⌘⇧⌥⌃]/g, "");
-  parts.push(NAMED[key] ?? key.toUpperCase());
-  return parts.join("+");
+/** A palette command, and (with `menu`) a native menu item. */
+export interface Action {
+  id: string;
+  label: string;
+  hint?: string;
+  /** Phosphor icon component. */
+  icon?: Component<any>;
+  run: () => void;
+  /** Menu section (File / Edit / Note / View / Tools). */
+  menu?: string;
+  /** Static label for the menu bar when `label` is dynamic. */
+  menuLabel?: string;
+  /** SF Symbol names for the menu bar (first one that exists is used). */
+  symbol?: string[];
+  enabled?: boolean;
 }
 
 /** `Action.menu` values, in menu-bar order, and their displayed titles. */

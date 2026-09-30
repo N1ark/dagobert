@@ -1,30 +1,14 @@
 import { mount } from "svelte";
+import { applyPlatform, applyTheme } from "purr";
+import "purr/fonts.css";
+import "purr/styles.css";
 import "./app.css";
 import App from "./App.svelte";
 import { backend, inTauri, isMobile } from "./lib/backend";
 
-document.body.classList.toggle("mobile", isMobile);
-
-// `--kb` is how much of the screen the keyboard covers; WKWebView only knows via UIKit.
-const setKb = (px: number) => {
-  const kb = Math.max(0, Math.round(px));
-  document.documentElement.style.setProperty("--kb", `${kb}px`);
-  document.body.classList.toggle("keyboard", kb > 0);
-};
-if (isMobile) {
-  backend.onKeyboard(setKb);
-  // The net for the scrolls WKWebView performs on its own; nothing here scrolls.
-  window.addEventListener("scroll", () => (window.scrollX || window.scrollY) && window.scrollTo(0, 0), { passive: true });
-}
-
-// In the browser dev loop there is no UIKit, but the visual viewport does shrink.
-const vv = window.visualViewport;
-if (isMobile && !inTauri && vv) {
-  const track = () => setKb(window.innerHeight - vv.height - vv.offsetTop);
-  vv.addEventListener("resize", track);
-  vv.addEventListener("scroll", track);
-  track();
-}
+applyTheme({ mode: "dark" });
+// WKWebView only learns the keyboard's height from UIKit; the browser dev loop uses the visual viewport.
+applyPlatform({ mobile: isMobile, keyboard: inTauri ? backend.onKeyboard : undefined });
 
 const app = mount(App, { target: document.getElementById("app")! });
 

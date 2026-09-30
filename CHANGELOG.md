@@ -6,6 +6,15 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- A refreshed look shared with N1ark's other apps: buttons, fields, menus, dialogs, toasts and tooltips, with Inter and Fira Code built in.
+- Menus walk with the arrow keys and jump to the item you type; tag toggles leave the menu open.
+- Deleting from the note panel, the trash or the media panel takes a second press instead of a Cancel button.
+- The media viewer steps through files with ← and →.
+- Mentions and link pickers match titles the way quick open does.
+- Relative times follow your system's language.
+
 ## [0.11.0] - 2026-09-28
 
 ### Added

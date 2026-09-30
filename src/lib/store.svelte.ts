@@ -1,3 +1,4 @@
+import { toast } from "purr";
 import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backend";
 import { auth } from "./auth.svelte";
 import type { Asset, Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
@@ -91,7 +92,6 @@ class Store {
   /** Bumped to ask the panel to focus the title field (keyboard Enter). */
   focusTitle = $state(0);
   recent = $state<string[]>(loadRecent());
-  error = $state<string | null>(null);
 
   /** Installed by App: select a note and centre the canvas on it. */
   jump: (id: string) => void = (id) => this.select(id);
@@ -150,8 +150,6 @@ class Store {
   #applying = false;
   undoDepth = $state(0);
   redoDepth = $state(0);
-  /** Neutral toast (e.g. "Undid: move"). */
-  notice = $state<string | null>(null);
   /** Writes currently in flight, so a delete can wait for them. */
   #inflight = new Map<string, Promise<void>>();
   /** Each note's body as last read from or written to disk. */
@@ -228,7 +226,7 @@ class Store {
       await backend.gitEnable(this.path);
     } catch (e) {
       if (e === "no-repo") this.needsRepo = true;
-      else this.fail(e);
+      else toast.error(e);
       return;
     }
     this.needsRepo = false;
@@ -245,7 +243,7 @@ class Store {
       await backend.gitInit(this.path);
       await this.enableGit();
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -267,7 +265,7 @@ class Store {
 
   #configureGit() {
     if (!this.syncs) return;
-    backend.gitConfigure(this.gitEnabled && !!this.path, this.gitInterval).catch((e) => this.fail(e));
+    backend.gitConfigure(this.gitEnabled && !!this.path, this.gitInterval).catch((e) => toast.error(e));
   }
 
   /** Writes outside `#inflight` (meta, deletes) still in flight. */
@@ -337,21 +335,21 @@ class Store {
           this.#unsynced = true;
           this.gitState = "error";
           this.gitError = r.error;
-          if (manual) this.fail(r.error);
+          if (manual) toast.error(r.error);
         } else {
           this.gitState = "idle";
           this.gitError = null;
           this.gitLastSync = now();
           // No watcher on mobile: a pull's rewrites have to be read back.
           if (isMobile && (r.pulled === "fast-forward" || r.pulled === "merging")) await this.reloadFromDisk();
-          if (manual) this.toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
+          if (manual) toast(t(r.pushed ? "git.toast.pushed" : r.committed ? "git.toast.committed" : "git.toast.nothing"));
         }
       } catch (e) {
         if (this.path !== path) return;
         this.#unsynced = true;
         this.gitState = "error";
         this.gitError = String(e);
-        if (manual) this.fail(e);
+        if (manual) toast.error(e);
       } finally {
         this.#syncing = null;
       }
@@ -585,8 +583,7 @@ class Store {
       const ref = projectRef(p.path);
       this.#setRecent([ref, ...this.recent.filter((r) => r !== ref)].slice(0, MAX_RECENT));
       localStorage.setItem(LAST_KEY, ref);
-      this.error = null;
-      if (p.duplicates.length) this.fail(plural("store.duplicates", p.duplicates.length, { files: p.duplicates.join(", ") }));
+      if (p.duplicates.length) toast.error(plural("store.duplicates", p.duplicates.length, { files: p.duplicates.join(", ") }));
       this.gitStatus = null;
       this.gitState = "idle";
       this.gitError = null;
@@ -596,7 +593,7 @@ class Store {
       await backend.watchProject(p.path);
       if (this.gitEnabled) void this.syncNow(false);
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -654,12 +651,6 @@ class Store {
   #setRecent(recent: string[]) {
     this.recent = recent;
     localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
-  }
-
-  fail(e: unknown) {
-    this.error = typeof e === "string" ? e : ((e as Error)?.message ?? String(e));
-    console.error(e);
-    setTimeout(() => (this.error = null), 4000);
   }
 
   // ---- notes ---------------------------------------------------------------
@@ -753,7 +744,7 @@ class Store {
       backend.broadcast({ type: "note-removed", id });
       return diff.trashFile;
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -769,7 +760,7 @@ class Store {
       if (n.file) await this.#track(backend.discardNote(path, n.file));
       backend.broadcast({ type: "note-removed", id });
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -782,7 +773,7 @@ class Store {
     try {
       this.trash = await backend.listTrash(this.path);
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -801,7 +792,7 @@ class Store {
       backend.broadcast({ type: "note", note: $state.snapshot(n) });
       this.select(n.id);
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -812,7 +803,7 @@ class Store {
       await this.#track(backend.purgeTrash(this.path, file, this.#heldAssets()));
       this.trash = file ? this.trash.filter((t) => t.file !== file) : [];
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -833,12 +824,12 @@ class Store {
             : { link: await this.#track(backend.saveAsset(path, new Uint8Array(await item.arrayBuffer()), ext)), size: item.size };
         out.push(embed(link, named ? fileName(item) : ""));
         // GitHub warns over 50 MB and refuses files over 100 MB.
-        if (this.gitEnabled && size > 50e6) this.fail(t("media.big", { name: fileName(item), mb: Math.round(size / 1e6) }));
+        if (this.gitEnabled && size > 50e6) toast.error(t("media.big", { name: fileName(item), mb: Math.round(size / 1e6) }));
       } catch (e) {
-        this.fail(e);
+        toast.error(e);
       }
     }
-    if (!out.length && items.length) this.fail(t("media.unsupported"));
+    if (!out.length && items.length) toast.error(t("media.unsupported"));
     if (out.length && this.assets) void this.loadAssets();
     return out;
   }
@@ -848,7 +839,7 @@ class Store {
     try {
       return this.addMedia(await backend.pickMedia());
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
       return [];
     }
   }
@@ -908,7 +899,7 @@ class Store {
       const assets = await backend.listAssets(path);
       if (this.path === path) this.assets = assets.sort((a, b) => b.modified - a.modified || a.name.localeCompare(b.name));
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -918,7 +909,7 @@ class Store {
       await this.#track(backend.deleteAsset(this.path, name));
       this.assets = this.assets?.filter((a) => a.name !== name) ?? null;
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -928,7 +919,7 @@ class Store {
   }
 
   revealAsset(name: string) {
-    if (this.path) backend.revealAsset(this.path, name).catch((e) => this.fail(e));
+    if (this.path) backend.revealAsset(this.path, name).catch((e) => toast.error(e));
   }
 
   // ---- clipboard -----------------------------------------------------------
@@ -1005,7 +996,7 @@ class Store {
     if (!n || !this.byId(dep)) return false;
     if (n.deps.includes(dep)) return true;
     if (this.wouldCycle(dependent, dep)) {
-      this.fail(t("store.cycle"));
+      toast.error(t("store.cycle"));
       return false;
     }
     n.deps.push(dep);
@@ -1090,7 +1081,7 @@ class Store {
       try {
         if (this.#applyMeta(await backend.readMeta(this.path))) this.#configureGit();
       } catch (e) {
-        this.fail(e);
+        toast.error(e);
       }
     }
   }
@@ -1104,12 +1095,12 @@ class Store {
   revealInFinder(id: string) {
     const n = this.byId(id);
     if (!n || !this.path || !n.file) return;
-    backend.revealNote(this.path, n.file).catch((e) => this.fail(e));
+    backend.revealNote(this.path, n.file).catch((e) => toast.error(e));
   }
 
   revealTrashed(file: string) {
     if (!this.path) return;
-    backend.revealNote(this.path, file, "trash").catch((e) => this.fail(e));
+    backend.revealNote(this.path, file, "trash").catch((e) => toast.error(e));
   }
 
   /** Mobile stand-in for the file watcher; unlike `open` it keeps in-flight saves and undo. */
@@ -1126,7 +1117,7 @@ class Store {
       await this.applyExternal({ kind: "meta" });
       await this.applyExternal({ kind: "assets" });
     } catch (e) {
-      this.fail(e);
+      toast.error(e);
     }
   }
 
@@ -1193,7 +1184,7 @@ class Store {
     if (!e) return;
     await this.#apply(e.diffs, dir);
     this.#syncDepths();
-    this.toast(t(dir === "undo" ? "store.undid" : "store.redid", { label: e.label }));
+    toast(t(dir === "undo" ? "store.undid" : "store.redid", { label: e.label }));
   }
 
   /** Put every note in `diffs` into its `before` (undo) or `after` (redo) state. */
@@ -1238,13 +1229,6 @@ class Store {
     }
   }
 
-  toast(msg: string) {
-    this.notice = msg;
-    setTimeout(() => {
-      if (this.notice === msg) this.notice = null;
-    }, 2000);
-  }
-
   // ---- persistence ---------------------------------------------------------
 
   save(id: string, immediate = false) {
@@ -1281,7 +1265,7 @@ class Store {
           backend.broadcast({ type: "note-file", id, file: saved.file });
         }
       } catch (e) {
-        this.fail(e);
+        toast.error(e);
       }
     });
     this.#inflight.set(id, job);
@@ -1304,13 +1288,13 @@ class Store {
   #flushMeta() {
     if (!this.path) return;
     const patch = this.#metaPatch();
-    this.#track(backend.saveMeta(this.path, patch)).catch((e) => this.fail(e));
+    this.#track(backend.saveMeta(this.path, patch)).catch((e) => toast.error(e));
     backend.broadcast({ type: "meta", meta: patch });
   }
 
   #flushLocal() {
     if (!this.path) return;
-    this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) }), true).catch((e) => this.fail(e));
+    this.#track(backend.saveLocal(this.path, { viewport: $state.snapshot(this.viewport) }), true).catch((e) => toast.error(e));
   }
 
   #metaSave = debounced(400, () => this.#flushMeta());

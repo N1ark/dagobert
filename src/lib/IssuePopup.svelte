@@ -1,7 +1,7 @@
 <script lang="ts">
   import { searchIssues, recentIssues, type IssueRef } from "./github";
   import PrIcon from "./PrIcon.svelte";
-  import CircleNotch from "phosphor-svelte/lib/CircleNotch";
+  import { CircleNotch } from "purr/icons";
   import { t } from "./i18n";
 
   let {
@@ -88,10 +88,10 @@
   }
 </script>
 
-<div class="issues popover" style="left:{left}px; top:{top}px" role="listbox">
+<div class="issues surface" style="left:{left}px; top:{top}px" role="listbox">
   <div class="head">
     <span class="alias">{alias}</span> → {repo}
-    {#if loading}<span class="spin"><CircleNotch size={12} /></span>{/if}
+    {#if loading}<span class="spin"><CircleNotch /></span>{/if}
   </div>
   {#if error}
     <div class="msg err">{error}</div>
@@ -100,8 +100,8 @@
   {/if}
   {#each results as r, i (r.number)}
     <button
-      class="ghost row"
-      class:active={i === active}
+      class="row-item"
+      class:is-cursor={i === active}
       onmousedown={(e) => e.preventDefault()}
       onclick={() => onpick(r)}
       onmouseenter={() => (active = i)}
@@ -116,52 +116,40 @@
 <style>
   .issues {
     position: absolute;
-    z-index: 30;
+    z-index: var(--z-popover);
     width: 360px;
-    padding: 4px;
+    padding: var(--gap-2);
     max-height: 300px;
     overflow-y: auto;
+    box-shadow: var(--shadow-lg);
   }
   .head {
-    padding: 4px 8px 6px;
-    font-size: 11px;
-    color: var(--color-dim);
+    padding: var(--gap-2) var(--gap-4) var(--gap-3);
+    font-size: var(--fs-micro);
+    color: var(--muted);
     display: flex;
-    gap: 4px;
+    gap: var(--gap-2);
   }
   .alias {
-    color: var(--accent2);
+    color: var(--theme2);
     font-weight: 600;
   }
   .spin {
     margin-left: auto;
-    display: inline-flex;
-    color: var(--accent2);
-    animation: spin 0.8s linear infinite;
+    color: var(--theme2);
   }
   .msg {
-    padding: 6px 8px;
-    font-size: 12px;
-    color: var(--color-dim);
+    padding: var(--gap-3) var(--gap-4);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   .msg.err {
-    color: var(--red);
-  }
-  .row {
-    width: 100%;
-    gap: 8px;
-    text-align: left;
-    color: var(--color);
-    font-size: 13px;
-  }
-  .row.active {
-    background: #ffffff10;
-    color: var(--color2);
+    color: var(--danger);
   }
   .num {
-    color: var(--color-dim);
+    color: var(--muted);
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     flex: none;
   }
   .t {

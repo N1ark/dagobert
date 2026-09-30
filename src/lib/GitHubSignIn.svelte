@@ -1,9 +1,8 @@
 <script lang="ts">
+  import { copyText, IconButton } from "purr";
   import { auth } from "./auth.svelte";
   import { backend } from "./backend";
-  import GithubLogo from "phosphor-svelte/lib/GithubLogo";
-  import Copy from "phosphor-svelte/lib/Copy";
-  import Check from "phosphor-svelte/lib/Check";
+  import { GithubLogo, Copy, Check } from "purr/icons";
   import { t } from "./i18n";
 
   /** Shown on the welcome screen as well as in settings, so it lives on its own. */
@@ -13,13 +12,11 @@
 
   function copy() {
     if (!auth.code) return;
-    navigator.clipboard?.writeText(auth.code).then(
-      () => {
-        copied = true;
-        setTimeout(() => (copied = false), 1500);
-      },
-      () => {},
-    );
+    void copyText(auth.code).then((ok) => {
+      if (!ok) return;
+      copied = true;
+      setTimeout(() => (copied = false), 1500);
+    });
   }
 </script>
 
@@ -28,28 +25,28 @@
     <p class="code-label">{t("settings.github.code")}</p>
     <div class="code-row">
       <p class="code">{auth.code}</p>
-      <button
-        class="icon ghost"
-        title={t(copied ? "settings.github.copied" : "settings.github.copy")}
-        aria-label={t("settings.github.copy")}
+      <IconButton
+        label={t("settings.github.copy")}
+        tip={t(copied ? "settings.github.copied" : "settings.github.copy")}
+        size="lg"
         onclick={copy}
-        >{#if copied}<Check size={16} />{:else}<Copy size={16} />{/if}</button
+        >{#if copied}<Check />{:else}<Copy />{/if}</IconButton
       >
     </div>
     <div class="actions">
       <span class="hint">{t("settings.github.waiting")}</span>
-      <button onclick={() => auth.url && backend.openExternal(auth.url)}>{t("settings.github.reopen")}</button>
-      <button class="ghost" onclick={() => auth.cancel()}>{t("settings.github.cancel")}</button>
+      <button class="btn" onclick={() => auth.url && backend.openExternal(auth.url)}>{t("settings.github.reopen")}</button>
+      <button class="btn btn--ghost" onclick={() => auth.cancel()}>{t("settings.github.cancel")}</button>
     </div>
   {:else if auth.signedIn}
     <div class="actions">
       <span class="hint">{t("settings.github.signedInAs", { login: auth.session?.login ?? "" })}</span>
-      <button class="ghost" onclick={() => auth.signOut()}>{t("settings.github.signout")}</button>
+      <button class="btn btn--ghost" onclick={() => auth.signOut()}>{t("settings.github.signout")}</button>
     </div>
   {:else}
     <div class="actions">
-      <button class="primary" class:big={compact} disabled={auth.busy} onclick={() => auth.signIn()}
-        ><GithubLogo size={16} /> {t("settings.github.signin")}</button
+      <button class="btn btn--primary" class:btn--lg={compact} disabled={auth.busy} onclick={() => auth.signIn()}
+        ><GithubLogo /> {t("settings.github.signin")}</button
       >
     </div>
   {/if}
@@ -63,28 +60,28 @@
   .actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--gap-4);
     flex-wrap: wrap;
-    margin-top: 8px;
+    margin-top: var(--gap-4);
   }
   .hint {
     flex: 1;
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   .signin.compact .hint {
     flex: none;
   }
   .code-label {
-    margin: 8px 0 2px;
-    font-size: 12px;
-    color: var(--color-dim);
+    margin: var(--gap-4) 0 var(--gap-1);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   .code-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
+    gap: var(--gap-3);
+    margin-bottom: var(--gap-4);
   }
   .signin.compact .code-row {
     justify-content: center;
@@ -99,8 +96,8 @@
     user-select: all;
   }
   .err {
-    margin: 6px 0 0;
-    font-size: 12px;
-    color: var(--red);
+    margin: var(--gap-3) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--danger);
   }
 </style>

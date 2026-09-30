@@ -1,3 +1,5 @@
+import type { Key } from "./i18n.ts";
+
 /** The desktop's panels and the canvas, tiled by a tree of splits; closed panels stay in it, hidden. */
 export type Pane = "note" | "prs" | "trash" | "settings" | "gallery";
 export type Id = Pane | "canvas";
@@ -17,6 +19,15 @@ export type Drop = { side: Side; at: Id | null } | "popup";
 export type Handle = { row: boolean; rect: Rect; a: Shown; b: Shown; lenA: number; lenB: number };
 
 export const PANES: Pane[] = ["note", "prs", "trash", "settings", "gallery"];
+
+/** Each pane's accessible name, as a locale key. */
+export const PANE_LABEL: Record<Pane, Key> = {
+  note: "menu.note",
+  prs: "prs.title",
+  trash: "trash.title",
+  settings: "settings.aria",
+  gallery: "gallery.title",
+};
 
 export const DEFAULT_LAYOUT: Layout = {
   tree: {

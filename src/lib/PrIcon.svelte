@@ -2,15 +2,17 @@
   // State icon for a PR or issue: pass `item`, or a `prCache` `key` to read it live; `host` takes the tooltip.
   import type { IssueRef } from "./github";
   import { prCache, stateLabel } from "./prs.svelte";
-  import { tooltip } from "./tooltip";
+  import { tooltip } from "purr";
   import { t } from "./i18n";
-  import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
-  import GitMerge from "phosphor-svelte/lib/GitMerge";
-  import CheckCircle from "phosphor-svelte/lib/CheckCircle";
-  import ProhibitInset from "phosphor-svelte/lib/ProhibitInset";
-  import IssueOpened from "./IssueOpened.svelte";
-  import GitPullRequestClosed from "./GitPullRequestClosed.svelte";
-  import GitPullRequestUnknown from "./GitPullRequestUnknown.svelte";
+  import {
+    GitPullRequest,
+    GitMerge,
+    CheckCircle,
+    ProhibitInset,
+    IssueOpened,
+    GitPullRequestClosed,
+    GitPullRequestUnknown,
+  } from "purr/icons";
 
   let {
     item,
@@ -63,18 +65,18 @@
   .pr-icon {
     flex: none;
     display: inline-flex;
-    color: var(--green);
+    color: var(--success);
   }
   .pr-icon.unknown,
   .pr-icon.draft,
   .pr-icon.not-planned {
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .pr-icon.closed {
-    color: var(--red);
+    color: var(--danger);
   }
   .pr-icon.merged,
   .pr-icon.issue.closed:not(.not-planned) {
-    color: var(--accent2);
+    color: var(--theme2);
   }
 </style>

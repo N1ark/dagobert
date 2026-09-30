@@ -1,33 +1,21 @@
 <script lang="ts">
   import { getContext, setContext, type Snippet } from "svelte";
   import { DOCK, TILES, type DockHandle, type TilesHandle } from "./panes.svelte";
-  import { POPUP, type Pane, type Rect } from "./tiles";
-  import { onEscape } from "./keys";
-  import { t, type Key } from "./i18n";
+  import { registerOverlay } from "purr";
+  import { PANE_LABEL, POPUP, type Pane, type Rect } from "./tiles";
+  import { t } from "./i18n";
 
   /** One panel's frame: a tile of the layout, or popped up over it when it has no `rect`. */
   let { pane, rect = null, onclose, children }: { pane: Pane; rect?: Rect | null; onclose: () => void; children: Snippet } = $props();
-
-  const LABEL: Record<Pane, Key> = {
-    note: "menu.note",
-    prs: "prs.title",
-    trash: "trash.title",
-    settings: "settings.aria",
-    gallery: "gallery.title",
-  };
 
   const tiles = getContext<TilesHandle | undefined>(TILES);
   if (tiles)
     setContext<DockHandle>(DOCK, {
       grab: (e) => tiles.grab(e, pane),
       toggle: (button) => tiles.toggle(button, pane),
-      get open() {
-        return tiles.menu === pane;
-      },
     });
 
   let el = $state<HTMLDivElement | null>(null);
-  let backdrop = $state<HTMLDivElement | null>(null);
   const size = $derived(POPUP[pane]);
 
   /** The pane's own header drags it, like a title bar, wherever there's no control. */
@@ -37,19 +25,13 @@
     if (!at.closest("button, input, select, textarea, a, label, [contenteditable]")) tiles.grab(e, pane);
   }
 
-  function onKey(e: KeyboardEvent) {
-    if (rect || e.defaultPrevented) return;
-    // Only the topmost modal takes the Escape.
-    const all = document.querySelectorAll(".backdrop");
-    if (all[all.length - 1] === backdrop) onEscape(e, onclose);
-  }
+  // Popped up it is a modal: Escape closes it, if nothing is open above it.
+  $effect(() => (rect ? undefined : registerOverlay(() => onclose())));
 </script>
-
-<svelte:window onkeydown={onKey} />
 
 {#if !rect}
   <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-  <div class="backdrop" bind:this={backdrop} onclick={onclose}></div>
+  <div class="scrim" onclick={onclose}></div>
 {/if}
 
 <div
@@ -63,7 +45,7 @@
   style:height={rect ? `${rect.h}px` : size.fit ? "fit-content" : `min(${size.h}px, 100vh - 80px)`}
   style:max-height={rect ? undefined : `min(${size.h}px, 100vh - 80px)`}
   role={rect ? undefined : "dialog"}
-  aria-label={t(LABEL[pane])}
+  aria-label={t(PANE_LABEL[pane])}
   aria-modal={rect ? undefined : "true"}
   bind:this={el}
   onpointerdown={onDown}
@@ -77,23 +59,30 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    background: var(--bg2);
+    background: var(--surface);
+  }
+  .scrim {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    background: var(--scrim);
   }
   .dock.popup {
     position: fixed;
     inset: 0;
-    z-index: 50;
+    z-index: var(--z-modal);
     margin: auto;
-    border-radius: 10px;
-    box-shadow: var(--shadow-lg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-modal);
   }
   /* The header is a title bar: it drags the panel wherever there's no control. */
   .movable > :global(* > header) {
     cursor: grab;
-    transition: background 0.15s;
+    transition: background var(--dur);
   }
   .movable > :global(* > header:hover:not(:has(:is(button, input, select, textarea, a, label, [contenteditable]):hover))) {
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    background: var(--theme-soft);
   }
   /* Whatever is inside fills the dock. */
   .dock > :global(*) {

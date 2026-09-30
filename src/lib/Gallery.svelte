@@ -9,20 +9,16 @@
   import DockButton from "./DockButton.svelte";
   import MediaIcon from "./MediaIcon.svelte";
   import NoteLink from "./NoteLink.svelte";
-  import { tooltip } from "./tooltip";
-  import X from "phosphor-svelte/lib/X";
-  import Play from "phosphor-svelte/lib/Play";
-  import Trash from "phosphor-svelte/lib/Trash";
-  import FolderOpen from "phosphor-svelte/lib/FolderOpen";
+  import { Chip, ConfirmButton, IconButton, Lightbox, PanelHeader, SearchInput, type LightboxItem } from "purr";
+  import { Play, Trash, FolderOpen } from "purr/icons";
   import { t, plural, locale } from "./i18n";
 
   let { onclose }: { onclose: () => void } = $props();
 
   let filter = $state<MediaKind | null>(null);
   let query = $state("");
-  let viewing = $state<Asset | null>(null);
-  /** The asset whose Delete was pressed once; a second press deletes it. */
-  let armed = $state<string | null>(null);
+  /** The asset open in the viewer, by its index in `shown`. */
+  let viewing = $state<number | null>(null);
   let confirmPurge = $state(false);
 
   onMount(() => {
@@ -55,11 +51,14 @@
   const sizeFmt = new Intl.NumberFormat(locale, { style: "unit", unit: "megabyte", maximumFractionDigits: 1 });
   const size = (bytes: number) => sizeFmt.format(Math.max(0.1, bytes / 1e6));
 
-  function remove(a: Asset) {
-    if (armed !== a.name) return void (armed = a.name);
-    armed = null;
-    void store.deleteAsset(a.name);
-  }
+  const items = $derived(
+    shown.map((a): LightboxItem => ({
+      src: url(a),
+      kind: kindOfAsset(a),
+      alt: labelOf(a),
+      detail: `${size(a.size)} · ${relative(a.modified)}`,
+    })),
+  );
 
   // ---- dragging a tile into the editor (pointer events: Tauri keeps HTML5 drags for files) ----
 
@@ -93,39 +92,29 @@
       title: alt.replace(/\.[^.]*$/, ""),
     };
     // A popped-up gallery's backdrop covers the editor; drop through it.
-    const target = document.elementsFromPoint(e.clientX, e.clientY).find((el) => !el.closest(".backdrop"));
+    const target = document.elementsFromPoint(e.clientX, e.clientY).find((el) => !el.closest(".scrim"));
     target?.dispatchEvent(new CustomEvent("media-drop", { bubbles: true, detail }));
   }
 
-  function open(a: Asset) {
-    if (!dragged) viewing = a;
-  }
-
-  function onKey(e: KeyboardEvent) {
-    if (!viewing || e.key !== "Escape") return;
-    e.preventDefault();
-    e.stopPropagation();
-    viewing = null;
+  function open(i: number) {
+    if (!dragged) viewing = i;
   }
 </script>
 
-<svelte:window onkeydowncapture={onKey} />
-
-<div class="dialog bare gallery">
-  <header>
-    <h3>{t("gallery.title")} <span class="count">{store.assets?.length ?? ""}</span></h3>
-    {#if !isMobile}
-      <span class="pane-tools">
-        <DockButton />
-        <button class="ghost icon" onclick={onclose} use:tooltip={t("pane.close")} aria-label={t("pane.close")}><X size={15} /></button>
-      </span>
-    {/if}
-  </header>
+<div class="pane gallery">
+  <PanelHeader
+    title={t("gallery.title")}
+    count={store.assets?.length}
+    onclose={isMobile ? undefined : onclose}
+    closeLabel={t("pane.close")}
+  >
+    {#snippet actions()}<DockButton />{/snippet}
+  </PanelHeader>
   <div class="bar">
     {#each kinds as k (k)}
-      <button class="ghost chip" class:on={filter === k} onclick={() => (filter = k)}>{t(KIND_LABEL[k ?? "all"])}</button>
+      <Chip on={filter === k} label={t(KIND_LABEL[k ?? "all"])} onclick={() => (filter = k)} />
     {/each}
-    <input type="search" bind:value={query} placeholder={t("gallery.search")} spellcheck="false" />
+    <SearchInput variant="field" bind:value={query} label={t("gallery.search")} placeholder={t("gallery.search")} spellcheck="false" />
   </div>
   <div class="grid-wrap">
     {#if !store.assets}
@@ -136,14 +125,14 @@
       <p class="empty">{t("gallery.noMatches")}</p>
     {:else}
       <ul class="grid">
-        {#each shown as a (a.name)}
+        {#each shown as a, i (a.name)}
           {@const kind = kindOfAsset(a)}
           {@const refs = refsOf(a)}
           <li class:unused={unused(a)}>
             <button
               class="thumb"
               class:lifted={drag?.moved && drag.asset === a}
-              onclick={() => open(a)}
+              onclick={() => open(i)}
               onpointerdown={(e) => onDown(e, a)}
               onpointermove={onMove}
               onpointerup={onUp}
@@ -154,7 +143,7 @@
                 <img src={url(a)} alt="" loading="lazy" draggable="false" />
               {:else if kind === "video"}
                 <video src={url(a) + "#t=0.001"} preload="metadata" muted playsinline></video>
-                <span class="badge"><Play size={14} weight="fill" /></span>
+                <span class="badge"><Play weight="fill" /></span>
               {:else}
                 <span class="audio"><MediaIcon kind="audio" size={28} /><span class="name">{labelOf(a)}</span></span>
               {/if}
@@ -167,8 +156,12 @@
                   <span class="state">{t("gallery.inTrash")}</span>
                 {:else}
                   <span class="state">{t("gallery.unused")}</span>
-                  <button class="ghost sm danger" onclick={() => remove(a)} onblur={() => (armed = null)}
-                    ><Trash size={12} /> {t(armed === a.name ? "gallery.confirm" : "gallery.delete")}</button
+                  <ConfirmButton
+                    variant="ghost"
+                    size="sm"
+                    class="btn--danger"
+                    confirmLabel={t("gallery.confirm")}
+                    onconfirm={() => store.deleteAsset(a.name)}><Trash /> {t("gallery.delete")}</ConfirmButton
                   >
                 {/if}
               {/each}
@@ -182,50 +175,36 @@
     <footer>
       {#if confirmPurge}
         <span class="warn">{plural("gallery.purge.confirm", unusedCount)}</span>
-        <button
-          class="danger sm"
-          onclick={() => store.deleteAssets((store.assets ?? []).filter(unused).map((a) => a.name)).then(() => (confirmPurge = false))}
-          >{t("gallery.purge.now")}</button
-        >
-        <button class="ghost sm" onclick={() => (confirmPurge = false)}>{t("trash.cancel")}</button>
-      {:else}
-        <button class="ghost sm danger" onclick={() => (confirmPurge = true)}>{plural("gallery.purge", unusedCount)}</button>
       {/if}
+      <ConfirmButton
+        variant="ghost"
+        size="sm"
+        class="btn--danger"
+        bind:armed={confirmPurge}
+        confirmLabel={t("gallery.purge.now")}
+        onconfirm={() => store.deleteAssets((store.assets ?? []).filter(unused).map((a) => a.name))}
+        >{plural("gallery.purge", unusedCount)}</ConfirmButton
+      >
     </footer>
   {/if}
-  {#if viewing}
-    {@const kind = kindOfAsset(viewing)}
-    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div class="viewer" onclick={(e) => e.target === e.currentTarget && (viewing = null)}>
-      <div class="stage">
-        {#if kind === "image"}
-          <img src={url(viewing)} alt={labelOf(viewing)} />
-        {:else if kind === "video"}
-          <!-- svelte-ignore a11y_media_has_caption -->
-          <video src={url(viewing)} controls autoplay playsinline></video>
-        {:else}
-          <MediaIcon kind="audio" size={48} />
-          <audio src={url(viewing)} controls autoplay></audio>
-        {/if}
-      </div>
-      <div class="caption">
-        <span class="label">{labelOf(viewing)}</span>
-        <span class="sub">{size(viewing.size)} · {relative(new Date(viewing.modified).toISOString())}</span>
-        {#if !isMobile}
-          <button
-            class="ghost icon"
-            onclick={() => viewing && store.revealAsset(viewing.name)}
-            use:tooltip={t("panel.reveal")}
-            aria-label={t("panel.reveal")}><FolderOpen size={15} /></button
-          >
-        {/if}
-        <button class="ghost icon" onclick={() => (viewing = null)} use:tooltip={t("pane.close")} aria-label={t("pane.close")}
-          ><X size={15} /></button
-        >
-      </div>
-    </div>
-  {/if}
 </div>
+{#if viewing !== null}
+  <Lightbox
+    {items}
+    bind:index={viewing}
+    onclose={() => (viewing = null)}
+    label={t("gallery.viewer")}
+    closeLabel={t("pane.close")}
+    previousLabel={t("gallery.previous")}
+    nextLabel={t("gallery.next")}
+  >
+    {#snippet actions(_, i)}
+      {#if !isMobile && shown[i]}
+        <IconButton label={t("panel.reveal")} size="lg" onclick={() => store.revealAsset(shown[i].name)}><FolderOpen /></IconButton>
+      {/if}
+    {/snippet}
+  </Lightbox>
+{/if}
 {#if drag?.moved}
   <div class="ghost-tile" style="left:{drag.x}px;top:{drag.y}px">
     {#if kindOfAsset(drag.asset) === "image"}<img src={url(drag.asset)} alt="" />{:else}<MediaIcon
@@ -239,58 +218,39 @@
   .gallery {
     position: relative;
   }
-  .dialog h3 {
-    font-size: 15px;
-  }
-  .count {
-    font-weight: 400;
-    color: var(--color-dim);
-    margin-left: 4px;
-  }
   .bar {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 10px 12px 8px;
+    gap: var(--gap-2);
+    padding: var(--sp-4) var(--sp-4) var(--gap-4);
   }
-  .chip {
-    font-size: 12px;
-    padding: 3px 9px;
-    border-radius: 999px;
-  }
-  .chip.on {
-    background: var(--bg3);
-    color: var(--color2);
-  }
-  .bar input {
+  .bar > :global(:last-child) {
     flex: 1;
     min-width: 80px;
-    margin-left: 6px;
-    font-size: 12px;
-    padding: 4px 8px;
+    margin-left: var(--gap-3);
   }
   :global(body.mobile) .bar {
     flex-wrap: wrap;
   }
-  :global(body.mobile) .bar input {
+  :global(body.mobile) .bar > :global(:last-child) {
     flex-basis: 100%;
-    margin: 4px 0 0;
+    margin: var(--gap-2) 0 0;
   }
   .grid-wrap {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    padding: 4px 12px 12px;
+    padding: var(--gap-2) var(--sp-4) var(--sp-4);
   }
   .empty {
     padding: 24px;
     text-align: center;
-    color: var(--color-dim);
-    font-size: 13px;
+    color: var(--muted);
+    font-size: var(--fs-sm);
   }
   .empty :global(code) {
     font-family: var(--mono);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .grid {
     list-style: none;
@@ -319,12 +279,14 @@
     border-radius: var(--radius);
     /* A faint checkerboard: letterboxing and transparency both read as the frame. */
     background:
-      repeating-conic-gradient(#ffffff06 0 25%, transparent 0 50%) 0 0 / 16px 16px,
+      repeating-conic-gradient(var(--chip) 0 25%, transparent 0 50%) 0 0 / 16px 16px,
       var(--bg);
     cursor: pointer;
   }
-  .thumb:hover {
-    border-color: var(--border2);
+  @media (hover: hover) {
+    .thumb:hover {
+      border-color: var(--border-strong);
+    }
   }
   .thumb.lifted {
     opacity: 0.4;
@@ -344,10 +306,11 @@
     right: 6px;
     bottom: 6px;
     display: flex;
-    padding: 4px;
-    border-radius: 999px;
-    background: #000a;
-    color: #fff;
+    padding: var(--gap-2);
+    border-radius: var(--radius-pill);
+    background: var(--scrim);
+    font-size: var(--icon-md);
+    color: var(--color2);
   }
   .audio {
     display: flex;
@@ -356,12 +319,12 @@
     gap: 6px;
     max-width: 100%;
     padding: 0 10px;
-    color: var(--accent2);
+    color: var(--theme2);
   }
   .name {
     max-width: 100%;
-    font-size: 11px;
-    color: var(--color-dim);
+    font-size: var(--fs-micro);
+    color: var(--muted);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -370,91 +333,30 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 3px;
-    margin-top: 5px;
-    font-size: 11px;
-    color: var(--color-dim);
+    gap: var(--gap-1);
+    margin-top: var(--sp-2);
+    font-size: var(--fs-micro);
+    color: var(--muted);
   }
   .state {
     font-style: italic;
-  }
-  .sm {
-    font-size: 11px;
-    padding: 1px 6px;
   }
   footer {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 16px;
+    gap: var(--gap-4);
+    padding: var(--sp-4) var(--sp-5);
     border-top: 1px solid var(--border);
-  }
-  footer .sm {
-    font-size: 12px;
-    padding: 3px 8px;
   }
   .warn {
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
     margin-right: auto;
-  }
-  .viewer {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    background: color-mix(in srgb, var(--bg) 94%, transparent);
-  }
-  .stage {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    padding: 16px;
-    color: var(--accent2);
-    pointer-events: none;
-  }
-  .stage > * {
-    pointer-events: auto;
-  }
-  .stage img,
-  .stage video {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    border-radius: 6px;
-  }
-  .stage audio {
-    width: min(100%, 420px);
-  }
-  .caption {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-  }
-  .label {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: var(--color2);
-  }
-  .sub {
-    margin-right: auto;
-    color: var(--color-dim);
-    white-space: nowrap;
   }
   .ghost-tile {
     position: fixed;
-    z-index: 200;
+    z-index: var(--z-tooltip);
     width: 72px;
     height: 54px;
     display: flex;
@@ -466,7 +368,7 @@
     box-shadow: var(--shadow-lg);
     overflow: hidden;
     pointer-events: none;
-    color: var(--accent2);
+    color: var(--theme2);
   }
   .ghost-tile img {
     width: 100%;

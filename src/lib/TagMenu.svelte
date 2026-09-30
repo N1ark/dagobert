@@ -1,82 +1,77 @@
 <script lang="ts">
+  import { IconButton, Popover } from "purr";
+  import { Tag } from "purr/icons";
   import { store } from "./store.svelte";
   import TagColorPicker from "./TagColorPicker.svelte";
-  import Tag from "phosphor-svelte/lib/Tag";
-  import { tooltip } from "./tooltip";
   import { t } from "./i18n";
-  import { ICON } from "./icons";
 
+  let button = $state<HTMLElement | null>(null);
   let open = $state(false);
-  let picking = $state<string | null>(null);
+  let picking = $state<{ tag: string; anchor: HTMLElement } | null>(null);
 
-  function onWindowPointerDown(e: PointerEvent) {
-    if (!(e.target as HTMLElement).closest(".tag-menu")) {
-      open = false;
-      picking = null;
-    }
+  function close() {
+    open = false;
+    picking = null;
   }
 </script>
 
-<svelte:window onpointerdown={onWindowPointerDown} />
-
-<div class="tag-menu">
-  <button
-    class="icon"
-    class:ghost={!store.tagFilter.length}
-    class:filtering={store.tagFilter.length > 0}
-    onclick={() => (open = !open)}
-    use:tooltip={t("tags.filter")}
-    aria-label={t("tags.filter")}
+<span class="tag-menu" bind:this={button}>
+  <IconButton
+    label={t("tags.filter")}
+    size="lg"
+    variant={store.tagFilter.length ? "default" : "ghost"}
+    class={store.tagFilter.length ? "filtering" : undefined}
+    aria-expanded={open}
+    onclick={() => (open ? close() : (open = true))}
   >
-    <Tag size={ICON} />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
-  </button>
+    <Tag />{#if store.tagFilter.length}<span class="n">{store.tagFilter.length}</span>{/if}
+  </IconButton>
+</span>
 
-  {#if open}
-    <div class="popover">
-      {#if !store.allTags.length}
-        <div class="empty">{t("tags.empty")}</div>
-      {:else}
-        <ul>
-          {#each store.allTags as { tag, count } (tag)}
-            {@const on = store.tagFilter.includes(tag)}
-            <li class:on>
-              <div class="swatch-wrap">
-                <button
-                  class="swatch"
-                  style="--c:{store.tagColor(tag)}"
-                  title={t("tags.color")}
-                  aria-label={t("tags.colorOf", { tag })}
-                  onclick={() => (picking = picking === tag ? null : tag)}
-                ></button>
-                {#if picking === tag}
-                  <TagColorPicker {tag} onclose={() => (picking = null)} />
-                {/if}
-              </div>
-              <button class="ghost name" onclick={() => store.toggleTagFilter(tag)}>
-                <span>{tag}</span>
-                <span class="count">{count}</span>
-              </button>
-            </li>
-          {/each}
-        </ul>
-        {#if store.tagFilter.length}
-          <button class="ghost clear" onclick={() => (store.tagFilter = [])}>{t("tags.clear")}</button>
-        {/if}
+{#if open && button}
+  <Popover anchor={button} placement="bottom-end" onclose={close} label={t("tags.filter")} width="220px" padding="var(--sp-2)">
+    {#if !store.allTags.length}
+      <div class="empty">{t("tags.empty")}</div>
+    {:else}
+      <ul>
+        {#each store.allTags as { tag, count } (tag)}
+          {@const on = store.tagFilter.includes(tag)}
+          <li class:on>
+            <button
+              class="swatch"
+              style:--c={store.tagColor(tag)}
+              title={t("tags.color")}
+              aria-label={t("tags.colorOf", { tag })}
+              onclick={(e) => (picking = picking?.tag === tag ? null : { tag, anchor: e.currentTarget })}
+            ></button>
+            <button class="row-item name" aria-pressed={on} onclick={() => store.toggleTagFilter(tag)}>
+              <span class="fills truncate">{tag}</span>
+              <span class="count">{count}</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+      {#if store.tagFilter.length}
+        <button class="btn btn--ghost clear" onclick={() => (store.tagFilter = [])}>{t("tags.clear")}</button>
       {/if}
-    </div>
-  {/if}
-</div>
+    {/if}
+  </Popover>
+{/if}
+
+{#if picking}
+  <TagColorPicker tag={picking.tag} anchor={picking.anchor} onclose={() => (picking = null)} />
+{/if}
 
 <style>
   .tag-menu {
+    display: inline-flex;
+  }
+  .tag-menu :global(.btn) {
     position: relative;
   }
-  .filtering {
-    border-color: var(--accent);
+  .tag-menu :global(.filtering) {
+    border-color: var(--theme);
     color: var(--color2);
-  }
-  .icon {
-    position: relative;
   }
   .n {
     position: absolute;
@@ -84,21 +79,13 @@
     right: -4px;
     min-width: 14px;
     height: 14px;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: var(--accent);
-    color: var(--color2);
-    font-size: 10px;
+    padding: 0 var(--gap-2);
+    border-radius: var(--radius-pill);
+    background: var(--theme);
+    color: var(--on-accent);
+    font-size: var(--fs-nano);
     line-height: 14px;
     text-align: center;
-  }
-  .popover {
-    position: absolute;
-    z-index: 20;
-    top: calc(100% + 6px);
-    right: 0;
-    width: 220px;
-    padding: 6px;
   }
   ul {
     list-style: none;
@@ -110,36 +97,32 @@
   li {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding-left: 6px;
+    gap: var(--gap-3);
+    padding-left: var(--gap-3);
     border-radius: var(--radius);
   }
   li.on {
-    background: #ffffff0c;
+    background: var(--theme-soft);
   }
   .name {
     flex: 1;
-    display: flex;
-    justify-content: space-between;
     color: var(--color);
-    text-align: left;
   }
   li.on .name {
     color: var(--color2);
   }
   .count {
-    color: var(--color-dim);
-    font-size: 11px;
+    color: var(--muted);
+    font-size: var(--fs-micro);
   }
   .empty {
-    padding: 8px;
-    color: var(--color-dim);
-    font-size: 12px;
+    padding: var(--gap-4);
+    color: var(--muted);
+    font-size: var(--fs-xs);
   }
   .clear {
     width: 100%;
-    justify-content: center;
-    margin-top: 4px;
-    font-size: 12px;
+    margin-top: var(--gap-2);
+    font-size: var(--fs-xs);
   }
 </style>

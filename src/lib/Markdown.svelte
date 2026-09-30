@@ -45,7 +45,7 @@
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="markdown" use:prIcons={() => html} onclick={(e) => onLinkClick(e)}>
+<div class="md" use:prIcons={() => html} onclick={(e) => onLinkClick(e)}>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}
@@ -56,7 +56,7 @@
 
 <style>
   .placeholder {
-    color: #555;
+    color: var(--faint);
     font-style: italic;
   }
 </style>

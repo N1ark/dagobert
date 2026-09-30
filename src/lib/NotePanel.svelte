@@ -2,30 +2,26 @@
   import { store } from "./store.svelte";
   import { isMobile } from "./backend";
   import type { Note } from "./types";
-  import { relative, absolute } from "./time";
+  import { ConfirmButton, formatAbsolute, IconButton, ProgressRing, Tag } from "purr";
+  import { relative } from "./time";
   import LiveEditor from "./LiveEditor.svelte";
   import LinkPicker from "./LinkPicker.svelte";
   import DockButton from "./DockButton.svelte";
-  import { tooltip } from "./tooltip";
   import TagColorPicker from "./TagColorPicker.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import NoteLink from "./NoteLink.svelte";
-  import ProgressRing from "./ProgressRing.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
   import { t } from "./i18n";
   import { keys } from "./keys";
-  import X from "phosphor-svelte/lib/X";
-  import Plus from "phosphor-svelte/lib/Plus";
-  import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
-  import GearSix from "phosphor-svelte/lib/GearSix";
+  import { X, Plus, ArrowSquareOut, GearSix } from "purr/icons";
 
   let { note, onjump, standalone = false }: { note: Note; onjump: (id: string) => void; standalone?: boolean } = $props();
 
   let tagInput = $state("");
   let confirmDelete = $state(false);
-  let picking = $state<string | null>(null);
+  let picking = $state<{ tag: string; anchor: HTMLElement } | null>(null);
   let adding = $state<string | null>(null);
   // The panel is re-keyed per note, so the initial value is the right one.
   // svelte-ignore state_referenced_locally
@@ -138,7 +134,7 @@
   <header>
     {#if progress}
       <span class="ring" title={t("node.progress", { done: progress.done, total: progress.total })}
-        ><ProgressRing done={progress.done} total={progress.total} size={16} /></span
+        ><ProgressRing value={progress.done} max={progress.total} size={16} label={t("ring.aria", progress)} /></span
       >
     {:else if !custom}
       <label class="done" title={t(done ? "node.markNotDone" : "node.markDone")}>
@@ -174,17 +170,11 @@
     {#if !standalone && !isMobile}
       <span class="pane-tools">
         <DockButton />
-        <button
-          class="ghost icon"
-          onclick={() => store.openInWindow(note.id)}
-          use:tooltip={t("panel.openWindow")}
-          aria-label={t("panel.openWindow.aria")}><ArrowSquareOut size={15} /></button
+        <IconButton label={t("panel.openWindow.aria")} tip={t("panel.openWindow")} onclick={() => store.openInWindow(note.id)}
+          ><ArrowSquareOut /></IconButton
         >
-        <button
-          class="ghost icon"
-          onclick={() => store.select(null)}
-          use:tooltip={t("panel.close", { key: keys.escape })}
-          aria-label={t("panel.close.aria")}><X size={15} /></button
+        <IconButton label={t("panel.close.aria")} tip={{ text: t("pane.close"), hint: keys.escape }} onclick={() => store.select(null)}
+          ><X /></IconButton
         >
       </span>
     {/if}
@@ -225,29 +215,28 @@
             <option value={wf.id}>{wf.name}</option>
           {/each}
         </select>
-        <button
-          class="ghost edit-wf"
+        <IconButton
+          label={t("panel.manageWorkflows")}
           onclick={() => store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)}
-          title={t("panel.manageWorkflows")}><GearSix size={15} /></button
+          ><GearSix /></IconButton
         >
       </div>
 
       <div class="meta">
-        <span title={absolute(note.created)}>{t("panel.created", { when: relative(note.created) })}</span>
-        <span title={absolute(note.modified)}>{t("panel.edited", { when: relative(note.modified) })}</span>
+        <span title={formatAbsolute(note.created)}>{t("panel.created", { when: relative(note.created) })}</span>
+        <span title={formatAbsolute(note.modified)}>{t("panel.edited", { when: relative(note.modified) })}</span>
       </div>
 
       <div class="tags">
         {#each note.tags as tag (tag)}
-          <span class="tag-wrap">
-            <span class="tag tag-chip" style="--tag:{store.tagColor(tag)}">
-              <button class="name" onclick={() => (picking = picking === tag ? null : tag)} title={t("panel.tag.color")}>{tag}</button>
-              <button class="x" onclick={() => removeTag(tag)} aria-label={t("panel.tag.remove")}><X size={11} weight="bold" /></button>
-            </span>
-            {#if picking === tag}
-              <TagColorPicker {tag} onclose={() => (picking = null)} />
-            {/if}
-          </span>
+          <Tag
+            label={tag}
+            color={store.tagColor(tag)}
+            title={t("panel.tag.color")}
+            onclick={(e) => (picking = picking?.tag === tag ? null : { tag, anchor: e.currentTarget as HTMLElement })}
+            onremove={() => removeTag(tag)}
+            removeLabel={t("panel.tag.remove")}
+          />
         {/each}
         <input
           class="tag-input"
@@ -258,6 +247,10 @@
         />
       </div>
 
+      {#if picking}
+        <TagColorPicker tag={picking.tag} anchor={picking.anchor} onclose={() => (picking = null)} />
+      {/if}
+
       <section class="links">
         {#each linkGroups as g (g.key)}
           <div class="group">
@@ -265,16 +258,16 @@
             <div class="chips">
               {#each g.items as d (d.id)}
                 <span class="chip" class:done={store.isDone(d)}>
-                  <button class="ghost jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback={t("app.untitled")} /></button
-                  >
-                  <button class="ghost x" onclick={() => g.remove(d.id)} aria-label={t("panel.link.remove")}><X size={11} /></button>
+                  <button class="jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback={t("app.untitled")} /></button>
+                  <button class="x" onclick={() => g.remove(d.id)} aria-label={t("panel.link.remove")}><X /></button>
                 </span>
               {/each}
               <button
-                class="ghost add"
-                class:open={adding === g.key}
+                class="add"
+                aria-expanded={adding === g.key}
+                aria-label={g.placeholder}
                 onclick={() => (adding = adding === g.key ? null : g.key)}
-                title={g.placeholder}><Plus size={11} /></button
+                title={g.placeholder}><Plus /></button
               >
             </div>
             {#if adding === g.key}
@@ -307,7 +300,7 @@
     {#if standalone}
       <nav class="toc" aria-label={t("panel.toc")}>
         {#each toc as h, i (i)}
-          <button class="ghost entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => jumpTo(h.block)}
+          <button class="entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => jumpTo(h.block)}
             ><InlineMd source={h.text} /></button
           >
         {:else}
@@ -325,14 +318,16 @@
     {#if isMobile}
       <span class="file plain">{note.file}</span>
     {:else}
-      <button class="ghost link file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
+      <button class="btn btn--link file" title={t("panel.reveal")} onclick={() => store.revealInFinder(note.id)}>{note.file}</button>
     {/if}
-    {#if confirmDelete}
-      <button class="danger" onclick={() => store.remove(note.id)}>{t("panel.reallyDelete")}</button>
-      <button class="ghost" onclick={() => (confirmDelete = false)}>{t("panel.cancel")}</button>
-    {:else}
-      <button class="ghost danger" onclick={() => (confirmDelete = true)}>{t("panel.delete")}</button>
-    {/if}
+    <ConfirmButton
+      variant="ghost"
+      size="sm"
+      class="btn--danger"
+      bind:armed={confirmDelete}
+      confirmLabel={t("panel.reallyDelete")}
+      onconfirm={() => store.remove(note.id)}>{t("panel.delete")}</ConfirmButton
+    >
   </footer>
 </aside>
 
@@ -347,15 +342,14 @@
   header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 12px 12px 4px 16px;
+    gap: var(--gap-4);
+    padding: var(--sp-4) var(--sp-4) var(--gap-2) var(--sp-5);
+  }
+  .done {
+    display: flex;
   }
   .done input {
-    display: block;
-    width: 16px;
-    height: 16px;
-    margin: 0;
-    cursor: pointer;
+    --check: 16px;
   }
   .title-wrap {
     flex: 1;
@@ -365,20 +359,20 @@
   }
   .title {
     flex: 1;
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: 600;
     color: var(--color2);
-    background: transparent;
-    border-color: transparent;
-    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    padding: var(--gap-2) var(--gap-3);
     min-width: 0;
+    transition: border-color var(--dur);
   }
-  .title:hover,
-  .title:focus {
-    border-color: var(--border2);
+  .title:hover {
+    border-color: var(--border-strong);
   }
   .title:focus {
-    border-color: var(--accent);
+    border-color: var(--theme2);
   }
   .title.rendered {
     color: transparent;
@@ -388,9 +382,9 @@
     inset: 0;
     display: flex;
     align-items: center;
-    padding: 4px 6px;
+    padding: var(--gap-2) var(--gap-3);
     border: 1px solid transparent;
-    font-size: 18px;
+    font-size: var(--fs-xl);
     font-weight: 600;
     color: var(--color2);
     white-space: nowrap;
@@ -407,41 +401,44 @@
   .workflow-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 16px 6px 22px;
+    gap: var(--gap-3);
+    padding: var(--gap-1) var(--sp-5) var(--gap-3) 22px;
   }
   .tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 0 16px 12px 22px;
+    gap: var(--gap-2);
+    padding: 0 var(--sp-5) var(--sp-4) 22px;
     align-items: center;
   }
+  .tags :global(.tag) {
+    font-size: var(--fs-xs);
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
   select {
-    font: inherit;
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--color);
-    background: var(--bg);
-    border: 1px solid var(--border2);
+    background: var(--field-bg);
+    border: 1px solid var(--field-border);
     border-radius: var(--radius);
-    padding: 2px 6px;
-    outline: none;
+    padding: var(--gap-1) var(--gap-3);
   }
   select:focus {
-    border-color: var(--accent);
+    border-color: var(--theme2);
   }
   .ring {
     display: inline-flex;
   }
   .track-info {
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   .status-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding-left: 8px;
+    gap: var(--gap-2);
+    padding-left: var(--gap-4);
     border-radius: var(--radius);
     border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
     background: color-mix(in srgb, var(--c) 12%, transparent);
@@ -459,75 +456,39 @@
     font-weight: 500;
   }
   .wf {
-    color: var(--color-dim);
-  }
-  .edit-wf {
-    padding: 2px 6px;
-    font-size: 13px;
+    color: var(--muted);
   }
   .meta {
     display: flex;
-    gap: 12px;
-    padding: 0 16px 8px 22px;
-    font-size: 11px;
-    color: var(--color-dim);
-  }
-  .tag-wrap {
-    position: relative;
-  }
-  .tag {
-    gap: 2px;
-    font-size: 12px;
-    padding: 1px 4px 1px 2px;
-  }
-  .tag .name {
-    padding: 0 2px 0 6px;
-    border: none;
-    background: none;
-    color: inherit;
-    line-height: inherit;
-  }
-  .tag .name:hover {
-    text-decoration: underline;
-  }
-  .tag .x {
-    padding: 0 4px;
-    border: none;
-    background: none;
-    color: inherit;
-    opacity: 0.6;
-    font-size: 13px;
-    line-height: 1;
-  }
-  .tag .x:hover {
-    opacity: 1;
+    gap: var(--sp-4);
+    padding: 0 var(--sp-5) var(--gap-4) 22px;
+    font-size: var(--fs-micro);
+    color: var(--muted);
   }
   .tag-input {
-    border: none;
-    background: transparent;
-    font-size: 12px;
-    padding: 2px 4px;
+    font-size: var(--fs-xs);
+    padding: var(--gap-1) var(--gap-2);
     width: 90px;
   }
   .links {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 0 16px 8px 22px;
+    gap: var(--gap-4);
+    padding: 0 var(--sp-5) var(--gap-4) 22px;
     border-bottom: 1px solid var(--border);
   }
   .group {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--gap-1);
   }
   .label {
     white-space: nowrap;
-    font-size: 11px;
+    font-size: var(--fs-micro);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .count {
     font-weight: 400;
@@ -536,16 +497,17 @@
   .chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: var(--gap-1);
     align-items: center;
   }
   .chip {
     display: inline-flex;
     align-items: center;
     max-width: 100%;
-    border-radius: 999px;
-    background: #ffffff0a;
-    font-size: 12px;
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+    font-size: var(--fs-xs);
+    line-height: 1.5;
   }
   .chip.done {
     opacity: 0.55;
@@ -554,36 +516,51 @@
     text-decoration: line-through;
   }
   .jump {
-    padding: 1px 4px 1px 8px;
+    padding: 1px var(--gap-2) 1px var(--gap-4);
     color: var(--color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     min-width: 0;
-    border: none;
   }
   .chip .x {
-    padding: 1px 5px 1px 1px;
-    border: none;
-    opacity: 0.5;
-  }
-  .chip .x:hover {
-    opacity: 1;
+    display: inline-flex;
+    padding: 1px var(--sp-2) 1px 1px;
+    font-size: var(--fs-micro);
+    color: var(--muted);
+    opacity: 0.7;
   }
   .add {
-    padding: 2px 5px;
-    border: 1px dashed var(--border2);
-    border-radius: 999px;
-    color: var(--color-dim);
+    display: inline-flex;
+    padding: var(--gap-1) var(--sp-2);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-pill);
+    font-size: var(--fs-micro);
+    color: var(--muted);
   }
-  .add:hover,
-  .add.open {
-    border-color: var(--accent2);
-    color: var(--accent2);
+  .add[aria-expanded="true"] {
+    border-color: var(--theme2);
+    color: var(--theme2);
+  }
+  @media (hover: hover) {
+    .chip .x:hover {
+      opacity: 1;
+      color: var(--color2);
+    }
+    .add:hover {
+      border-color: var(--theme2);
+      color: var(--theme2);
+    }
+    .entry:hover {
+      color: var(--theme2);
+    }
+    .file:hover {
+      color: var(--theme2);
+    }
   }
   .picker {
     width: 100%;
-    margin-top: 2px;
+    margin-top: var(--gap-1);
   }
   .top {
     -webkit-user-select: none;
@@ -609,33 +586,29 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1px;
-    padding: 4px 16px 8px;
+    padding: var(--gap-2) var(--sp-5) var(--gap-4);
     max-height: 40vh;
     overflow-y: auto;
     min-width: 0;
   }
   .entry {
     max-width: 100%;
-    padding: 1px 6px;
+    padding: 1px var(--gap-3);
     margin-left: calc((var(--lvl) - 1) * 12px);
-    font-size: 12px;
+    font-size: var(--fs-xs);
     color: var(--color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    border: none;
   }
   .entry.h1 {
     font-weight: 600;
   }
-  .entry:hover {
-    color: var(--accent2);
-  }
   .toc .empty {
-    font-size: 12px;
+    font-size: var(--fs-xs);
     font-style: italic;
-    color: #555;
-    padding: 2px 6px;
+    color: var(--faint);
+    padding: var(--gap-1) var(--gap-3);
   }
   .body {
     flex: 1;
@@ -647,38 +620,32 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 4px;
-    padding: 6px 16px;
+    gap: var(--gap-2);
+    padding: var(--gap-3) var(--sp-5);
     border-bottom: 1px solid var(--border);
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .mentioned .label {
-    color: var(--color-dim);
-    margin-right: 4px;
+    color: var(--muted);
+    margin-right: var(--gap-2);
   }
   footer {
     -webkit-user-select: none;
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
+    gap: var(--gap-3);
+    padding: var(--gap-4) var(--sp-4);
     border-top: 1px solid var(--border);
   }
   .file {
     min-width: 0;
     margin-right: auto;
     font-family: var(--mono);
-    font-size: 11px;
-    color: #555;
+    font-size: var(--fs-micro);
+    color: var(--faint);
   }
   .file.plain {
     cursor: default;
-  }
-  .file:hover {
-    color: var(--accent2);
-  }
-  footer button {
-    font-size: 12px;
   }
 </style>

@@ -3,9 +3,8 @@
   import type { Note } from "./types";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
-  import Check from "phosphor-svelte/lib/Check";
-  import Warning from "phosphor-svelte/lib/Warning";
-  import ProgressRing from "./ProgressRing.svelte";
+  import { ProgressRing } from "purr";
+  import { Warning } from "purr/icons";
   import { MARKER_RE } from "./blocks";
   import { firstMedia, stripMedia } from "./media";
   import MediaIcon from "./MediaIcon.svelte";
@@ -72,25 +71,22 @@
   <div class="head">
     {#if progress}
       <span class="ring-wrap" title={t("node.progress", { done: progress.done, total: progress.total })}
-        ><ProgressRing done={progress.done} total={progress.total} /></span
+        ><ProgressRing value={progress.done} max={progress.total} label={t("ring.aria", progress)} /></span
       >
     {:else if !custom}
       <button
-        class="check"
-        class:on={done}
+        class="checkbox check"
+        role="checkbox"
+        aria-checked={done}
         onpointerdown={(e) => e.stopPropagation()}
         onclick={advance}
         title={t(done ? "node.markNotDone" : "node.markDone")}
         aria-label={t("node.toggleDone")}
-      >
-        {#if done}
-          <Check size={11} weight="bold" />
-        {/if}
-      </button>
+      ></button>
     {/if}
     <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback={t("app.untitled")} /></div>
     {#if conflict}
-      <span class="conflict" title={t("node.conflict")}><Warning size={14} weight="fill" /></span>
+      <span class="conflict" title={t("node.conflict")}><Warning weight="fill" /></span>
     {/if}
   </div>
   {#if custom || progress || note.tags.length}
@@ -112,7 +108,7 @@
         </button>
       {/if}
       {#each note.tags as tag (tag)}
-        <span class="tag tag-chip" style="--tag:{store.tagColor(tag)}">{tag}</span>
+        <span class="tag" style:--tag={store.tagColor(tag)}>{tag}</span>
       {/each}
     </div>
   {/if}
@@ -131,50 +127,46 @@
     position: absolute;
     background: var(--bg2);
     border-radius: var(--radius);
-    box-shadow: var(--shadow);
+    box-shadow: var(--box-shadow);
     padding: 10px 12px;
     cursor: grab;
     user-select: none;
     -webkit-user-select: none;
     transition:
-      box-shadow 0.15s,
-      transform 0.18s var(--ease-sheet),
-      opacity 0.15s;
+      box-shadow var(--dur),
+      transform var(--dur-slow) var(--ease-sheet),
+      opacity var(--dur);
   }
   @media (hover: hover) {
     .node:hover {
-      box-shadow:
-        0 0 0 1px #ffffff2a,
-        0 0 4px 4px #ffffff05;
+      box-shadow: 0 0 0 1px var(--border-strong);
     }
   }
   .node.ready {
-    box-shadow:
-      0 0 0 1px var(--accent-soft),
-      0 0 4px 4px #ffffff03;
+    box-shadow: 0 0 0 1px var(--theme-mid);
   }
   .node.grouped {
     box-shadow:
-      0 0 0 1.5px var(--accent),
-      0 0 8px 1px #8a2aa233;
+      0 0 0 1.5px var(--theme),
+      0 0 8px 1px var(--theme-soft);
   }
   .node.selected {
     box-shadow:
-      0 0 0 1.5px var(--accent2),
-      0 0 12px 2px #8a2aa244;
+      0 0 0 1.5px var(--theme2),
+      0 0 12px 2px var(--theme-mid);
   }
   .node.link-target {
     box-shadow:
-      0 0 0 2px var(--green),
-      0 0 12px 2px #98c37944;
+      0 0 0 2px var(--success),
+      0 0 12px 2px color-mix(in srgb, var(--success) 27%, transparent);
   }
   /* A long press picked it up, so it sits above the canvas until it's let go. */
   .node.lifted {
     z-index: 1;
     transform: scale(1.04);
     box-shadow:
-      0 0 0 1.5px var(--accent2),
-      0 10px 26px 2px #00000073;
+      0 0 0 1.5px var(--theme2),
+      0 10px 26px 2px var(--scrim);
   }
   .node.done {
     opacity: 0.55;
@@ -188,27 +180,7 @@
     align-items: flex-start;
   }
   .check {
-    flex: none;
-    width: 15px;
-    height: 15px;
     margin-top: 2px;
-    padding: 0;
-    border-radius: 4px;
-    border: 1px solid #444;
-    background: var(--bg);
-    color: var(--color2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  @media (hover: hover) {
-    .check:hover {
-      border-color: var(--accent2);
-    }
-  }
-  .check.on {
-    background: var(--accent);
-    border-color: var(--accent);
   }
   .title {
     color: var(--color2);
@@ -217,40 +189,40 @@
     overflow-wrap: anywhere;
   }
   .title.empty {
-    color: #555;
+    color: var(--faint);
     font-weight: 400;
     font-style: italic;
   }
   .done .title {
     text-decoration: line-through;
-    color: var(--color-dim);
+    color: var(--muted);
   }
   .conflict {
     flex: none;
     display: inline-flex;
     margin-left: auto;
-    color: var(--yellow);
+    color: var(--warn);
   }
   .ring-wrap {
     display: inline-flex;
     margin-top: 2px;
   }
   .progress {
-    font-size: 11px;
+    font-size: var(--fs-micro);
     font-family: var(--mono);
-    color: var(--color-dim);
-    padding: 0 2px;
+    color: var(--muted);
+    padding: 0 var(--gap-1);
   }
   .progress.complete {
-    color: var(--green);
+    color: var(--success);
   }
   .status {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 0 7px 0 5px;
-    font-size: 11px;
-    border-radius: 999px;
+    gap: var(--gap-2);
+    padding: 0 var(--sp-3) 0 var(--sp-2);
+    font-size: var(--fs-micro);
+    border-radius: var(--radius-pill);
     border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
     background: color-mix(in srgb, var(--c) 12%, transparent);
     color: var(--c);
@@ -273,14 +245,10 @@
     gap: 4px;
     margin-top: 6px;
   }
-  .tag {
-    font-size: 11px;
-    padding: 1px 6px;
-  }
   .preview {
     margin-top: 6px;
-    font-size: 12px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -298,8 +266,8 @@
     height: 12px;
     cursor: ew-resize;
     opacity: 0;
-    transition: opacity 0.15s;
-    --stripe: #555;
+    transition: opacity var(--dur);
+    --stripe: var(--faint);
     background: linear-gradient(
       135deg,
       transparent 50%,
@@ -318,7 +286,7 @@
     opacity: 1;
   }
   .grip:hover {
-    --stripe: var(--accent2);
+    --stripe: var(--theme2);
   }
   .port {
     position: absolute;
@@ -329,20 +297,20 @@
     margin-top: -7px;
     border-radius: 50%;
     background: var(--bg3);
-    border: 1.5px solid #444;
+    border: 1.5px solid var(--border-strong);
     cursor: crosshair;
     opacity: 0;
     transition:
-      opacity 0.15s,
-      border-color 0.15s,
-      background 0.15s;
+      opacity var(--dur),
+      border-color var(--dur),
+      background var(--dur);
   }
   .node:hover .port,
   .node.selected .port {
     opacity: 1;
   }
   .port:hover {
-    border-color: var(--accent2);
-    background: var(--accent-soft);
+    border-color: var(--theme2);
+    background: var(--theme-mid);
   }
 </style>

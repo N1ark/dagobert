@@ -19,9 +19,9 @@
   <div class="bar">
     <span class="label">{t("conflict.title")}</span>
     <span class="spacer"></span>
-    <button class="sm" onclick={(e) => (stop(e), onresolve("mine"))}>{t("conflict.keepMine")}</button>
-    <button class="sm" onclick={(e) => (stop(e), onresolve("theirs"))}>{t("conflict.keepTheirs")}</button>
-    <button class="ghost sm" onclick={(e) => (stop(e), onresolve("both"))}>{t("conflict.keepBoth")}</button>
+    <button class="btn btn--sm" onclick={(e) => (stop(e), onresolve("mine"))}>{t("conflict.keepMine")}</button>
+    <button class="btn btn--sm" onclick={(e) => (stop(e), onresolve("theirs"))}>{t("conflict.keepTheirs")}</button>
+    <button class="btn btn--ghost btn--sm" onclick={(e) => (stop(e), onresolve("both"))}>{t("conflict.keepBoth")}</button>
   </div>
   <div class="panes">
     <div class="pane mine">
@@ -38,7 +38,7 @@
 <style>
   .conflict {
     margin: 0.3em 0;
-    border: 1px solid var(--yellow);
+    border: 1px solid var(--warn);
     border-radius: var(--radius);
     overflow: hidden;
   }
@@ -47,13 +47,13 @@
     user-select: none;
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    background: #e5c07b18;
-    font-size: 11px;
+    gap: var(--gap-3);
+    padding: var(--gap-2) var(--gap-4);
+    background: color-mix(in srgb, var(--warn) 10%, transparent);
+    font-size: var(--fs-micro);
   }
   .label {
-    color: var(--yellow);
+    color: var(--warn);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -61,13 +61,9 @@
   .spacer {
     flex: 1;
   }
-  .sm {
-    padding: 2px 8px;
-    font-size: 11px;
-  }
   .pane {
     min-width: 0;
-    padding: 4px 8px;
+    padding: var(--gap-2) var(--gap-4);
   }
   .pane.mine {
     border-bottom: 1px solid var(--border);
@@ -75,9 +71,9 @@
   .side {
     -webkit-user-select: none;
     user-select: none;
-    font-size: 10px;
+    font-size: var(--fs-nano);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-dim);
+    color: var(--muted);
   }
 </style>

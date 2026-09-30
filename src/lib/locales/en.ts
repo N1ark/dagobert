@@ -3,6 +3,7 @@ export default {
   "app.name": "Dagobert",
   "app.untitled": "Untitled",
   "app.dash": "—",
+  "app.dismiss": "Dismiss",
 
   // Native menu bar
   "menu.file": "File",
@@ -74,7 +75,7 @@ export default {
   "toolbar.trash": "Deleted notes",
   "toolbar.update": "Restart to update",
   "toolbar.update.tip": "Dagobert {version} is ready to install",
-  "toolbar.prs.tip": "PRs linked ({key})",
+  "toolbar.prs.tip": "PRs linked",
   "toolbar.prs": "PRs",
   "toolbar.focus.tip": "Focus: dim notes outside the selected note's chain",
   "toolbar.focus": "Focus",
@@ -82,7 +83,6 @@ export default {
   "toolbar.tidy": "Tidy",
   "toolbar.fit.tip": "Fit notes to view",
   "toolbar.fit": "Fit all",
-  "toolbar.new.tip": "New note ({key})",
   "toolbar.new": "New note",
 
   // Welcome screen
@@ -151,7 +151,6 @@ export default {
   "panel.title.placeholder": "Untitled",
   "panel.openWindow": "Open in a new window",
   "panel.openWindow.aria": "open in new window",
-  "panel.close": "Close ({key})",
   "panel.close.aria": "close",
   "panel.depsDone": "dependencies done",
   "panel.kind": "Kind",
@@ -177,7 +176,6 @@ export default {
   "panel.reveal": "Reveal in Finder",
   "panel.delete": "Delete",
   "panel.reallyDelete": "Confirm",
-  "panel.cancel": "Cancel",
 
   // Body editor
   "editor.placeholder": "Write in markdown… click to start.",
@@ -205,6 +203,9 @@ export default {
   "gallery.purge.confirm.one": "This permanently deletes {n} file no note uses.",
   "gallery.purge.confirm.other": "This permanently deletes {n} files no note uses.",
   "gallery.purge.now": "Delete",
+  "gallery.viewer": "Media viewer",
+  "gallery.previous": "Previous",
+  "gallery.next": "Next",
   "media.filter": "Images, audio and video",
   "media.big": "{name} is {mb} MB: GitHub may refuse to sync files this big.",
   "media.unsupported": "Only images, audio and video can be added to a note.",
@@ -243,9 +244,7 @@ export default {
   "color.label": "colour",
   "color.remove": "Right-click to remove",
   "color.auto": "Automatic",
-  "color.auto.aria": "automatic",
   "color.custom": "Custom colour…",
-  "color.custom.aria": "add a custom colour",
 
   // Pull requests sidebar
   "prs.title": "Pull requests",
@@ -288,7 +287,6 @@ export default {
   "trash.confirm.other": "This permanently deletes {n} notes.",
   "trash.emptyNow": "Empty trash",
   "trash.emptyAsk": "Empty trash…",
-  "trash.cancel": "Cancel",
 
   // Git dialogs
   "git.aria": "Git tracking",
@@ -354,7 +352,7 @@ export default {
   "clone.manage": "Choose which repositories Dagobert can reach",
   "toolbar.more": "More",
   "toolbar.projects": "Projects",
-  "ctx.dismiss": "Dismiss",
+  "ctx.label": "Actions",
   "panel.sheet.expand": "Expand",
   "panel.sheet.collapse": "Collapse",
   "dock.move": "Move panel",
@@ -443,9 +441,4 @@ export default {
 
   // Relative times
   "time.justNow": "just now",
-  "time.minutes": "{n}m ago",
-  "time.hours": "{n}h ago",
-  "time.days": "{n}d ago",
-  "time.months": "{n}mo ago",
-  "time.years": "{n}y ago",
 } satisfies Record<string, string>;

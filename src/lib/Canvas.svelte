@@ -11,7 +11,8 @@
   import { WORLD, clampViewport, clampNode, notesBounds, edgeHandle } from "./viewport";
   import Grain, { type Rect, type Curve } from "./Grain.svelte";
   import { t } from "./i18n";
-  import { keys, matches as pressed } from "./keys";
+  import { keys } from "./keys";
+  import { hasOverlay, matches as pressed } from "purr";
 
   let { matches = null, focus = true, grain = true }: { matches?: Set<string> | null; focus?: boolean; grain?: boolean } = $props();
 
@@ -35,7 +36,7 @@
   let hoveredEdge = $state<{ from: string; to: string } | null>(null);
   let linking = $state<{ from: string; x: number; y: number; over: string | null } | null>(null);
   let isPanning = $state(false);
-  let menu = $state<{ x: number; y: number; target: MenuTarget } | null>(null);
+  let ctxMenu = $state<ContextMenu | null>(null);
   // Last pointer position over the canvas (screen coords), for paste placement.
   let lastPointer: { x: number; y: number } | null = null;
 
@@ -806,7 +807,7 @@
         t = { kind: "background", wx: p.x, wy: p.y };
       }
     }
-    menu = { x, y, target: t };
+    ctxMenu?.show(x, y, t);
   }
 
   function onDblClick(e: MouseEvent) {
@@ -906,6 +907,8 @@
     const t = e.target as HTMLElement;
     if (t.closest("input, textarea, [contenteditable]")) return;
     const mod = e.metaKey || e.ctrlKey;
+    // A menu or a dialog takes the plain keys, Escape included.
+    if (!mod && hasOverlay()) return;
     if (pressed(keys.undo, e) || pressed(keys.redo, e)) {
       e.preventDefault();
       if (pressed(keys.redo, e)) store.redo();
@@ -1193,17 +1196,7 @@
 </div>
 
 <!-- Outside .canvas: a fixed child makes WebKit drop the canvas clip (docs/canvas.md). -->
-{#if menu}
-  <ContextMenu
-    x={menu.x}
-    y={menu.y}
-    target={menu.target}
-    onclose={() => (menu = null)}
-    oncreate={createAt}
-    onpaste={pasteAt}
-    onalign={align}
-  />
-{/if}
+<ContextMenu bind:this={ctxMenu} oncreate={createAt} onpaste={pasteAt} onalign={align} />
 
 <style>
   .canvas {
@@ -1266,7 +1259,7 @@
     z-index: 1;
     pointer-events: none;
     opacity: 0.55;
-    background: repeating-linear-gradient(var(--dir), var(--accent2) 0 8px, transparent 8px 16px);
+    background: repeating-linear-gradient(var(--dir), var(--theme2) 0 8px, transparent 8px 16px);
   }
   .rim.h {
     height: 2px;
@@ -1300,24 +1293,24 @@
     stroke: #444;
     stroke-width: 1.5;
     transition:
-      stroke 0.15s,
-      opacity 0.15s;
+      stroke var(--dur),
+      opacity var(--dur);
   }
   .edge .head {
     fill: #555;
-    transition: fill 0.15s;
+    transition: fill var(--dur);
   }
   .edge:hover .line,
   .edge.near .line {
-    stroke: var(--accent2);
+    stroke: var(--theme2);
   }
   .edge:hover .head,
   .edge.near .head,
   .edge.sel .head {
-    fill: var(--accent2);
+    fill: var(--theme2);
   }
   .edge.sel .line {
-    stroke: var(--accent2);
+    stroke: var(--theme2);
     stroke-width: 2.5;
   }
   .edge.dim {
@@ -1332,20 +1325,20 @@
   }
   .link-preview {
     fill: none;
-    stroke: var(--accent2);
+    stroke: var(--theme2);
     stroke-width: 1.5;
     stroke-dasharray: 5 4;
   }
   .link-preview.head {
-    fill: var(--accent2);
+    fill: var(--theme2);
     stroke: none;
   }
   .marquee {
     position: absolute;
     z-index: 3;
     pointer-events: none;
-    border: 1px solid var(--accent2);
-    background: #8a2aa21a;
+    border: 1px solid var(--theme2);
+    background: var(--theme-soft);
   }
   .empty {
     -webkit-user-select: none;
@@ -1357,22 +1350,22 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #555;
+    color: var(--faint);
     pointer-events: none;
     text-align: center;
   }
   .empty p {
-    margin: 4px 0;
+    margin: var(--gap-2) 0;
   }
   .empty .sub {
-    font-size: 12px;
+    font-size: var(--fs-xs);
   }
   .dot {
     display: inline-block;
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    border: 1.5px solid #555;
+    border: 1.5px solid var(--faint);
     vertical-align: middle;
   }
 </style>

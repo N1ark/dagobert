@@ -4,57 +4,58 @@
   import Canvas from "./lib/Canvas.svelte";
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
-  import type { Action } from "./lib/QuickOpen.svelte";
+  import type { Action } from "./lib/menu";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
-  import Sheet from "./lib/Sheet.svelte";
   import Dock from "./lib/Dock.svelte";
   import Tiles from "./lib/Tiles.svelte";
   import { layout } from "./lib/panes.svelte";
-  import { PANES, type Pane } from "./lib/tiles";
+  import { PANE_LABEL, PANES, type Pane } from "./lib/tiles";
   import { auth } from "./lib/auth.svelte";
-  import { updater } from "./lib/updater.svelte";
+  import { updater, readyVersion, checkNow, install } from "./lib/updater.svelte";
   import { syncPRs } from "./lib/prs.svelte";
-  import { tooltip } from "./lib/tooltip";
+  import { ContextMenuHost, IconButton, persistedFlag, Sheet, ToastHost, tooltip } from "purr";
   import { relative } from "./lib/time";
   import { stripMarkers } from "./lib/blocks";
   import { stripMedia, type MediaDrop } from "./lib/media";
   import { backend, isMobile } from "./lib/backend";
   import { demo, DEMO_SELECTED } from "./lib/demo";
-  import { ICON } from "./lib/icons";
   import { minimap, toggleMinimap } from "./lib/minimapState.svelte";
-  import MapTrifold from "phosphor-svelte/lib/MapTrifold";
+  import {
+    MapTrifold,
+    Plus,
+    ArrowCounterClockwise,
+    ArrowClockwise,
+    TreeStructure,
+    Crosshair,
+    Sparkle,
+    MagnifyingGlass,
+    Terminal,
+    FolderOpen,
+    GithubLogo,
+    GitPullRequest,
+    Kanban,
+    CheckSquare,
+    ArrowSquareOut,
+    Copy,
+    ImageSquare,
+    Images,
+    ClipboardText,
+    CopySimple,
+    Trash,
+    CornersOut,
+    X,
+    GitBranch,
+    GearSix,
+    ArrowsClockwise,
+    CloudArrowUp,
+    Warning,
+    CloudArrowDown,
+    ArrowCircleUp,
+  } from "purr/icons";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
-  import { keys, matches as pressed } from "./lib/keys";
-  import Plus from "phosphor-svelte/lib/Plus";
-  import ArrowCounterClockwise from "phosphor-svelte/lib/ArrowCounterClockwise";
-  import ArrowClockwise from "phosphor-svelte/lib/ArrowClockwise";
-  import TreeStructure from "phosphor-svelte/lib/TreeStructure";
-  import Crosshair from "phosphor-svelte/lib/Crosshair";
-  import Sparkle from "phosphor-svelte/lib/Sparkle";
-  import MagnifyingGlass from "phosphor-svelte/lib/MagnifyingGlass";
-  import Terminal from "phosphor-svelte/lib/Terminal";
-  import FolderOpen from "phosphor-svelte/lib/FolderOpen";
-  import GithubLogo from "phosphor-svelte/lib/GithubLogo";
-  import GitPullRequest from "phosphor-svelte/lib/GitPullRequest";
-  import Kanban from "phosphor-svelte/lib/Kanban";
-  import CheckSquare from "phosphor-svelte/lib/CheckSquare";
-  import ArrowSquareOut from "phosphor-svelte/lib/ArrowSquareOut";
-  import Copy from "phosphor-svelte/lib/Copy";
-  import ImageSquare from "phosphor-svelte/lib/ImageSquare";
-  import Images from "phosphor-svelte/lib/Images";
-  import ClipboardText from "phosphor-svelte/lib/ClipboardText";
-  import CopySimple from "phosphor-svelte/lib/CopySimple";
-  import Trash from "phosphor-svelte/lib/Trash";
-  import CornersOut from "phosphor-svelte/lib/CornersOut";
-  import X from "phosphor-svelte/lib/X";
-  import GitBranch from "phosphor-svelte/lib/GitBranch";
-  import GearSix from "phosphor-svelte/lib/GearSix";
-  import ArrowsClockwise from "phosphor-svelte/lib/ArrowsClockwise";
-  import CloudArrowUp from "phosphor-svelte/lib/CloudArrowUp";
-  import Warning from "phosphor-svelte/lib/Warning";
-  import CloudArrowDown from "phosphor-svelte/lib/CloudArrowDown";
-  import ArrowCircleUp from "phosphor-svelte/lib/ArrowCircleUp";
+  import { keys } from "./lib/keys";
+  import { matches as pressed } from "purr";
   import type { ProjectRef } from "./lib/types";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
@@ -65,33 +66,27 @@
   syncPRs();
 
   // Focus mode: dim everything outside the selected note's chain.
-  const FOCUS_KEY = "dagobert.focus";
-  let focus = $state(localStorage.getItem(FOCUS_KEY) !== "0");
-  function toggleFocus() {
-    focus = !focus;
-    localStorage.setItem(FOCUS_KEY, focus ? "1" : "0");
-  }
+  const focusMode = persistedFlag("dagobert.focus", true);
+  const focus = $derived(focusMode.value);
+  const toggleFocus = () => (focusMode.value = !focusMode.value);
 
   // Background grain shader (Grain.svelte); purely cosmetic.
-  const GRAIN_KEY = "dagobert.grain";
   // Off by default on a phone: a cosmetic shader isn't worth the battery.
-  let grain = $state(isMobile ? localStorage.getItem(GRAIN_KEY) === "1" : localStorage.getItem(GRAIN_KEY) !== "0");
-  function toggleGrain() {
-    grain = !grain;
-    localStorage.setItem(GRAIN_KEY, grain ? "1" : "0");
-  }
+  const grainMode = persistedFlag("dagobert.grain", !isMobile);
+  const grain = $derived(grainMode.value);
+  const toggleGrain = () => (grainMode.value = !grainMode.value);
 
   // The GitHub PRs referenced across notes.
-  const PRS_KEY = "dagobert.prs";
   // Remembered where it's docked; a phone, or a popup, opens with nothing over the canvas.
-  let showPRs = $state(!isMobile && !layout.popups.includes("prs") && localStorage.getItem(PRS_KEY) === "1");
+  const prsDocked = persistedFlag("dagobert.prs", false);
+  let showPRs = $state(!isMobile && !layout.popups.includes("prs") && prsDocked.value);
   function togglePRs() {
     showPRs = !showPRs;
     if (isMobile) {
       if (showPRs) store.sheetFull = true;
       return;
     }
-    localStorage.setItem(PRS_KEY, showPRs ? "1" : "0");
+    prsDocked.value = showPRs;
   }
 
   // The phone has no folder picker: projects live in the app's data directory.
@@ -435,8 +430,8 @@
       }),
       a(
         "update",
-        updater.ready ? t("action.update.install", { version: updater.ready }) : t("action.update.check"),
-        () => (updater.ready ? updater.install() : updater.check(true)),
+        updater.ready ? t("action.update.install", { version: readyVersion() ?? "" }) : t("action.update.check"),
+        () => (updater.ready ? install() : checkNow()),
         { icon: ArrowCircleUp, symbol: ["arrow.down.circle"], menu: "App" },
       ),
       a("settings", t("action.settings"), () => (showWorkflows ? (showWorkflows = false) : openSettings("github")), {
@@ -644,19 +639,19 @@
       <div class="brand" data-tauri-drag-region={isMobile ? undefined : true}>
         {#if isMobile}
           <!-- The mark is the way back to the project list; there is no menu to hold one. -->
-          <button class="ghost icon" onclick={() => store.close()} aria-label={t("toolbar.projects")}>
+          <button class="btn btn--ghost btn--icon btn--lg" onclick={() => store.close()} aria-label={t("toolbar.projects")}>
             <img class="mark" src="/icon.svg" alt="" draggable="false" />
           </button>
         {:else}
           <img class="mark" src="/icon.svg" alt="" draggable="false" />
           <span class="logo">{t("app.name")}</span>
           <span class="sep">/</span>
-          <button class="ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
+          <button class="btn btn--ghost project" onclick={() => store.close()} title={store.path}>{store.projectName}</button>
         {/if}
       </div>
       {#if !isMobile}
         <input
-          class="search"
+          class="field-input search"
           placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
           bind:value={query}
           bind:this={searchEl}
@@ -668,8 +663,8 @@
       {/if}
       <div class="spacer" data-tauri-drag-region={isMobile ? undefined : true}></div>
       {#if updater.ready && !isMobile}
-        <button class="ghost update" onclick={() => updater.install()} use:tooltip={t("toolbar.update.tip", { version: updater.ready })}
-          ><ArrowCircleUp size={ICON} /> {t("toolbar.update")}</button
+        <button class="btn btn--ghost update" onclick={install} use:tooltip={t("toolbar.update.tip", { version: readyVersion() ?? "" })}
+          ><ArrowCircleUp /> {t("toolbar.update")}</button
         >
       {/if}
       <span class="stats" class:hide={isMobile} title={t("toolbar.stats.title")}>
@@ -678,61 +673,51 @@
           total: stats.total,
         })}
         {#if store.conflictIds.size}
-          · <button class="conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
-            ><Warning size={12} weight="fill" /> {store.conflictIds.size}</button
+          · <button class="btn btn--link conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
+            ><Warning weight="fill" /> {store.conflictIds.size}</button
           >
         {/if}
       </span>
       {#if store.gitEnabled}
-        <button
-          class="ghost icon git"
-          class:syncing={store.gitState === "syncing"}
-          class:error={store.gitState === "error"}
-          class:local={store.gitStatus ? !store.gitStatus.has_remote : false}
+        <IconButton
+          label={t("toolbar.git.aria")}
+          tip={gitTip}
+          size="lg"
+          class={["git", store.gitState, store.gitStatus && !store.gitStatus.has_remote && "local"]}
           onclick={() => store.syncNow(true)}
-          use:tooltip={gitTip}
-          aria-label={t("toolbar.git.aria")}
         >
-          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise size={ICON} /></span>{:else}<GitBranch size={ICON} />{/if}
-        </button>
+          {#if store.gitState === "syncing"}<span class="spin"><ArrowsClockwise /></span>{:else}<GitBranch />{/if}
+        </IconButton>
       {/if}
       <TagMenu />
       {#if isMobile}
-        <button class="ghost icon" class:on={minimap.open} onclick={toggleMinimap} aria-label={t("minimap.toggle")}
-          ><MapTrifold size={ICON} /></button
-        >
-        <button class="ghost icon" onclick={() => openPalette("commands")} aria-label={t("toolbar.more")}><Terminal size={ICON} /></button>
+        <IconButton label={t("minimap.toggle")} size="lg" pressed={minimap.open} onclick={toggleMinimap}><MapTrifold /></IconButton>
+        <IconButton label={t("toolbar.more")} size="lg" onclick={() => openPalette("commands")}><Terminal /></IconButton>
       {:else}
-        <button class="ghost icon" onclick={() => (showTrash = true)} use:tooltip={t("toolbar.trash")} aria-label={t("toolbar.trash")}
-          ><Trash size={ICON} /></button
+        <IconButton label={t("toolbar.trash")} size="lg" onclick={() => (showTrash = true)}><Trash /></IconButton>
+        <IconButton
+          label={t("toolbar.prs")}
+          tip={{ text: t("toolbar.prs.tip"), hint: keys.prs }}
+          size="lg"
+          pressed={showPRs}
+          onclick={togglePRs}><GitPullRequest /></IconButton
         >
-        <button
-          class="ghost icon"
-          class:on={showPRs}
-          onclick={togglePRs}
-          use:tooltip={t("toolbar.prs.tip", { key: keys.prs })}
-          aria-label={t("toolbar.prs")}><GitPullRequest size={ICON} /></button
+        <IconButton label={t("toolbar.focus")} tip={t("toolbar.focus.tip")} size="lg" pressed={focus} onclick={toggleFocus}
+          ><Crosshair /></IconButton
         >
-        <button
-          class="ghost icon"
-          class:on={focus}
-          onclick={toggleFocus}
-          use:tooltip={t("toolbar.focus.tip")}
-          aria-label={t("toolbar.focus")}><Crosshair size={ICON} /></button
+        <IconButton label={t("toolbar.tidy")} tip={t("toolbar.tidy.tip")} size="lg" onclick={() => canvas?.tidy()}
+          ><TreeStructure /></IconButton
         >
-        <button class="ghost icon" onclick={() => canvas?.tidy()} use:tooltip={t("toolbar.tidy.tip")} aria-label={t("toolbar.tidy")}
-          ><TreeStructure size={ICON} /></button
+        <IconButton label={t("toolbar.fit")} tip={t("toolbar.fit.tip")} size="lg" onclick={() => canvas?.fitAll()}
+          ><CornersOut /></IconButton
         >
-        <button class="ghost icon" onclick={() => canvas?.fitAll()} use:tooltip={t("toolbar.fit.tip")} aria-label={t("toolbar.fit")}
-          ><CornersOut size={ICON} /></button
-        >
-      {/if}
-      {#if !isMobile}
-        <button
-          class="primary icon"
-          onclick={() => canvas?.createAtCenter()}
-          use:tooltip={t("toolbar.new.tip", { key: keys["new-note"] })}
-          aria-label={t("toolbar.new")}><Plus size={ICON} weight="bold" /></button
+        <IconButton
+          label={t("toolbar.new")}
+          shortcut={keys["new-note"]}
+          size="lg"
+          variant="default"
+          class="btn--primary"
+          onclick={() => canvas?.createAtCenter()}><Plus weight="bold" /></IconButton
         >
       {/if}
     </div>
@@ -742,18 +727,25 @@
     {#if isMobile}
       <!-- Rides above a peeking sheet, and gets out of the way of a full one. -->
       <div class="bottombar" class:tucked={!!mobilePanel && store.sheetFull}>
-        <button class="ghost icon" onclick={() => openPalette("notes")} aria-label={t("action.quick-open")}
-          ><MagnifyingGlass size={ICON} /></button
+        <IconButton label={t("action.quick-open")} size="lg" onclick={() => openPalette("notes")}><MagnifyingGlass /></IconButton>
+        <IconButton
+          label={t("toolbar.new")}
+          size="lg"
+          variant="default"
+          class="btn--primary create"
+          onclick={() => canvas?.createAtCenter()}><Plus weight="bold" /></IconButton
         >
-        <button class="primary icon create" onclick={() => canvas?.createAtCenter()} aria-label={t("toolbar.new")}
-          ><Plus size={ICON} weight="bold" /></button
-        >
-        <button class="ghost icon" class:on={showPRs} onclick={togglePRs} aria-label={t("toolbar.prs")}
-          ><GitPullRequest size={ICON} /></button
-        >
+        <IconButton label={t("toolbar.prs")} size="lg" pressed={showPRs} onclick={togglePRs}><GitPullRequest /></IconButton>
       </div>
       {#if mobilePanel}
-        <Sheet bind:this={sheet} bind:full={store.sheetFull} onclose={closePanel}>
+        <Sheet
+          bind:this={sheet}
+          bind:full={store.sheetFull}
+          onclose={closePanel}
+          label={t(PANE_LABEL[mobilePanel])}
+          expandLabel={t("panel.sheet.expand")}
+          collapseLabel={t("panel.sheet.collapse")}
+        >
           {@render pane(mobilePanel)}
         </Sheet>
       {/if}
@@ -769,7 +761,7 @@
       <p class="tagline">{t("welcome.tagline")}</p>
       {#if isMobile}
         {#if auth.signedIn}
-          <button class="primary big" onclick={() => (showClone = true)}><CloudArrowDown size={16} /> {t("welcome.clone")}</button>
+          <button class="btn btn--primary btn--lg" onclick={() => (showClone = true)}><CloudArrowDown /> {t("welcome.clone")}</button>
         {:else}
           <p class="hint">{t("welcome.signin.help")}</p>
         {/if}
@@ -779,7 +771,7 @@
           <ul class="recent">
             {#each projects as p (p.name)}
               <li>
-                <button class="ghost path" onclick={() => store.open(p.path)}><span class="name">{p.name}</span></button>
+                <button class="path hoverable" onclick={() => store.open(p.path)}><span class="name">{p.name}</span></button>
               </li>
             {/each}
           </ul>
@@ -787,18 +779,18 @@
           <p class="hint">{t("welcome.noProjects")}</p>
         {/if}
       {:else}
-        <button class="primary big" onclick={() => store.pickAndOpen()}>{t("welcome.open")}</button>
+        <button class="btn btn--primary btn--lg" onclick={() => store.pickAndOpen()}>{t("welcome.open")}</button>
         <p class="hint">{t("welcome.hint")}</p>
         {#if store.recent.length}
           <h3>{t("welcome.recent")}</h3>
           <ul class="recent">
             {#each store.recent as r (r)}
               <li>
-                <button class="ghost path" onclick={() => store.openRef(r)} title={r}>
+                <button class="path hoverable" onclick={() => store.openRef(r)} title={r}>
                   <span class="name">{nameOf(r)}</span>
                   <span class="full">{r}</span>
                 </button>
-                <button class="ghost forget" onclick={() => store.forgetRecent(r)} aria-label={t("welcome.forget")}><X size={14} /></button>
+                <IconButton label={t("welcome.forget")} tip={false} onclick={() => store.forgetRecent(r)}><X /></IconButton>
               </li>
             {/each}
           </ul>
@@ -838,13 +830,8 @@
   {/await}
 {/if}
 
-<div class="toast-wrap">
-  {#if store.error}
-    <div class="toast">{store.error}</div>
-  {:else if store.notice}
-    <div class="toast notice">{store.notice}</div>
-  {/if}
-</div>
+<ToastHost dismissLabel={t("app.dismiss")} />
+<ContextMenuHost label={t("ctx.label")} dismissLabel={t("app.dismiss")} />
 
 <style>
   .app {
@@ -858,18 +845,16 @@
     flex: none;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 0 12px 0 84px; /* room for macOS traffic lights */
+    gap: var(--gap-4);
+    padding: 0 var(--sp-5) 0 84px; /* room for macOS traffic lights */
     background: var(--bg2);
     border-bottom: 1px solid var(--border);
-    -webkit-user-select: none;
-    user-select: none;
   }
   .brand {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-right: 8px;
+    gap: var(--gap-3);
+    margin-right: var(--gap-4);
   }
   .mark {
     width: var(--mark);
@@ -879,79 +864,59 @@
   .logo {
     font-weight: 700;
     color: var(--color2);
-    background: linear-gradient(90deg, var(--accent2), #d98adf);
+    background: linear-gradient(90deg, var(--theme2), color-mix(in srgb, var(--theme2) 55%, var(--color2)));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .sep {
-    color: #444;
+    color: var(--faint);
   }
   .project {
-    padding: 2px 6px;
+    padding: var(--gap-1) var(--gap-3);
+    font-weight: inherit;
     color: var(--color);
   }
   .search {
     width: 260px;
-    font-size: 13px;
-    padding: 4px 10px;
-    border-radius: 999px;
-    background: var(--bg);
+    padding: var(--sp-1) var(--sp-4);
+    border-radius: var(--radius-pill);
   }
   .hint {
-    font-size: 11px;
-    color: var(--color-dim);
+    font-size: var(--fs-xs);
+    color: var(--muted);
   }
   .spacer {
     flex: 1;
-  }
-  .toolbar button.on {
-    color: var(--accent2);
   }
   .stats.hide {
     display: none;
   }
   .stats {
-    font-size: 12px;
-    color: var(--color-dim);
-    margin-right: 4px;
+    font-size: var(--fs-xs);
+    color: var(--muted);
+    margin-right: var(--gap-2);
   }
   .stats .ready {
-    color: var(--accent2);
+    color: var(--theme2);
   }
   .update {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 0 8px;
-    font-size: 12px;
-    color: var(--accent2);
+    font-size: var(--fs-xs);
+    color: var(--theme2);
   }
   .conflicts {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 0 4px;
-    font-size: 12px;
-    color: var(--yellow);
+    gap: var(--gap-1);
+    font-size: var(--fs-xs);
+    color: var(--warn);
   }
-  .git.local {
-    color: var(--color-dim);
+  .toolbar :global(.git.local) {
+    color: var(--muted);
   }
-  .git.error {
-    color: var(--red);
+  .toolbar :global(.git.error) {
+    color: var(--danger);
   }
-  .git.syncing {
-    color: var(--accent2);
-  }
-  .spin {
-    display: inline-flex;
-    animation: spin 0.9s linear infinite;
-  }
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .toolbar :global(.git.syncing) {
+    color: var(--theme2);
   }
 
   /* Floats over the canvas rather than taking a strip of it. */
@@ -959,7 +924,7 @@
     position: absolute;
     left: 0;
     right: 0;
-    bottom: calc(8px + var(--safe-bottom));
+    bottom: calc(var(--gap-4) + var(--safe-bottom));
     z-index: 4;
     display: flex;
     justify-content: space-evenly;
@@ -970,23 +935,23 @@
     opacity: calc(1 - var(--sheet-dim, 0));
     transition:
       transform var(--dur-sheet) var(--ease-sheet),
-      opacity 0.2s ease;
+      opacity var(--dur-slow) var(--ease);
   }
   :global(body.sheet-dragging) .bottombar {
     transition: none;
   }
-  .bottombar.tucked button {
+  .bottombar.tucked :global(.btn) {
     pointer-events: none;
   }
-  .bottombar button {
+  .bottombar :global(.btn) {
     pointer-events: auto;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     box-shadow: var(--shadow-lg);
   }
-  .bottombar button.ghost {
+  .bottombar :global(.btn--ghost) {
     background: var(--bg2);
   }
-  .bottombar .create {
+  .bottombar :global(.create) {
     width: 56px;
   }
   .standalone {
@@ -999,7 +964,7 @@
   }
   .gone {
     margin: auto;
-    color: var(--color-dim);
+    color: var(--muted);
   }
 
   .welcome {
@@ -1008,8 +973,8 @@
     align-items: center;
     justify-content: center;
     background:
-      radial-gradient(ellipse at 20% 0%, #45155166, transparent 60%), radial-gradient(ellipse at 80% 100%, #421a4066, transparent 60%),
-      var(--bg);
+      radial-gradient(ellipse at 20% 0%, var(--theme-soft), transparent 60%),
+      radial-gradient(ellipse at 80% 100%, color-mix(in srgb, var(--theme) 9%, transparent), transparent 60%), var(--bg);
   }
   :global(body.mobile) .welcome {
     padding: calc(var(--safe-top) + 12px) 16px calc(var(--safe-bottom) + 12px);
@@ -1021,12 +986,10 @@
     padding: 24px 20px;
   }
   .card {
-    -webkit-user-select: none;
-    user-select: none;
     width: 380px;
     padding: 32px;
     background: var(--bg2);
-    border-radius: 12px;
+    border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);
     text-align: center;
   }
@@ -1035,35 +998,30 @@
     height: 96px;
     margin: -8px auto 12px;
     display: block;
-    filter: drop-shadow(0 8px 24px #8a2aa244);
+    filter: drop-shadow(0 8px 24px var(--theme-mid));
   }
   .card h1 {
     margin: 0;
     font-size: 32px;
     color: var(--color2);
-    background: linear-gradient(90deg, var(--accent2), #d98adf);
+    background: linear-gradient(90deg, var(--theme2), color-mix(in srgb, var(--theme2) 55%, var(--color2)));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
   .tagline {
     margin: 4px 0 24px;
-    color: var(--color-dim);
-  }
-  .big {
-    font-size: 15px;
-    padding: 8px 20px;
+    color: var(--muted);
   }
   .card .hint {
-    margin: 12px 0 0;
-    font-size: 12px;
+    margin: var(--sp-5) 0 0;
   }
   .card h3 {
-    margin: 28px 0 8px;
-    font-size: 11px;
+    margin: 28px 0 var(--gap-4);
+    font-size: var(--fs-micro);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--color-dim);
+    color: var(--muted);
     text-align: left;
   }
   .recent {
@@ -1083,58 +1041,20 @@
     align-items: flex-start;
     gap: 1px;
     min-width: 0;
+    padding: var(--sp-2) var(--sp-4);
+    border-radius: var(--radius);
     color: var(--color);
   }
   .path .name {
     color: var(--color2);
   }
   .path .full {
-    font-size: 11px;
-    color: #555;
+    font-size: var(--fs-micro);
+    color: var(--faint);
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     direction: rtl;
-  }
-  .forget {
-    padding: 2px 8px;
-  }
-
-  /* Centred over everything, and above the phone's floating actions. */
-  .toast-wrap {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: calc(20px + var(--safe-bottom));
-    z-index: 100;
-    display: flex;
-    justify-content: center;
-    padding: 0 16px;
-    pointer-events: none;
-  }
-  :global(body.mobile) .toast-wrap {
-    bottom: calc(var(--safe-bottom) + var(--btn) + 24px);
-  }
-  .toast.notice {
-    border-color: var(--border2);
-    color: var(--color);
-  }
-  .toast {
-    max-width: 100%;
-    background: var(--bg3);
-    border: 1px solid var(--red);
-    color: var(--color2);
-    padding: 8px 14px;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
-    font-size: 13px;
-    animation: toast-in 0.24s var(--ease-sheet);
-  }
-  @keyframes toast-in {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
   }
 </style>

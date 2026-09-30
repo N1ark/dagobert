@@ -25,11 +25,11 @@
     font-family: var(--mono);
     font-size: 0.85em;
     background: var(--code-bg);
-    border-radius: 4px;
-    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    padding: 1px var(--gap-2);
   }
   .inline-md :global(a) {
-    color: var(--accent2);
+    color: var(--theme2);
     text-decoration: none;
   }
   .inline-md :global(a:not(.ghref):hover) {

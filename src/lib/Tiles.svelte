@@ -18,13 +18,9 @@
     type Rect,
   } from "./tiles";
   import Dock from "./Dock.svelte";
+  import { menu } from "purr";
   import { t, type Key } from "./i18n";
-  import { onEscape } from "./keys";
-  import ArrowLineLeft from "phosphor-svelte/lib/ArrowLineLeft";
-  import ArrowLineRight from "phosphor-svelte/lib/ArrowLineRight";
-  import ArrowLineUp from "phosphor-svelte/lib/ArrowLineUp";
-  import ArrowLineDown from "phosphor-svelte/lib/ArrowLineDown";
-  import AppWindow from "phosphor-svelte/lib/AppWindow";
+  import { ArrowLineLeft, ArrowLineRight, ArrowLineUp, ArrowLineDown, AppWindow } from "purr/icons";
 
   /** The canvas and the open panels, tiled; a panel is dragged by its header to any side of any tile. */
   let {
@@ -54,7 +50,6 @@
 
   let moved = false;
   function move(p: Pane, d: Drop) {
-    menu = null;
     moved = true;
     setLayout(place($state.snapshot(layout), p, d, isOpen));
   }
@@ -148,29 +143,27 @@
     { drop: "popup", label: "dock.popup", icon: AppWindow },
   ];
 
-  let menu = $state<{ pane: Pane; at: DOMRect } | null>(null);
-
   const handle: TilesHandle = {
     grab,
     toggle(button, p) {
       if (dragged) dragged = false;
-      else menu = menu?.pane === p ? null : { pane: p, at: button.getBoundingClientRect() };
-    },
-    get menu() {
-      return menu?.pane ?? null;
+      else if (menu.open && menu.anchor === button) menu.close();
+      else
+        menu.showFor(
+          button,
+          PLACES.map((it) => ({
+            label: t(it.label),
+            icon: it.icon,
+            checked: it.drop === "popup" ? layout.popups.includes(p) : undefined,
+            run: () => move(p, it.drop),
+          })),
+        );
     },
   };
   setContext(TILES, handle);
-
-  function onKey(e: KeyboardEvent) {
-    if (menu) onEscape(e, () => (menu = null));
-  }
-  function onWindowDown(e: PointerEvent) {
-    if (menu && !(e.target as HTMLElement).closest(".places, .dock-button")) menu = null;
-  }
 </script>
 
-<svelte:window onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} onkeydown={onKey} onpointerdown={onWindowDown} />
+<svelte:window onpointermove={onMove} onpointerup={onUp} onpointercancel={onUp} />
 
 <div class="main" bind:this={el} bind:clientWidth={w} bind:clientHeight={h}>
   <div class="tile" style={at(arranged.rects.get("canvas") ?? { x: 0, y: 0, w, h })}>{@render children()}</div>
@@ -193,18 +186,6 @@
   <div class="drop" style={at(preview)} transition:fade={{ duration: 100 }}></div>
 {/if}
 
-{#if menu}
-  {@const p = menu.pane}
-  <div class="popover places" style:top="{menu.at.bottom + 4}px" style:left="{Math.min(menu.at.left, innerWidth - 170)}px">
-    {#each PLACES as it (it.label)}
-      {@const Icon = it.icon}
-      <button class="ghost" class:on={it.drop === "popup" && layout.popups.includes(p)} onclick={() => move(p, it.drop)}
-        ><Icon size={14} /> {t(it.label)}</button
-      >
-    {/each}
-  </div>
-{/if}
-
 <style>
   .main {
     flex: 1;
@@ -219,8 +200,8 @@
   }
   .resizer {
     position: absolute;
-    z-index: 5;
-    transition: background 0.15s;
+    z-index: var(--z-resize);
+    transition: background var(--dur);
   }
   .resizer.row {
     cursor: col-resize;
@@ -234,39 +215,20 @@
   }
   .resizer:hover,
   .resizer.active {
-    background: var(--accent);
+    background: var(--theme);
   }
   .drop {
     position: fixed;
-    z-index: 60;
+    z-index: var(--z-menu);
     pointer-events: none;
-    border: 2px solid var(--accent);
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--accent) 14%, transparent);
+    border: 2px solid var(--theme);
+    border-radius: var(--radius-lg);
+    background: var(--theme-soft);
     transition:
-      left 0.12s ease,
-      top 0.12s ease,
-      width 0.12s ease,
-      height 0.12s ease;
-  }
-  .places {
-    position: fixed;
-    z-index: 60;
-    display: flex;
-    flex-direction: column;
-    padding: 4px;
-    min-width: 150px;
-  }
-  .places button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 5px 8px;
-    font-size: 12px;
-    text-align: left;
-  }
-  .places button.on {
-    color: var(--accent2);
+      left var(--dur) var(--ease),
+      top var(--dur) var(--ease),
+      width var(--dur) var(--ease),
+      height var(--dur) var(--ease);
   }
   :global(body.tiles-dragging) {
     -webkit-user-select: none;

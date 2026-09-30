@@ -1,54 +1,33 @@
-/** Self-update: checked shortly after launch and every few hours, downloaded quietly, installed on request. */
+/** Self-update: checked a minute after launch and every few hours, downloaded quietly, installed on request. */
+import { createUpdater, toast } from "purr";
 import { backend, inTauri, isMobile } from "./backend";
 import { t } from "./i18n";
 import { store } from "./store.svelte";
 
-const EVERY = 6 * 60 * 60 * 1000;
-/** The first check waits until launch has settled. */
-const FIRST = 60 * 1000;
+export const updater = createUpdater({
+  check: async () => {
+    const version = await backend.checkUpdate();
+    return version ? { version } : null;
+  },
+  restart: () => backend.installUpdate(),
+  beforeRestart: () => store.suspend(),
+  delay: 60_000,
+  enabled: () => inTauri && !isMobile,
+});
 
-class Updater {
-  /** Version downloaded and waiting for a restart. */
-  ready = $state<string | null>(null);
-  #checking = false;
+/** The version waiting for a restart, if any. */
+export const readyVersion = () => (updater.ready ? (updater.info?.version ?? null) : null);
 
-  /** Automatic checks stay quiet; `manual` toasts the outcome. */
-  async check(manual = false) {
-    if (this.#checking) return;
-    this.#checking = true;
-    if (manual) store.toast(t("update.checking"));
-    try {
-      this.ready = await backend.checkUpdate();
-      if (manual) store.toast(this.ready ? t("update.ready", { version: this.ready }) : t("update.latest"));
-    } catch (e) {
-      if (manual) store.fail(e);
-      else console.error("update check", e);
-    } finally {
-      this.#checking = false;
-    }
-  }
-
-  /** Saves and syncs like a quit, then relaunches into the new version. */
-  async install() {
-    await store.suspend();
-    try {
-      await backend.installUpdate();
-    } catch (e) {
-      this.ready = null;
-      store.fail(e);
-    }
-  }
-
-  /** Main window only. Returns a stop function. */
-  start(): () => void {
-    if (!inTauri || isMobile) return () => {};
-    const first = setTimeout(() => void this.check(), FIRST);
-    const timer = setInterval(() => void this.check(), EVERY);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }
+/** Asked for from the menu: says how it went. */
+export async function checkNow() {
+  toast(t("update.checking"));
+  const found = await updater.check(true);
+  if (updater.error) toast.error(updater.error);
+  else toast(found ? t("update.ready", { version: found.version }) : t("update.latest"));
 }
 
-export const updater = new Updater();
+/** Saves and syncs like a quit, then relaunches into the new version. */
+export async function install() {
+  await updater.restart();
+  if (updater.error) toast.error(updater.error);
+}

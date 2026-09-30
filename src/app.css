@@ -1,671 +1,101 @@
+/* Dagobert on purr: the tokens, reset and shared classes come from `purr/styles.css`; this is
+   what only Dagobert has. Dark only (`applyTheme` in main.ts). */
+
 :root {
-  --bg: #111;
-  --bg2: #161616;
-  --bg3: #1c1c1c;
-  --border: #222;
-  --border2: #2c2c2c;
-  --color: #d8d8d8;
-  --color-dim: #8a8a8a;
-  --color2: #f0f0f0;
-  --code-bg: #222;
-  --accent: #8a2aa2;
-  --accent2: #b045ab;
-  --accent-soft: #451551;
-  --accent-soft2: #421a40;
-  --green: #98c379;
-  --red: #e06c75;
-  --yellow: #e5c07b;
-  --shadow: 0 0 0 1px #ffffff14, 0 0 4px 4px #ffffff03;
-  --shadow-lg: 0 0 0 1px #ffffff14, 0 8px 24px 4px #00000066;
-  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  --radius: 6px;
-  /* The curve UIKit settles sheets on; every panel and action sheet uses it. */
-  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
-  --dur-sheet: 340ms;
+  --font-size: 14px;
   --toolbar-h: 44px;
-  --safe-top: 0px;
-  --safe-bottom: 0px;
-  --safe-left: 0px;
-  --safe-right: 0px;
-  /* Chrome button hit area; a custom property so components don't have to lose
-     a specificity fight with the mobile overrides. */
-  --btn: 28px;
+  /* The logo mark in the toolbar. */
   --mark: 18px;
 }
 
 body.mobile {
-  /* Nothing here is a document: a long press should act, not select text.
-     Deliberately not `position: fixed`: that takes body out of flow, and
-     WKWebView then hands its scroll view a content size with nothing in it —
-     the whole shell scrolls off over its own background. */
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  /* 44px is the smallest comfortable touch target. */
-  --btn: 44px;
+  --toolbar-h: 52px;
   --mark: 28px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-  -webkit-text-size-adjust: 100%;
-  overscroll-behavior: none;
-  -webkit-tap-highlight-color: transparent;
+  /* A full sheet stops below the bar, clear of the status bar and the island. */
+  --sheet-top: calc(var(--toolbar-h) + var(--safe-top) + 32px);
 }
 
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
-  background: var(--bg);
-  color: var(--color);
-  font-family: var(--sans);
-  font-size: 14px;
-  line-height: 1.45;
-  -webkit-font-smoothing: antialiased;
-}
-
-#app {
-  height: 100%;
-}
-
-::selection {
-  background: var(--accent);
-  color: var(--color2);
-}
-
-button,
-input,
-textarea {
-  font: inherit;
-  color: inherit;
-}
-
-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 5px;
-  line-height: 1.3;
-  background: var(--bg3);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 5px 10px;
-  cursor: pointer;
-  -webkit-user-select: none;
-  user-select: none;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
-}
-button > svg {
-  flex: none;
-}
-button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-button.primary {
-  background: var(--accent);
-  border-color: var(--accent2);
-  color: var(--color2);
-}
-button.ghost {
-  background: transparent;
-  border-color: transparent;
-  color: var(--color-dim);
-}
-/* A colour swatch that opens a picker beside it. */
-.swatch-wrap {
-  position: relative;
-  display: flex;
-}
-button.swatch {
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: var(--c);
-}
-button.swatch:hover {
-  background: var(--c);
-  box-shadow: 0 0 0 2px var(--color2);
-}
-
-/* Square, for a button that is only an icon. */
-button.icon {
-  justify-content: center;
-  width: var(--btn);
-  height: var(--btn);
-  padding: 0;
-}
-/* Things that act on something elsewhere read as links, not as buttons. */
-button.link {
-  background: none;
-  border-color: transparent;
-  border-radius: 0;
-  padding: 0;
-}
-/* Hover styling only where there is a pointer to hover with: a touch keeps the
-   last tapped button lit until something else is tapped. */
-@media (hover: hover) {
-  button:hover {
-    background: #242424;
-    border-color: #383838;
-  }
-  button.primary:hover {
-    background: var(--accent2);
-  }
-  button.ghost:hover {
-    color: var(--color2);
-    background: #ffffff0a;
-  }
-  button.link:hover {
-    background: none;
-    border-color: transparent;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-  }
-  button.danger:hover {
-    border-color: var(--red);
-    color: var(--red);
-  }
-}
-/* The press itself is the feedback instead. */
-@media (hover: none) {
-  button:active:not(:disabled) {
-    opacity: 0.5;
-    transition: none;
-  }
-}
-
-/* Chrome around them may be unselectable; what you type never is. */
-input,
-textarea,
-[contenteditable="true"] {
-  -webkit-user-select: text;
-  user-select: text;
-}
-
-input,
-textarea {
-  background: var(--bg);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 6px 8px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-input:focus,
-textarea:focus {
-  border-color: var(--accent);
-}
-input::placeholder,
-textarea::placeholder {
-  color: #555;
-}
-
-a {
-  color: var(--accent2);
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-thumb {
-  background: #2a2a2a;
-  border-radius: 5px;
-  border: 2px solid var(--bg2);
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Rendered markdown */
-.markdown {
-  line-height: 1.55;
-}
-.markdown > :first-child {
-  margin-top: 0;
-}
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4 {
-  color: var(--color2);
-  line-height: 1.2;
-  margin: 1.2em 0 0.5em;
-}
-.markdown h1 {
-  font-size: 1.5em;
-}
-.markdown h2 {
-  font-size: 1.25em;
-}
-.markdown h3 {
-  font-size: 1.1em;
-}
-.markdown p {
-  margin: 0.6em 0;
-}
-.markdown code {
-  font-family: var(--mono);
-  font-size: 0.85em;
-  background: var(--code-bg);
-  border-radius: 4px;
-  padding: 2px 4px;
-}
-.markdown pre {
-  background: var(--code-bg);
-  border-radius: 4px;
-  padding: 1em;
-  overflow-x: auto;
-}
-.markdown pre code {
-  padding: 0;
-  background: none;
-}
-
-/* Syntax highlighting (highlight.js classes; colours from the tag palette). */
-.hljs-comment,
-.hljs-quote {
-  color: #7e8395;
-  font-style: italic;
-}
-.hljs-keyword,
-.hljs-selector-tag,
-.hljs-doctag,
-.hljs-formula {
-  color: #c678dd;
-}
-.hljs-string,
-.hljs-addition,
-.hljs-regexp,
-.hljs-meta .hljs-string {
-  color: #98c379;
-}
-.hljs-number,
-.hljs-literal,
-.hljs-symbol,
-.hljs-bullet,
-.hljs-link,
-.hljs-template-variable,
-.hljs-variable.constant_ {
-  color: #d19a66;
-}
-.hljs-title,
-.hljs-title.function_,
-.hljs-section,
-.hljs-name,
-.hljs-selector-id,
-.hljs-selector-class {
-  color: #61afef;
-}
-.hljs-title.class_,
-.hljs-type,
-.hljs-built_in {
-  color: #e5c07b;
-}
-.hljs-attr,
-.hljs-attribute,
-.hljs-variable,
-.hljs-property,
-.hljs-params,
-.hljs-tag,
-.hljs-punctuation {
-  color: var(--color);
-}
-.hljs-tag .hljs-name,
-.hljs-tag .hljs-attr {
-  color: #e06c75;
-}
-.hljs-deletion {
-  color: #e06c75;
-}
-.hljs-meta,
-.hljs-subst {
-  color: #56b6c2;
-}
-.hljs-emphasis {
-  font-style: italic;
-}
-.hljs-strong {
-  font-weight: bold;
-}
-.markdown blockquote {
-  opacity: 0.8;
-  font-style: italic;
-  margin: 0;
-  padding: 0.25em 0 0.25em 1em;
-  border-left: 3px solid var(--accent-soft);
-}
-.markdown ul,
-.markdown ol {
-  padding-left: 1.6em;
-}
-.markdown li {
-  margin: 0.2em 0;
-}
-.markdown li:has(> input[type="checkbox"]) {
-  list-style: none;
-  margin-left: -1.3em;
-}
-.markdown input[type="checkbox"] {
-  margin-right: 6px;
-  pointer-events: none;
-}
-/* Drawn like the graph cards' check: dark box, accent fill with Phosphor's bold tick. */
-.checkbox,
-.markdown input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  flex: none;
-  width: 15px;
-  height: 15px;
-  padding: 0;
-  vertical-align: -5px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  background: var(--bg);
-}
-@media (hover: hover) {
-  .checkbox:hover,
-  .markdown input[type="checkbox"]:hover {
-    border-color: var(--accent2);
-  }
-}
-.checkbox:checked,
-.markdown input[type="checkbox"]:checked {
-  border-color: var(--accent);
-  background: var(--accent)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='%23f0f0f0'%3E%3Cpath d='M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z'/%3E%3C/svg%3E")
-    center / 11px no-repeat;
-}
-.markdown hr {
-  border: none;
-  border-top: 1px solid var(--border2);
-  margin: 1.2em 0;
-}
-.markdown table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 0.95em;
-}
-.markdown th,
-.markdown td {
-  border: 1px solid var(--border2);
-  padding: 4px 8px;
-  text-align: left;
-}
-.markdown th {
-  background: var(--bg3);
-}
-.markdown img {
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  vertical-align: bottom;
-}
-.markdown video {
-  max-width: 100%;
-  height: auto;
-  border-radius: 6px;
-  vertical-align: bottom;
-  background: #000;
-}
-.markdown audio {
-  display: block;
-  width: 100%;
-}
-.markdown .media {
-  position: relative;
-  display: inline-block;
-  max-width: 100%;
-  vertical-align: bottom;
-}
-.markdown .resize {
-  display: none;
-}
-
-/* Tag chips; set --tag to the tag's colour. */
-.tag-chip {
-  --tag: var(--accent2);
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--tag) 20%, transparent);
-  color: var(--tag);
-  line-height: 1.4;
-}
-
-/* [[wikilinks]] between notes */
-.wikilink {
-  color: var(--accent2);
-  text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent2) 40%, transparent);
-  cursor: pointer;
-}
-.wikilink:hover {
-  border-bottom-color: var(--accent2);
-}
-.wikilink.missing {
-  color: var(--color-dim);
-  border-bottom: 1px dashed #555;
-  cursor: default;
-}
-
-/* alias#123 GitHub references */
-.ghref {
-  color: var(--accent2);
-  text-decoration: none;
-  font-family: var(--mono);
-  font-size: 0.9em;
-  white-space: nowrap;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent2) 40%, transparent);
-}
-.ghref:hover {
-  border-bottom-color: var(--accent2);
-}
-.ghref .pr-icon {
-  vertical-align: -2px;
-  margin-right: 3px;
-}
-
-/* The grabber every bottom sheet is dragged and dismissed by. */
-.grab {
-  display: block;
-  flex: none;
-  align-self: center;
-  width: 44px;
-  height: 20px;
-  padding: 0;
-  background: none;
-  border: none;
-  touch-action: none;
-}
-.grab::before {
-  content: "";
-  display: block;
-  width: 36px;
-  height: 4px;
-  margin: 8px auto;
-  border-radius: 2px;
-  background: var(--border2);
-}
-
-/* Dims whatever a sheet is covering, and takes the tap that dismisses it. */
-.scrim {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--dur-sheet) var(--ease-sheet);
-}
-.scrim.hit {
-  pointer-events: auto;
-}
-.scrim.dragging {
-  transition: none;
-}
-
-/* Floating menus and pickers; each sets its own position, size and padding. */
-.popover {
-  -webkit-user-select: none;
-  user-select: none;
-  background: var(--bg3);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-lg);
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Instant tooltip (src/lib/tooltip.ts); one shared element on <body>. */
-.tooltip {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 1000;
-  padding: 3px 7px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--color2);
-  background: var(--bg3);
-  border-radius: 4px;
-  box-shadow: var(--shadow-lg);
-  white-space: nowrap;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.08s;
-}
-.tooltip.show {
-  opacity: 1;
-}
-.tooltip code {
-  font-family: var(--mono);
-  font-size: 0.92em;
-  background: var(--code-bg);
-  padding: 0 3px;
-  border-radius: 3px;
-}
-.tooltip a {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* ---- dialogs ------------------------------------------------------------- */
-/* Shared chrome for every modal (settings, trash, clone, git, the palette);
-   each dialog sets its own width and body layout. */
-.backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #00000088;
-}
-
-.dialog {
-  -webkit-user-select: none;
-  user-select: none;
-  max-width: calc(100vw - 40px);
-  background: var(--bg2);
-  border-radius: 10px;
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-}
-
-/* Full-screen variant, used on a phone and inside the panel. */
-.dialog.bare {
-  width: 100%;
-  height: 100%;
+/* A pane's content, the same in a dock and in a sheet: a header over whatever scrolls. */
+.pane {
   display: flex;
   flex-direction: column;
-  border-radius: 0;
-  box-shadow: none;
-}
-
-.dialog header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 /* A panel header's buttons: the dock button, and whatever else sits by the close. */
 .pane-tools {
   display: flex;
   flex: none;
-  gap: 2px;
+  gap: var(--gap-1);
 }
 
-.dialog h3 {
-  flex: 1;
-  margin: 0;
-  color: var(--color2);
+/* ---- rendered markdown: what Dagobert adds to purr's `.md` ------------------------------ */
+
+.md .media {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: bottom;
+}
+.md .resize {
+  display: none;
 }
 
-/* ---- phone layout -------------------------------------------------------- */
-/* Overrides for components whose own rules assume a desktop window. The class
-   is set once in main.ts; `isMobile` gates the markup that goes with it. */
-
-/* Registered so Sheet.svelte can read it back as a length: an unregistered
-   custom property hands its calc() back unevaluated, and the sheet would snap
-   to a stop a dozen pixels off the one CSS puts it at. */
-@property --sheet-top {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 96px;
+/* [[wikilinks]] between notes */
+.wikilink {
+  color: var(--theme2);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--theme2) 40%, transparent);
+  cursor: pointer;
+}
+.wikilink:hover {
+  text-decoration: none;
+  border-bottom-color: var(--theme2);
+}
+.wikilink.missing {
+  color: var(--muted);
+  border-bottom: 1px dashed var(--faint);
+  cursor: default;
 }
 
-body.mobile {
-  --toolbar-h: 52px;
-  --sheet-peek: 148px;
-  /* A full sheet stops below the bar, clear of the status bar and the island. */
-  --sheet-top: calc(var(--toolbar-h) + var(--safe-top) + 32px);
+/* alias#123 GitHub references */
+.ghref {
+  color: var(--theme2);
+  text-decoration: none;
+  font-family: var(--mono);
+  font-size: 0.9em;
+  white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--theme2) 40%, transparent);
 }
+.ghref:hover {
+  text-decoration: none;
+  border-bottom-color: var(--theme2);
+}
+.ghref .pr-icon {
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+
+/* ---- phone layout ----------------------------------------------------------------------- */
+/* Overrides for components whose own rules assume a desktop window. The class is set once in
+   main.ts; `isMobile` gates the markup that goes with it. */
 
 body.mobile .toolbar {
-  padding: var(--safe-top) 8px 0 8px; /* no traffic lights to clear */
+  padding: var(--safe-top) var(--gap-4) 0 var(--gap-4); /* no traffic lights to clear */
   height: calc(var(--toolbar-h) + var(--safe-top));
-  gap: 4px;
+  gap: var(--gap-2);
 }
 
-/* The layout viewport doesn't shrink for the keyboard, so the shell does; the
-   sheet and the bottom bar ride up with it. */
+/* The layout viewport doesn't shrink for the keyboard, so the shell does; the sheet and the
+   bottom bar ride up with it. */
 body.mobile .app {
-  height: calc(100% - var(--kb, 0px));
+  height: calc(100% - var(--kb));
 }
 
-/* With the keyboard up a sheet climbs to the status bar, and drops the home
-   indicator's inset, which the keyboard already covers. */
-body.mobile.keyboard {
-  --sheet-top: calc(var(--safe-top) + 4px);
-}
-
-body.mobile.keyboard .sheet {
-  padding-bottom: var(--sheet-top);
-}
-
-/* A note's details scroll on their own, so a long list of links can't squeeze
-   the editor out; while its body is being typed in, they step aside entirely. */
+/* A note's details scroll on their own, so a long list of links can't squeeze the editor out;
+   while its body is being typed in, they step aside entirely. */
 body.mobile aside.panel .top {
   max-height: 40%;
   overflow-y: auto;
@@ -684,22 +114,15 @@ body.mobile.keyboard aside.panel:has(.live textarea:focus) :is(.top, footer) {
 /* Only the panels' own lists scroll; a scroll reaching the page takes the shell with it. */
 body.mobile .list,
 body.mobile section,
-body.mobile .repos,
-body.mobile .sheet {
+body.mobile .repos {
   overscroll-behavior: contain;
-}
-
-/* 16px or Safari zooms the page when a field takes focus, so this beats the components. */
-body.mobile input,
-body.mobile textarea {
-  font-size: 16px !important;
 }
 
 /* Caret-anchored popups have nowhere to go sideways on a phone. */
 body.mobile .mention,
 body.mobile .issues {
-  left: 8px !important;
-  right: 8px;
+  left: var(--gap-4) !important;
+  right: var(--gap-4);
   width: auto;
   max-width: none;
 }
@@ -709,147 +132,10 @@ body.mobile .conflict .bar {
   flex-wrap: wrap;
 }
 
-/* Settings is two rows on a phone, not two columns: the nav sits on top with
-   its groups side by side. Its desktop height is fixed, which would leave dead
-   space inside a full-screen dialog. */
-body.mobile .dialog .cols {
-  grid-template-columns: 1fr;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100%;
-  max-height: none;
-}
-
-body.mobile .dialog nav {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: start;
-  gap: 0 8px;
-  max-height: 38vh;
-  border-right: none;
-  border-bottom: 1px solid var(--border);
-}
-
-body.mobile .dialog .nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-body.mobile .dialog .nav-sep {
-  display: none;
-}
-
-/* Dialogs and the PR pane take the whole screen. */
-body.mobile .dialog.bare {
-  padding: 0;
-  height: 100%;
-  max-height: none;
-}
-
-body.mobile .dialog {
-  width: 100%;
-  max-width: 100%;
-  /* Shrink with the software keyboard so the list below stays reachable. */
-  height: calc(100% - var(--kb, 0px));
-  max-height: calc(100% - var(--kb, 0px));
-  border-radius: 0;
-  padding-top: var(--safe-top);
-  padding-bottom: var(--safe-bottom);
-}
-
-/* The palette floats away from the top edge; that padding plus a full-height
-   dialog would overflow. */
-body.mobile .backdrop {
-  padding-top: 0;
-  align-items: stretch;
-}
-
-/* Shortcut hints are noise without a keyboard. */
-body.mobile .kbd,
-body.mobile kbd,
-body.mobile .dialog footer.keys {
-  display: none;
-}
-
-/* The palette sits on the bottom edge, field last, like Safari's search: the
-   results stay above the thumb, and there is backdrop left to tap to dismiss. */
-body.mobile .backdrop.palette {
-  align-items: flex-end;
-  padding: 0 var(--safe-right) var(--kb, 0px) var(--safe-left);
-  /* The padding is what the keyboard moves, so it carries the rise. */
-  background: transparent;
-  transition:
-    background var(--dur-sheet) var(--ease-sheet),
-    padding-bottom var(--dur-sheet) var(--ease-sheet);
-}
-
-body.mobile .backdrop.palette.shown {
-  background: #00000088;
-}
-
-body.mobile .backdrop.palette .dialog {
-  transform: translateY(100%);
-  transition:
-    transform var(--dur-sheet) var(--ease-sheet),
-    padding-bottom var(--dur-sheet) var(--ease-sheet);
-}
-
-body.mobile .backdrop.palette.shown .dialog {
-  transform: translateY(0);
-}
-
-/* The field is the one part of the palette that isn't a scroller; a drag on it
-   would otherwise reach the document and take the shell with it. */
-body.mobile .backdrop.palette .field {
-  touch-action: none;
-}
-
-body.mobile .backdrop.palette .dialog {
-  height: auto;
-  max-height: calc(100% - var(--sheet-top));
-  flex-direction: column-reverse;
-  border-radius: 12px 12px 0 0;
-  padding-top: 0;
-  /* Flush with the bottom edge: the home indicator's inset is the palette's own
-     colour, not a strip of canvas the keyboard was covering. */
-  padding-bottom: max(0px, var(--safe-bottom) - var(--kb, 0px));
-}
-
 /* Hover-only affordances have nowhere to hover: keep them visible. */
 body.mobile .node .port,
 body.mobile .node .grip {
   opacity: 1;
-}
-
-/* The context menu is an action sheet; its inline left/top must give way, and it
-   arrives and leaves the way every other sheet does. */
-body.mobile .ctx {
-  left: 0 !important;
-  top: auto !important;
-  bottom: 0;
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-  max-height: 70vh;
-  overflow: auto;
-  padding: 6px 6px calc(var(--safe-bottom) + 10px);
-  border-radius: 12px 12px 0 0;
-  font-size: 15px;
-  transform: translateY(100%);
-  transition: transform var(--dur-sheet) var(--ease-sheet);
-}
-
-body.mobile .ctx.shown {
-  transform: translateY(0);
-}
-
-body.mobile .ctx.dragging {
-  transition: none;
-}
-
-body.mobile .ctx .item {
-  padding: 10px 12px;
 }
 
 /* Tucked under the toolbar against the right edge; the toggle is in the bar. */
