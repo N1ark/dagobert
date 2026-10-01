@@ -2,6 +2,7 @@ import { mount } from "svelte";
 import { applyPlatform, applyTheme } from "purr";
 import "purr/fonts.css";
 import "purr/styles.css";
+import "purr/shell.css";
 import "./app.css";
 import App from "./App.svelte";
 import { backend, inTauri, isMobile } from "./lib/backend";
