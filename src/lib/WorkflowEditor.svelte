@@ -360,13 +360,6 @@
   .err {
     color: var(--danger);
   }
-  section :global(code) {
-    font-family: var(--mono);
-    font-size: 0.9em;
-    background: var(--code-bg);
-    padding: 1px var(--gap-2);
-    border-radius: var(--radius-sm);
-  }
   .add {
     color: var(--theme2);
   }

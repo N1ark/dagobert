@@ -94,9 +94,9 @@
         {/each}
         <span class="fills"></span>
         {#if n.workflow !== null && !n.tracking}
-          <span class="status" style:--c={stageColor(store.workflowOf(n), n.status)}><span class="pip"></span>{n.status}</span>
+          <span class="status ink" style:--c={stageColor(store.workflowOf(n), n.status)}><span class="pip"></span>{n.status}</span>
         {:else if store.isDone(n)}
-          <span class="status" style:--c="var(--success)"><span class="pip"></span>{t("quick.done")}</span>
+          <span class="status ink" style:--c="var(--success)"><span class="pip"></span>{t("quick.done")}</span>
         {/if}
         <span class="slot" class:show={state.active} title={t("quick.newWindow.tip", { key: keys["open-window"] })}><ArrowSquareOut /></span
         >
@@ -131,7 +131,6 @@
     gap: var(--gap-2);
     flex: none;
     font-size: var(--fs-micro);
-    color: var(--c);
   }
   .pip {
     width: 5px;

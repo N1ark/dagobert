@@ -21,13 +21,6 @@
 {/if}
 
 <style>
-  .inline-md :global(code) {
-    font-family: var(--mono);
-    font-size: 0.85em;
-    background: var(--code-bg);
-    border-radius: var(--radius-sm);
-    padding: 1px var(--gap-2);
-  }
   .inline-md :global(a) {
     color: var(--theme2);
     text-decoration: none;

@@ -186,7 +186,7 @@
         {#if custom}
           <span class="status-wrap" style="--c:{stageColor(workflow, note.status)}">
             <span class="pip"></span>
-            <select class="status" value={note.status} onchange={(e) => store.setStatus(note.id, e.currentTarget.value)}>
+            <select class="status ink" value={note.status} onchange={(e) => store.setStatus(note.id, e.currentTarget.value)}>
               {#each workflow.stages as stage (stage.name)}
                 <option value={stage.name}>{stage.name}</option>
               {/each}
@@ -452,7 +452,6 @@
   .status-wrap .status {
     border: none;
     background: transparent;
-    color: var(--c);
     font-weight: 500;
   }
   .wf {

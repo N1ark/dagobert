@@ -67,13 +67,6 @@
     font-size: var(--fs-xs);
     color: var(--muted);
   }
-  .body :global(code) {
-    font-family: var(--mono);
-    font-size: 0.9em;
-    background: var(--code-bg);
-    padding: 1px var(--gap-2);
-    border-radius: var(--radius-sm);
-  }
   ul {
     list-style: none;
     margin: var(--gap-4) 0 0;

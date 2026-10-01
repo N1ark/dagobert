@@ -254,13 +254,6 @@
       color: var(--theme2);
     }
   }
-  .t :global(code) {
-    font-family: var(--mono);
-    font-size: 0.92em;
-    background: var(--code-bg);
-    padding: 0 var(--gap-1);
-    border-radius: var(--radius-sm);
-  }
   .t {
     display: -webkit-box;
     -webkit-line-clamp: 1;

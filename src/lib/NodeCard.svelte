@@ -98,7 +98,7 @@
       {/if}
       {#if custom}
         <button
-          class="status"
+          class="status ink"
           style="--c:{stageColor(workflow, note.status)}"
           onpointerdown={(e) => e.stopPropagation()}
           onclick={advance}
@@ -225,7 +225,6 @@
     border-radius: var(--radius-pill);
     border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
     background: color-mix(in srgb, var(--c) 12%, transparent);
-    color: var(--c);
   }
   @media (hover: hover) {
     .status:hover {
