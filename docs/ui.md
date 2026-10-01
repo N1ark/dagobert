@@ -160,8 +160,8 @@ with its embed at the element under the pointer, looking through a popped-up pan
 
 Icons take their size from the button they sit in (purr's `--icon-*`, larger on a phone). `assets/` holds the source
 SVGs: `logo.svg` (the app icon) and `icon.svg` (the glyph alone, for the toolbar). Both come
-from purr's family icons, where Dagobert's glyph lives (`src/app-icons/dagobert.svg`):
-`npx purr-icon dagobert --out src-tauri/icons --mark "#c264cf"` writes the icon, its 1024
+from purr's family icons, where Dagobert's glyph lives (`src/app-icons/dagobert.svg`). With
+the renderer added for the session (`npm i --no-save @resvg/resvg-js`), `npx purr-icon dagobert --out src-tauri/icons --mark "#c264cf"` writes the icon, its 1024
 `source.png` and `mark.svg`; `npx tauri icon src-tauri/icons/source.png -o src-tauri/icons`
 makes every size (it writes the iOS ones into `gen/apple`; copy them to `icons/ios/`, delete
 the android folder it adds, see [mobile.md](mobile.md)); then copy `icon.svg` to `logo.svg`
