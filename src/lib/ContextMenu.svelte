@@ -131,9 +131,9 @@
     };
     return [
       { kind: "heading", label: t("ctx.group.selected", { n: group.length }) },
+      { kind: "custom", render: aligns },
       { label: t("ctx.group.allDone"), run: () => group.forEach((n) => store.setDone(n.id, true)) },
       { label: t("ctx.group.allNotDone"), run: () => group.forEach((n) => store.setDone(n.id, false)) },
-      { kind: "custom", render: aligns },
       ...tagEntries(has, (tag) => {
         const all = has(tag) === true;
         for (const n of group) (all ? store.removeTag : store.addTag).call(store, n.id, tag);
