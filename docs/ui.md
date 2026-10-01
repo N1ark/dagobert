@@ -159,9 +159,13 @@ with its embed at the element under the pointer, looking through a popped-up pan
 ## Icons and assets
 
 Icons take their size from the button they sit in (purr's `--icon-*`, larger on a phone). `assets/` holds the source
-SVGs: `logo.svg` (rounded background; the app icon) and `icon.svg` (transparent glyph).
-Regenerate `src-tauri/icons/` with `npm run tauri icon assets/logo.svg` (then delete the
-android folder it adds; `ios/` is used, see [mobile.md](mobile.md)). `public/` holds
+SVGs: `logo.svg` (the app icon) and `icon.svg` (the glyph alone, for the toolbar). Both come
+from purr's family icons, where Dagobert's glyph lives (`src/app-icons/dagobert.svg`):
+`npx purr-icon dagobert --out src-tauri/icons --mark "#c264cf"` writes the icon, its 1024
+`source.png` and `mark.svg`; `npx tauri icon src-tauri/icons/source.png -o src-tauri/icons`
+makes every size (it writes the iOS ones into `gen/apple`; copy them to `icons/ios/`, delete
+the android folder it adds, see [mobile.md](mobile.md)); then copy `icon.svg` to `logo.svg`
+and `mark.svg` to `icon.svg` here and in `public/`, and delete the three generated files. `public/` holds
 copies served by Vite for the favicon, toolbar and welcome screen. The theme tokens are
 purr's (`main.ts` applies its dark theme; `app.css` only sets the 14px `--font-size` and the
 toolbar's sizes); rendered markdown is purr's `.md`. Fonts (Inter Variable, Fira Code) are
