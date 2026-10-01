@@ -3,8 +3,9 @@
 DAG-shaped note-taking/task app. Tauri 2 + Svelte 5 (runes) + Vite, no SvelteKit.
 Keep it lightweight: avoid adding dependencies unless they clearly pay for themselves.
 The shared UI (tokens, buttons, fields, menus, dialogs, palette, sheet, toasts, tooltips, icons,
-fuzzy ranking, shortcuts, times) is `purr` (`../purr`, linked with `file:`); read its CLAUDE.md
-before touching the chrome, and use it rather than restyling bare elements.
+fuzzy ranking, shortcuts, times) is `purr` (pinned in `package.json` as `github:N1ark/purr#vX.Y.Z`; `npm link ../purr` to work
+on it live, `npm install` to go back); read its CLAUDE.md before touching the chrome, and use it
+rather than restyling bare elements.
 
 ## Commands
 
