@@ -7,7 +7,7 @@
   import { stageColor } from "./workflows";
   import GitHubSignIn from "./GitHubSignIn.svelte";
   import { isMobile } from "./backend";
-  import { IconButton, PanelHeader, tooltip } from "purr";
+  import { IconButton, PanelHeader, SettingsLayout, tooltip, type SettingsGroup } from "purr";
   import { relative } from "./time";
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
@@ -36,6 +36,35 @@
     store.setRepo(a, r);
     newAlias = "";
     newRepo = "";
+  }
+
+  const groups = $derived<SettingsGroup[]>([
+    {
+      label: t("settings.group.general"),
+      sections: [
+        { id: "github", label: t("settings.github"), icon: GithubLogo },
+        { id: "git", label: t("settings.git"), icon: GitBranch },
+      ],
+    },
+    {
+      label: t("settings.group.workflows"),
+      footer: newWorkflow,
+      sections: [
+        { id: "todo", label: t("settings.nav.todo"), trailing: builtin },
+        { id: "tracking", label: t("settings.nav.tracking"), trailing: builtin },
+        ...store.workflows.map((w) => ({ id: `wf:${w.id}`, label: w.name || t("settings.nav.unnamed") })),
+      ],
+    },
+  ]);
+  const current = $derived(page === "workflows" ? (selectedId === null ? "todo" : `wf:${selectedId}`) : page);
+
+  function select(id: string) {
+    if (id === "github" || id === "git" || id === "tracking") {
+      page = id;
+      return;
+    }
+    page = "workflows";
+    selectedId = id.startsWith("wf:") ? id.slice(3) : null;
   }
 
   let picking = $state<{ index: number; anchor: HTMLElement } | null>(null);
@@ -78,6 +107,14 @@
   }
 </script>
 
+{#snippet builtin()}
+  <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry /></span>
+{/snippet}
+
+{#snippet newWorkflow()}
+  <button class="row-item add" onclick={() => ((page = "workflows"), add())}><Plus /> {t("settings.nav.new")}</button>
+{/snippet}
+
 {#snippet template(get: () => string, set: (v: string) => void, save: () => void, placeholder: string)}
   <h4>{t("settings.template")}</h4>
   <p class="help">{t("settings.template.hint")}</p>
@@ -88,54 +125,7 @@
   <PanelHeader title={t("settings.title")} onclose={isMobile ? undefined : onclose} closeLabel={t("pane.close")}>
     {#snippet actions()}<DockButton />{/snippet}
   </PanelHeader>
-  <div class="cols">
-    <nav>
-      <div class="nav-group">
-        <span class="group">{t("settings.group.general")}</span>
-        <button
-          class="row-item item"
-          class:is-current={page === "github"}
-          aria-current={page === "github"}
-          onclick={() => (page = "github")}><GithubLogo /> {t("settings.github")}</button
-        >
-        <button class="row-item item" class:is-current={page === "git"} aria-current={page === "git"} onclick={() => (page = "git")}
-          ><GitBranch /> {t("settings.git")}</button
-        >
-      </div>
-      <div class="nav-sep"></div>
-      <div class="nav-group">
-        <span class="group">{t("settings.group.workflows")}</span>
-        <button
-          class="row-item item"
-          class:is-current={page === "workflows" && selectedId === null}
-          aria-current={page === "workflows" && selectedId === null}
-          onclick={() => ((page = "workflows"), (selectedId = null))}
-        >
-          {t("settings.nav.todo")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry /></span>
-        </button>
-        <button
-          class="row-item item"
-          class:is-current={page === "tracking"}
-          aria-current={page === "tracking"}
-          onclick={() => (page = "tracking")}
-        >
-          {t("settings.nav.tracking")}
-          <span class="builtin" use:tooltip={t("settings.nav.builtin")}><Circuitry /></span>
-        </button>
-        {#each store.workflows as w (w.id)}
-          {@const current = page === "workflows" && w.id === selectedId}
-          <button
-            class="row-item item"
-            class:is-current={current}
-            aria-current={current}
-            onclick={() => ((page = "workflows"), (selectedId = w.id))}
-            ><span class="truncate">{w.name || t("settings.nav.unnamed")}</span></button
-          >
-        {/each}
-        <button class="row-item add" onclick={() => ((page = "workflows"), add())}><Plus /> {t("settings.nav.new")}</button>
-      </div>
-    </nav>
+  <SettingsLayout {groups} {current} onselect={select} label={t("settings.title")}>
     <section>
       {#if page === "tracking"}
         <p class="help"><InlineMd source={t("settings.tracking.help")} /></p>
@@ -300,48 +290,13 @@
         )}
       {/if}
     </section>
-  </div>
+  </SettingsLayout>
 </div>
 
 <style>
-  .cols {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    grid-template-columns: 170px 1fr;
-  }
-  nav {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-1);
-    padding: var(--gap-4);
-    border-right: 1px solid var(--border);
-    overflow-y: auto;
-  }
-  /* Transparent on desktop: the nav is one column there. */
-  .nav-group {
-    display: contents;
-  }
-  .group {
-    padding: var(--gap-2) var(--gap-4) var(--gap-1);
-    font-size: var(--fs-nano);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-  }
-  /* Built-in marker: pushed to the right edge of the item; the tooltip explains it. */
+  /* Built-in marker; the tooltip explains it. */
   .builtin {
     display: inline-flex;
-    margin-left: auto;
-    padding-left: var(--gap-4);
-    flex-shrink: 0;
-    color: var(--muted);
-  }
-  .nav-sep {
-    height: 1px;
-    margin: var(--gap-3) var(--gap-2);
-    background: var(--border-strong);
   }
   .repos {
     list-style: none;
@@ -415,11 +370,6 @@
   .add {
     color: var(--theme2);
   }
-  section {
-    padding: var(--sp-4) var(--sp-5);
-    overflow-x: hidden;
-    overflow-y: auto;
-  }
   .name {
     font-size: var(--fs-lg);
     font-weight: 600;
@@ -492,30 +442,5 @@
     font-family: var(--mono);
     font-size: var(--fs-xs);
     line-height: 1.5;
-  }
-  /* Two rows on a phone, not two columns: the nav sits on top with its groups side by side. */
-  :global(body.mobile) .cols {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-    height: 100%;
-    max-height: none;
-  }
-  :global(body.mobile) nav {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-items: start;
-    gap: 0 var(--gap-4);
-    max-height: 38vh;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-  :global(body.mobile) .nav-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--gap-1);
-    min-width: 0;
-  }
-  :global(body.mobile) .nav-sep {
-    display: none;
   }
 </style>
