@@ -32,6 +32,8 @@ The native window can't be screenshotted from the CLI.
   added.
 - **Every user-facing string lives in `src/lib/locales/en.ts`** (`t(key)`); shortcuts come
   from `keys.ts` and are never spelled out in strings.
+- **Never a coloured left border on a rounded box** (a stripe down a chip, card or row). Show
+  an accent with a tinted fill, a dot or the text colour instead.
 - Icons come from `purr/icons` (all of Phosphor plus purr's hand-drawn ones), sized by the
   button they sit in. When nothing there fits, hand-draw one in purr; never unicode symbols.
 - Lint: `svelte/prefer-svelte-reactivity` is off on purpose (plain Set/Map for scratch
