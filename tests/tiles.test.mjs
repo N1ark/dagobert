@@ -30,7 +30,7 @@ test("a stored layout gains panes added since as closed popups, and a broken one
     popups: ["prs", "trash", "settings"],
   };
   const l = repair(old);
-  assert.deepEqual(l.popups, ["prs", "trash", "settings", "gallery"]);
+  assert.deepEqual(l.popups, ["prs", "trash", "settings", "gallery", "calendar"]);
   assert.equal(l.tree, old.tree);
   assert.ok(valid(l));
   assert.equal(repair({ tree: { id: "canvas", size: 1 }, popups: ["canvas"] }), null, "twice");

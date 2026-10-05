@@ -4,11 +4,14 @@
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import { ProgressRing } from "purr";
-  import { Warning } from "purr/icons";
+  import { CalendarBlank, Warning, WarningCircle } from "purr/icons";
   import { MARKER_RE } from "./blocks";
   import { firstMedia, stripMedia } from "./media";
   import MediaIcon from "./MediaIcon.svelte";
   import { t } from "./i18n";
+  import { dueState } from "./calendar";
+  import { clock } from "./clock.svelte";
+  import { formatDue } from "./time";
 
   let {
     note,
@@ -48,6 +51,7 @@
   );
 
   const media = $derived(firstMedia(note.body));
+  const due = $derived(note.due ? { label: formatDue(note.due, clock.today), state: dueState(note.due, done, clock.now) } : null);
 
   function advance(e: MouseEvent) {
     e.stopPropagation();
@@ -89,7 +93,7 @@
       <span class="conflict" title={t("node.conflict")}><Warning weight="fill" /></span>
     {/if}
   </div>
-  {#if custom || progress || note.tags.length}
+  {#if custom || progress || due || note.tags.length}
     <div class="tags">
       {#if progress}
         <span class="progress" class:complete={progress.total > 0 && progress.done === progress.total}
@@ -106,6 +110,11 @@
         >
           <span class="pip"></span>{note.status}
         </button>
+      {/if}
+      {#if due}
+        <span class={["due", due.state]} title={t(due.state === "overdue" ? "due.tip.overdue" : "due.tip", { when: due.label })}
+          >{#if due.state === "overdue"}<WarningCircle weight="fill" />{:else}<CalendarBlank />{/if}{due.label}</span
+        >
       {/if}
       {#each note.tags as tag (tag)}
         <span class="tag" style:--tag={store.tagColor(tag)}>{tag}</span>
@@ -231,6 +240,27 @@
       background: color-mix(in srgb, var(--c) 22%, transparent);
       border-color: var(--c);
     }
+  }
+  .due {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--gap-1);
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-micro);
+    color: var(--muted);
+    border-radius: var(--radius-pill);
+    background: var(--chip);
+  }
+  .due.today,
+  .due.soon {
+    color: var(--theme2);
+  }
+  .due.today {
+    background: var(--theme-soft);
+  }
+  .due.overdue {
+    color: var(--danger);
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
   }
   .pip {
     width: 6px;

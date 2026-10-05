@@ -10,6 +10,8 @@ export interface Note {
   status: string;
   /** Tracking issue: done when every dependency is done; has no status of its own. */
   tracking?: boolean;
+  /** `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; see calendar.ts. */
+  due?: string | null;
   x: number;
   y: number;
   /** Card width on the canvas; null/undefined means the default. */

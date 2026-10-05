@@ -31,6 +31,9 @@ pub struct Note {
     /// A tracking issue: done when all its dependencies are done; no own status.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub tracking: bool,
+    /// When it's due: `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; opaque here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub due: Option<String>,
     #[serde(default)]
     pub x: f64,
     #[serde(default)]
@@ -69,6 +72,8 @@ struct FrontMatter {
     status: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     tracking: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    due: Option<String>,
     #[serde(default)]
     x: f64,
     #[serde(default)]
@@ -448,6 +453,7 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
             .status
             .unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
         tracking: fm.tracking,
+        due: fm.due,
         x: fm.x,
         y: fm.y,
         width: fm.width,
@@ -469,6 +475,7 @@ pub fn serialize_note(note: &Note) -> Result<String, String> {
         workflow: note.workflow.clone(),
         status: Some(note.status.clone()),
         tracking: note.tracking,
+        due: note.due.clone(),
         x: note.x,
         y: note.y,
         width: note.width,
@@ -713,6 +720,7 @@ mod tests {
             workflow: None,
             status: "todo".into(),
             tracking: false,
+            due: None,
             x: 12.5,
             y: -3.0,
             width: None,
@@ -982,6 +990,22 @@ mod tests {
                 && out.contains("status: review\n")
                 && !out.contains("done:")
         );
+    }
+
+    #[test]
+    fn due_is_optional() {
+        let n = parse_note(
+            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\ndue: 2026-10-05T09:30\n---\n",
+            "x.md",
+        )
+        .unwrap();
+        assert_eq!(n.due.as_deref(), Some("2026-10-05T09:30"));
+        assert!(serialize_note(&n)
+            .unwrap()
+            .contains("due: 2026-10-05T09:30\n"));
+        let mut n = n;
+        n.due = None;
+        assert!(!serialize_note(&n).unwrap().contains("due"));
     }
 
     #[test]

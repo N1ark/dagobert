@@ -6,6 +6,11 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Due dates, with an optional time: set them in the note panel or from the right-click menu; cards show them and turn red when overdue.
+- A calendar panel (⇧⌘D) with a month view and an agenda; drag a note to another day to reschedule it.
+
 ### Changed
 
 - A refreshed look shared with N1ark's other apps: buttons, fields, menus, dialogs, toasts and tooltips, with Inter and Fira Code built in.

@@ -3,6 +3,7 @@ import { backend, isMobile, type ProjectChange, type SyncMessage } from "./backe
 import { auth } from "./auth.svelte";
 import type { Asset, Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport, Workflow } from "./types";
 import { stamp } from "./time";
+import { isLater } from "./calendar";
 import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
@@ -683,7 +684,7 @@ class Store {
 
   /** A note with nothing in it — typically an accidental double-click. */
   isEmpty(n: Note): boolean {
-    return !n.title.trim() && this.#bodyIsBlank(n) && !n.tags.length && !n.deps.length && !this.dependents(n.id).length;
+    return !n.title.trim() && !n.due && this.#bodyIsBlank(n) && !n.tags.length && !n.deps.length && !this.dependents(n.id).length;
   }
 
   select(id: string | null) {
@@ -936,6 +937,19 @@ class Store {
     navigator.clipboard?.writeText(text).catch(() => {});
   }
 
+  setDue(id: string, due: string | null) {
+    const n = this.byId(id);
+    if (!n || (n.due ?? null) === due) return;
+    n.due = due;
+    this.touch(id, { immediate: true, label: due ? "due" : "undue" });
+  }
+
+  /** Dependencies due after this note is, so it can't be done in time. */
+  lateDeps(note: Note): Note[] {
+    if (!note.due) return [];
+    return this.dependencies(note.id).filter((d) => d.due && !this.isDone(d) && isLater(d.due, note.due!));
+  }
+
   setWidth(id: string, width: number | null) {
     const n = this.byId(id);
     if (!n) return;
@@ -955,6 +969,7 @@ class Store {
       workflow,
       status,
       tracking: !!src.tracking,
+      due: src.due ?? null,
       width: src.width ?? null,
     });
   }

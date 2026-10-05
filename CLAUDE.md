@@ -56,8 +56,9 @@ The native window can't be screenshotted from the CLI.
 - `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`, `editor.ts`, `wikilinks.ts` —
   the editor.
 - `github.ts`, `prs.svelte.ts`, `PullRequests.svelte` — GitHub integration.
+- `calendar.ts`, `clock.svelte.ts`, `Calendar.svelte` — due dates and the calendar pane.
 - Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
-  `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`. They run under
+  `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`. They run under
   plain Node, so they must not import `purr`.
 
 Details per area (read the one you're working in):
@@ -89,6 +90,10 @@ Details per area (read the one you're working in):
 - Tracking issues (`note.tracking`, frontmatter `tracking: true`, omitted when false):
   `isDone` = all direct deps done (and at least one); `setDone` / `advance` are no-ops;
   never "ready". "Ready" = not done and every dep is done (purple ring, counted in toolbar).
+- Due dates (`note.due`, frontmatter `due`, omitted when unset) are local wall-clock
+  `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, no zone, so a synced project never shifts a day; Rust
+  treats them as opaque. Overdue = not done and past due (`dueState`); "now" comes from
+  `clock` (one shared timer), never a timer per card.
 - Tag colours are project-wide (`tag_colors` in `dagobert.json`); the default colour is
   not stored. Tag mutations go through `store.addTag/removeTag/toggleTag`.
 - Empty notes (`store.isEmpty`) are hard-deleted via `store.discard` whenever deselected.

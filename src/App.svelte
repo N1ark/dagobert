@@ -51,12 +51,17 @@
     Warning,
     CloudArrowDown,
     ArrowCircleUp,
+    CalendarBlank,
+    CalendarCheck,
+    CalendarMinus,
   } from "purr/icons";
   import { setAppMenu, menuSignature } from "./lib/menu";
   import { t, plural } from "./lib/i18n";
   import { keys } from "./lib/keys";
   import { matches as pressed } from "purr";
   import type { ProjectRef } from "./lib/types";
+  import { dueState } from "./lib/calendar";
+  import { clock } from "./lib/clock.svelte";
 
   // `?note=<id>&path=<project>` turns this window into a standalone note view.
   const params = new URLSearchParams(location.search);
@@ -101,6 +106,7 @@
   let searchEl = $state<HTMLInputElement | null>(null);
   let showTrash = $state(false);
   let showGallery = $state(false);
+  let showCalendar = $state(false);
   let showQuickOpen = $state(false);
   /** Which pane the palette shows. */
   let paletteMode = $state<"notes" | "commands">("notes");
@@ -139,11 +145,12 @@
     showWorkflows = false;
     showTrash = false;
     showGallery = false;
+    showCalendar = false;
     showPRs = false;
   }
 
   $effect(() => {
-    if (isMobile && (showWorkflows || showTrash || showGallery)) store.sheetFull = true;
+    if (isMobile && (showWorkflows || showTrash || showGallery || showCalendar)) store.sheetFull = true;
   });
 
   /** The phone shows exactly one panel; this is which. */
@@ -156,11 +163,13 @@
           ? "trash"
           : showGallery
             ? "gallery"
-            : showPRs
-              ? "prs"
-              : store.selected
-                ? "note"
-                : null,
+            : showCalendar
+              ? "calendar"
+              : showPRs
+                ? "prs"
+                : store.selected
+                  ? "note"
+                  : null,
   );
   let sheet = $state<Sheet | null>(null);
   /** Canvas taps ask the panel to leave, so it animates out. */
@@ -178,6 +187,7 @@
     trash: () => showTrash,
     settings: () => showWorkflows,
     gallery: () => showGallery,
+    calendar: () => showCalendar,
   };
   const close: Record<Pane, () => void> = {
     note: () => store.select(null),
@@ -185,6 +195,7 @@
     trash: () => (showTrash = false),
     settings: () => (showWorkflows = false),
     gallery: () => (showGallery = false),
+    calendar: () => (showCalendar = false),
   };
   /** The desktop's open panels, each in a `Dock`. */
   const openPanes = $derived(isMobile || !store.path ? [] : PANES.filter((p) => isOpen[p]()));
@@ -233,6 +244,7 @@
     total: store.notes.length,
     done: store.notes.filter((n) => store.isDone(n)).length,
     ready: store.notes.filter((n) => store.isReady(n)).length,
+    overdue: store.notes.filter((n) => dueState(n.due, store.isDone(n), clock.now) === "overdue").length,
   });
 
   function jump(id: string) {
@@ -253,6 +265,13 @@
     const w = r?.width ?? window.innerWidth;
     const h = r?.height ?? window.innerHeight;
     return { x: (w / 2 - vp.x) / vp.zoom - 110, y: (h / 2 - vp.y) / vp.zoom - 20 };
+  }
+
+  /** From the calendar: a new note due that day, in the middle of the view. */
+  function createDue(due: string) {
+    const c = viewCenter();
+    const n = store.create(Math.round(c.x), Math.round(c.y), { due });
+    jump(n.id);
   }
 
   function createTitled(title: string) {
@@ -368,6 +387,18 @@
         menu: "Note",
         enabled: !!sel,
       }),
+      a("due-today", t("action.due-today"), () => store.selectedId && store.setDue(store.selectedId, clock.today), {
+        icon: CalendarCheck,
+        symbol: ["calendar.badge.clock", "calendar"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("due-clear", t("action.due-clear"), () => store.selectedId && store.setDue(store.selectedId, null), {
+        icon: CalendarMinus,
+        symbol: ["calendar.badge.minus", "calendar"],
+        menu: "Note",
+        enabled: !!sel?.due,
+      }),
       a("paste-note", t("action.paste-note"), () => pasteNote(), {
         icon: ClipboardText,
         symbol: ["doc.on.clipboard"],
@@ -426,6 +457,14 @@
         symbol: ["photo.on.rectangle.angled", "photo"],
         menu: "View",
         menuLabel: t("action.gallery.menu"),
+        enabled: has,
+      }),
+      a("calendar", t(showCalendar ? "action.calendar.hide" : "action.calendar.show"), () => (showCalendar = !showCalendar), {
+        hint: keys.calendar,
+        icon: CalendarBlank,
+        symbol: ["calendar"],
+        menu: "View",
+        menuLabel: t("action.calendar.menu"),
         enabled: has,
       }),
       a(
@@ -525,7 +564,7 @@
   });
 
   /** Shortcuts handled at the window level (the rest live in Canvas / the editor). */
-  const WINDOW_KEYS = ["new-note", "commands", "quick-open", "prs", "search", "open-folder", "git-sync", "settings"] as const;
+  const WINDOW_KEYS = ["new-note", "commands", "quick-open", "prs", "calendar", "search", "open-folder", "git-sync", "settings"] as const;
   function onKey(e: KeyboardEvent) {
     if (standaloneId) return;
     const id = WINDOW_KEYS.find((k) => pressed(keys[k], e));
@@ -611,6 +650,10 @@
     {#await import("./lib/Gallery.svelte") then m}
       <m.default onclose={() => (showGallery = false)} />
     {/await}
+  {:else if p === "calendar"}
+    {#await import("./lib/Calendar.svelte") then m}
+      <m.default onclose={() => (showCalendar = false)} onjump={jump} oncreate={createDue} />
+    {/await}
   {:else if p === "settings"}
     {#key settingsKey}
       {#await import("./lib/WorkflowEditor.svelte") then m}
@@ -672,6 +715,11 @@
           done: stats.done,
           total: stats.total,
         })}
+        {#if stats.overdue}
+          · <button class="btn btn--link overdue" onclick={() => (showCalendar = true)} use:tooltip={t("toolbar.stats.overdue.tip")}
+            >{t("toolbar.stats.overdue", { n: stats.overdue })}</button
+          >
+        {/if}
         {#if store.conflictIds.size}
           · <button class="btn btn--link conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
             ><Warning weight="fill" /> {store.conflictIds.size}</button
@@ -695,6 +743,13 @@
         <IconButton label={t("toolbar.more")} size="lg" onclick={() => openPalette("commands")}><Terminal /></IconButton>
       {:else}
         <IconButton label={t("toolbar.trash")} size="lg" onclick={() => (showTrash = true)}><Trash /></IconButton>
+        <IconButton
+          label={t("toolbar.calendar")}
+          shortcut={keys.calendar}
+          size="lg"
+          pressed={showCalendar}
+          onclick={() => (showCalendar = !showCalendar)}><CalendarBlank /></IconButton
+        >
         <IconButton
           label={t("toolbar.prs")}
           tip={{ text: t("toolbar.prs.tip"), hint: keys.prs }}
@@ -903,6 +958,10 @@
   .update {
     font-size: var(--fs-xs);
     color: var(--theme2);
+  }
+  .overdue {
+    font-size: var(--fs-xs);
+    color: var(--danger);
   }
   .conflicts {
     gap: var(--gap-1);

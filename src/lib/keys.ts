@@ -11,6 +11,7 @@ export const keys = {
   commands: "⇧⌘K",
   search: "⌘F",
   prs: "⇧⌘P",
+  calendar: "⇧⌘D",
   "select-all": "⌘A",
   copy: "⌘C",
   paste: "⌘V",
