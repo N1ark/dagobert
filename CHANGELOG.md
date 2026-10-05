@@ -22,6 +22,7 @@ All notable changes to Dagobert are documented here. The format follows
 - A new app icon, drawn in the same style as N1ark's other apps: the same D of notes and arrows, in white on purple.
 - Tags and workflow stages stay readable whatever colour you pick, in either theme; inline code is a shade lighter than code blocks.
 - Notifications are tinted by their kind, with an icon for errors and successes.
+- The background grain takes the theme's accent colour.
 
 ## [0.11.0] - 2026-09-28
 
