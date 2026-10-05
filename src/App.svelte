@@ -511,10 +511,10 @@
     return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal" && x.id !== "update") : actions;
   });
 
-  /** Undo/redo from the menu: native inside text fields, ours elsewhere. */
+  /** Undo/redo from the menu: native inside text fields (not the palette's search), ours elsewhere. */
   function editUndo(kind: "undo" | "redo") {
     const el = document.activeElement as HTMLElement | null;
-    if (el && el.closest("input, textarea, [contenteditable]")) document.execCommand(kind);
+    if (el && el.closest("input, textarea, [contenteditable]") && !el.closest("[role=combobox]")) document.execCommand(kind);
     else if (kind === "undo") store.undo();
     else store.redo();
   }

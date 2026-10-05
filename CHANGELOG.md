@@ -24,6 +24,10 @@ All notable changes to Dagobert are documented here. The format follows
 - Notifications are tinted by their kind, with an icon for errors and successes.
 - The background grain takes the theme's accent colour.
 
+### Fixed
+
+- Undo and redo from the command palette work, so they do on the phone too.
+
 ## [0.11.0] - 2026-09-28
 
 ### Added
