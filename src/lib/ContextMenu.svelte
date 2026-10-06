@@ -105,11 +105,11 @@
       },
       progress
         ? { kind: "heading", label: t("ctx.tracking", { done: progress.done, total: progress.total }) }
-        : note.workflow === null
+        : note.workflow === null && !note.permanent
           ? { label: t(store.isDone(note) ? "node.markNotDone" : "node.markDone"), run: () => store.advance(id) }
           : null,
-      !progress && note.workflow !== null && { kind: "heading", label: t("ctx.status") },
-      ...(!progress && note.workflow !== null
+      !progress && note.workflow !== null && !note.permanent && { kind: "heading", label: t("ctx.status") },
+      ...(!progress && note.workflow !== null && !note.permanent
         ? workflow.stages.map((stage) => ({
             label: stage.name,
             swatch: stageColor(workflow, stage.name),
@@ -117,7 +117,7 @@
             run: () => store.setStatus(id, stage.name),
           }))
         : []),
-      dueEntry([note]),
+      !note.permanent && dueEntry([note]),
       ...tagEntries(
         (tag) => note.tags.includes(tag),
         (tag) => store.toggleTag(id, tag),

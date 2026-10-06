@@ -39,7 +39,7 @@
   const ready = $derived(store.isReady(note));
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null && !note.tracking);
+  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent);
   const progress = $derived(note.tracking ? store.progress(note) : null);
   const conflict = $derived(store.hasConflict(note));
   // First non-empty body line, block markers and embeds stripped so it renders as inline markdown.
@@ -77,7 +77,7 @@
       <span class="ring-wrap" title={t("node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing value={progress.done} max={progress.total} label={t("ring.aria", progress)} /></span
       >
-    {:else if !custom}
+    {:else if !custom && !note.permanent}
       <button
         class="checkbox check"
         role="checkbox"

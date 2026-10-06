@@ -411,6 +411,7 @@ class Store {
   }
 
   isDone(note: Note): boolean {
+    if (note.permanent) return false;
     if (note.tracking) {
       const p = this.progress(note);
       return p.total > 0 && p.done === p.total;
@@ -418,13 +419,13 @@ class Store {
     return this.workflowOf(note).stages.find((s) => s.name === note.status)?.done ?? false;
   }
 
-  /** Direct dependencies done / total (what a tracking issue's ring shows). */
+  /** Direct dependencies done / total (what a tracking issue's ring shows); permanent notes don't count. */
   progress(note: Note): { done: number; total: number } {
     let done = 0,
       total = 0;
     for (const d of note.deps) {
       const dep = this.byId(d);
-      if (!dep) continue;
+      if (!dep || dep.permanent) continue;
       total++;
       if (this.isDone(dep)) done++;
     }
@@ -436,15 +437,32 @@ class Store {
     if (!n || !!n.tracking === tracking) return;
     const blank = this.#bodyIsBlank(n);
     n.tracking = tracking;
-    if (tracking) n.workflow = null;
+    if (tracking) {
+      n.workflow = null;
+      n.permanent = false;
+    }
     if (blank) n.body = renderTemplate(this.templateFor(n.workflow, tracking), n.title);
+    this.touch(id, { immediate: true, label: "kind" });
+  }
+
+  /** A permanent note has no progress, so it drops its workflow and due date. */
+  setPermanent(id: string, permanent: boolean) {
+    const n = this.byId(id);
+    if (!n || !!n.permanent === permanent) return;
+    n.permanent = permanent;
+    if (permanent) {
+      n.tracking = false;
+      n.workflow = null;
+      n.status = DEFAULT_WORKFLOW.stages[0].name;
+      n.due = null;
+    }
     this.touch(id, { immediate: true, label: "kind" });
   }
 
   /** Mark done (first done stage) or not done (first stage) in the note's own workflow. */
   setDone(id: string, done: boolean) {
     const n = this.byId(id);
-    if (!n || n.tracking) return;
+    if (!n || n.tracking || n.permanent) return;
     const stages = this.workflowOf(n).stages;
     const target = done ? (stages.find((s) => s.done) ?? stages[stages.length - 1]) : stages[0];
     this.setStatus(id, target.name);
@@ -460,7 +478,7 @@ class Store {
   /** Move to the next stage (or previous with `step = -1`), wrapping around. */
   advance(id: string, step = 1) {
     const n = this.byId(id);
-    if (!n || n.tracking) return;
+    if (!n || n.tracking || n.permanent) return;
     const stages = this.workflowOf(n).stages;
     const i = stages.findIndex((s) => s.name === n.status);
     this.setStatus(id, stages[(i + step + stages.length) % stages.length].name);
@@ -486,6 +504,7 @@ class Store {
     const wasDone = this.isDone(n);
     const blank = this.#bodyIsBlank(n);
     n.workflow = workflowId;
+    n.permanent = false;
     const stages = this.workflowOf(n).stages;
     n.status = (wasDone ? (stages.find((s) => s.done) ?? stages[0]) : stages[0]).name;
     // An untouched body picks up the new workflow's template.
@@ -528,10 +547,10 @@ class Store {
 
   /** True when every dependency of the note is done. */
   isReady(note: Note): boolean {
-    if (note.tracking || this.isDone(note)) return false;
+    if (note.tracking || note.permanent || this.isDone(note)) return false;
     return note.deps.every((d) => {
       const dep = this.byId(d);
-      return dep ? this.isDone(dep) : true;
+      return dep ? dep.permanent || this.isDone(dep) : true;
     });
   }
 
@@ -939,7 +958,7 @@ class Store {
 
   setDue(id: string, due: string | null) {
     const n = this.byId(id);
-    if (!n || (n.due ?? null) === due) return;
+    if (!n || (n.due ?? null) === due || (n.permanent && due)) return;
     n.due = due;
     this.touch(id, { immediate: true, label: due ? "due" : "undue" });
   }
@@ -969,6 +988,7 @@ class Store {
       workflow,
       status,
       tracking: !!src.tracking,
+      permanent: !!src.permanent,
       due: src.due ?? null,
       width: src.width ?? null,
     });

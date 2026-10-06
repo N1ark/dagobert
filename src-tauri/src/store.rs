@@ -31,6 +31,9 @@ pub struct Note {
     /// A tracking issue: done when all its dependencies are done; no own status.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub tracking: bool,
+    /// A permanent note: no progress of its own, never done or ready.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub permanent: bool,
     /// When it's due: `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; opaque here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
@@ -72,6 +75,8 @@ struct FrontMatter {
     status: Option<String>,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     tracking: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    permanent: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     due: Option<String>,
     #[serde(default)]
@@ -453,6 +458,7 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
             .status
             .unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
         tracking: fm.tracking,
+        permanent: fm.permanent,
         due: fm.due,
         x: fm.x,
         y: fm.y,
@@ -475,6 +481,7 @@ pub fn serialize_note(note: &Note) -> Result<String, String> {
         workflow: note.workflow.clone(),
         status: Some(note.status.clone()),
         tracking: note.tracking,
+        permanent: note.permanent,
         due: note.due.clone(),
         x: note.x,
         y: note.y,
@@ -720,6 +727,7 @@ mod tests {
             workflow: None,
             status: "todo".into(),
             tracking: false,
+            permanent: false,
             due: None,
             x: 12.5,
             y: -3.0,

@@ -167,6 +167,7 @@ export default {
   "panel.kind": "Kind",
   "panel.kind.todo": "Todo",
   "panel.kind.tracking": "Tracking issue",
+  "panel.kind.permanent": "Note",
   "panel.manageWorkflows": "Manage workflows",
   "panel.created": "created {when}",
   "panel.edited": "edited {when}",

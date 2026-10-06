@@ -93,7 +93,7 @@
           <Tag label={tag} color={store.tagColor(tag)} />
         {/each}
         <span class="fills"></span>
-        {#if n.workflow !== null && !n.tracking}
+        {#if n.workflow !== null && !n.tracking && !n.permanent}
           <span class="status ink" style:--c={stageColor(store.workflowOf(n), n.status)}><span class="pip"></span>{n.status}</span>
         {:else if store.isDone(n)}
           <span class="status ink" style:--c="var(--success)"><span class="pip"></span>{t("quick.done")}</span>

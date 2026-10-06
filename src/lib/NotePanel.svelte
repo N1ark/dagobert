@@ -36,7 +36,7 @@
 
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null && !note.tracking);
+  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent);
   const progress = $derived(note.tracking ? store.progress(note) : null);
   const due = $derived(parseDue(note.due));
   const dueSt = $derived(dueState(note.due, done, clock.now));
@@ -142,7 +142,7 @@
       <span class="ring" title={t("node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing value={progress.done} max={progress.total} size={16} label={t("ring.aria", progress)} /></span
       >
-    {:else if !custom}
+    {:else if !custom && !note.permanent}
       <label class="done" title={t(done ? "node.markNotDone" : "node.markDone")}>
         <input type="checkbox" class="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
@@ -204,10 +204,11 @@
         {/if}
         <select
           class="wf"
-          value={note.tracking ? "tracking" : (note.workflow ?? "")}
+          value={note.tracking ? "tracking" : note.permanent ? "permanent" : (note.workflow ?? "")}
           onchange={(e) => {
             const v = e.currentTarget.value;
             if (v === "tracking") store.setTracking(note.id, true);
+            else if (v === "permanent") store.setPermanent(note.id, true);
             else {
               store.setTracking(note.id, false);
               store.setWorkflow(note.id, v || null);
@@ -217,6 +218,7 @@
         >
           <option value="">{t("panel.kind.todo")}</option>
           <option value="tracking">{t("panel.kind.tracking")}</option>
+          <option value="permanent">{t("panel.kind.permanent")}</option>
           {#each store.workflows as wf (wf.id)}
             <option value={wf.id}>{wf.name}</option>
           {/each}
@@ -228,31 +230,33 @@
         >
       </div>
 
-      <div class="due-row" class:overdue={dueSt === "overdue"}>
-        <span class="icon" title={t("panel.due")}><CalendarBlank /></span>
-        <input
-          type="date"
-          class="field-input date"
-          value={due?.date ?? ""}
-          aria-label={t("panel.due")}
-          onchange={(e) => {
-            const v = e.currentTarget.value;
-            store.setDue(note.id, v ? joinDue(v, due?.time ?? null) : null);
-          }}
-        />
-        {#if due}
+      {#if !note.permanent}
+        <div class="due-row" class:overdue={dueSt === "overdue"}>
+          <span class="icon" title={t("panel.due")}><CalendarBlank /></span>
           <input
-            type="time"
-            class="field-input time"
-            value={due.time ?? ""}
-            aria-label={t("panel.due.time")}
-            title={t("panel.due.time")}
-            onchange={(e) => store.setDue(note.id, joinDue(due.date, e.currentTarget.value || null))}
+            type="date"
+            class="field-input date"
+            value={due?.date ?? ""}
+            aria-label={t("panel.due")}
+            onchange={(e) => {
+              const v = e.currentTarget.value;
+              store.setDue(note.id, v ? joinDue(v, due?.time ?? null) : null);
+            }}
           />
-          {#if dueSt}<span class="when">{dueSt === "overdue" ? t("calendar.overdue") : formatDue(note.due!, clock.today)}</span>{/if}
-          <IconButton label={t("panel.due.clear")} onclick={() => store.setDue(note.id, null)}><X /></IconButton>
-        {/if}
-      </div>
+          {#if due}
+            <input
+              type="time"
+              class="field-input time"
+              value={due.time ?? ""}
+              aria-label={t("panel.due.time")}
+              title={t("panel.due.time")}
+              onchange={(e) => store.setDue(note.id, joinDue(due.date, e.currentTarget.value || null))}
+            />
+            {#if dueSt}<span class="when">{dueSt === "overdue" ? t("calendar.overdue") : formatDue(note.due!, clock.today)}</span>{/if}
+            <IconButton label={t("panel.due.clear")} onclick={() => store.setDue(note.id, null)}><X /></IconButton>
+          {/if}
+        </div>
+      {/if}
       {#if late.length}
         <div class="late">
           <Warning weight="fill" />

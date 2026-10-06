@@ -92,6 +92,9 @@ Details per area (read the one you're working in):
 - Tracking issues (`note.tracking`, frontmatter `tracking: true`, omitted when false):
   `isDone` = all direct deps done (and at least one); `setDone` / `advance` are no-ops;
   never "ready". "Ready" = not done and every dep is done (purple ring, counted in toolbar).
+- Permanent notes (`note.permanent`, frontmatter `permanent: true`, omitted when false): the
+  "Note" kind; no checkbox, status or due date, never done or ready, left out of the toolbar's
+  total and of tracking progress; a dependent treats them as satisfied.
 - Due dates (`note.due`, frontmatter `due`, omitted when unset) are local wall-clock
   `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, no zone, so a synced project never shifts a day; Rust
   treats them as opaque. Overdue = not done and past due (`dueState`); "now" comes from

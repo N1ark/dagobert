@@ -697,6 +697,7 @@ mod tests {
             workflow: None,
             status: "todo".into(),
             tracking: false,
+            permanent: false,
             due: None,
             x: 0.0,
             y: 0.0,

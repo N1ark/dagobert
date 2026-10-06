@@ -241,7 +241,7 @@
   });
 
   const stats = $derived({
-    total: store.notes.length,
+    total: store.notes.filter((n) => !n.permanent).length,
     done: store.notes.filter((n) => store.isDone(n)).length,
     ready: store.notes.filter((n) => store.isReady(n)).length,
     overdue: store.notes.filter((n) => dueState(n.due, store.isDone(n), clock.now) === "overdue").length,
@@ -353,7 +353,7 @@
           symbol: ["checkmark.square"],
           menu: "Note",
           menuLabel: t("action.toggle-done"),
-          enabled: !!sel && !sel.tracking,
+          enabled: !!sel && !sel.tracking && !sel.permanent,
         },
       ),
       a("open-window", t("action.open-window"), () => store.selectedId && store.openInWindow(store.selectedId), {
