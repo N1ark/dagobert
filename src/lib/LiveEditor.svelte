@@ -22,8 +22,6 @@
   let container = $state<HTMLDivElement | null>(null);
   let textarea = $state<HTMLTextAreaElement | null>(null);
   let mentionPopup = $state<MentionPopup | null>(null);
-  // Safari's smart punctuation turns markdown into curly quotes and en-dashes.
-  const autocorrectOff = { autocorrect: "off" };
   let issuePopup = $state<IssuePopup | null>(null);
   /** Active `alias#query` GitHub picker. */
   let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
@@ -38,6 +36,8 @@
   let pendingCaret: number | null = null;
 
   const activeIsCode = $derived(isCode(draft));
+  // Safari's smart punctuation turns markdown into curly quotes and en-dashes; a phone keyboard needs it for prose.
+  const prose = $derived(isMobile && !activeIsCode);
 
   /** Map a keydown to a command, or null. */
   function command(e: KeyboardEvent, s: Sel): Sel | null {
@@ -511,9 +511,9 @@
     }}
     onclick={updateMention}
     onblur={() => setTimeout(() => (mention = issue = null), 150)}
-    spellcheck="false"
-    autocapitalize="sentences"
-    {...autocorrectOff}
+    spellcheck={prose}
+    autocapitalize={prose ? "sentences" : "off"}
+    {...{ autocorrect: prose ? "on" : "off" }}
     rows="1"></textarea>
 {/snippet}
 
