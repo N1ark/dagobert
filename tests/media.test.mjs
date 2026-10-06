@@ -54,6 +54,7 @@ assert.equal(imageCount("![a](assets/a.png)\n![b|200](assets/b.jpg)"), 2);
 assert.equal(imageCount("![a](assets/a.png) caption"), 0);
 assert.equal(imageCount("![v](assets/v.mov)"), 0);
 assert.equal(imageCount("plain"), 0);
+assert.equal(imageCount("![](https://x.y/page)\n![](assets/a.png)"), 0, "a preview card isn't an image");
 const img = "![](assets/a.png)";
 const runs = (blocks, skip) => galleryRuns(blocks, skip).map((r) => (r.gallery ? `${r.start}-${r.end}` : `${r.start}`));
 assert.deepEqual(runs(["text", img, img, img, "text", img]), ["0", "1-4", "4", "5"]);

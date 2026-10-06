@@ -59,12 +59,14 @@ body.mobile {
   text-decoration: none;
   border-color: color-mix(in srgb, var(--theme2) 40%, var(--border));
 }
+/* The whole image at its own shape, as in a gallery; only a very wide one is letterboxed. */
 .md .link-card .lc-image {
   flex: none;
-  width: 34%;
-  max-width: 180px;
-  aspect-ratio: 1.6;
-  object-fit: cover;
+  align-self: center;
+  width: auto;
+  height: 112px;
+  max-width: 45%;
+  object-fit: contain;
   border-radius: 0;
 }
 .md .lc-text {

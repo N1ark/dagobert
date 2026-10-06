@@ -119,7 +119,9 @@ export function assetNames(text: string): string[] {
 /** How many images a block holds when it holds nothing else, else 0. */
 export function imageCount(block: string): number {
   let n = 0;
-  const rest = block.replace(EMBED_RE, (m, _alt: string, url: string) => ((kindOf(url) ?? "image") === "image" ? (n++, "") : m));
+  const rest = block.replace(EMBED_RE, (m, _alt: string, url: string) =>
+    !isLinkEmbed(url) && (kindOf(url) ?? "image") === "image" ? (n++, "") : m,
+  );
   return rest.trim() ? 0 : n;
 }
 
