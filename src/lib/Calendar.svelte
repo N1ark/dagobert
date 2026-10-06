@@ -12,7 +12,7 @@
     daysBetween,
     formatMonth,
     IconButton,
-    MonthGrid,
+    MonthScroller,
     PanelHeader,
     persisted,
     persistedFlag,
@@ -27,7 +27,8 @@
   type View = "month" | "agenda";
   const view = persisted<View>("dagobert.calendar.view", isMobile ? "agenda" : "month", (v): v is View => v === "month" || v === "agenda");
   const showDone = persistedFlag("dagobert.calendar.done", true);
-  let month = $state({ y: fromKey(clock.today).getFullYear(), m: fromKey(clock.today).getMonth() });
+  let year = $state(fromKey(clock.today).getFullYear());
+  let month = $state(fromKey(clock.today).getMonth());
 
   const longDate = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "long" });
 
@@ -44,13 +45,15 @@
   const PER_DAY = 3;
 
   function shiftMonth(step: number) {
-    const d = new Date(month.y, month.m + step, 1);
-    month = { y: d.getFullYear(), m: d.getMonth() };
+    const d = new Date(year, month + step, 1);
+    year = d.getFullYear();
+    month = d.getMonth();
   }
 
   function goToday() {
     const d = fromKey(clock.today);
-    month = { y: d.getFullYear(), m: d.getMonth() };
+    year = d.getFullYear();
+    month = d.getMonth();
     if (view.value === "agenda") void reveal(clock.today);
   }
 
@@ -182,15 +185,15 @@
         <IconButton label={t("calendar.prev")} onclick={() => shiftMonth(-1)}><CaretLeft /></IconButton>
         <IconButton label={t("calendar.next")} onclick={() => shiftMonth(1)}><CaretRight /></IconButton>
       </span>
-      <h3 class="month">{formatMonth(new Date(month.y, month.m, 1))}</h3>
+      <h3 class="month">{formatMonth(new Date(year, month, 1))}</h3>
     {/if}
   </div>
 
   {#if view.value === "month"}
     <div class="grid">
-      <MonthGrid
-        year={month.y}
-        month={month.m}
+      <MonthScroller
+        bind:year
+        bind:month
         today={clock.today}
         target={drag?.moved ? drag.over : null}
         actions={isMobile ? undefined : addDay}
@@ -204,7 +207,7 @@
             <button class="more" onclick={() => reveal(d.key)}>{plural("calendar.more", items.length - PER_DAY + 1)}</button>
           {/if}
         {/snippet}
-      </MonthGrid>
+      </MonthScroller>
     </div>
   {:else}
     <div class="agenda" bind:this={listEl}>
