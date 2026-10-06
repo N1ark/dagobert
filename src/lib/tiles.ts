@@ -1,7 +1,7 @@
 import type { Key } from "./i18n.ts";
 
 /** The desktop's panels and the canvas, tiled by a tree of splits; closed panels stay in it, hidden. */
-export type Pane = "note" | "prs" | "trash" | "settings" | "gallery";
+export type Pane = "note" | "prs" | "trash" | "settings" | "gallery" | "calendar";
 export type Id = Pane | "canvas";
 export type Side = "left" | "right" | "top" | "bottom";
 /** `from` is the tile a dropped pane took its room from, and gives it back to when it moves away. */
@@ -18,7 +18,7 @@ export type Drop = { side: Side; at: Id | null } | "popup";
 /** The divider between two neighbouring tiles, with their lengths when it was laid out. */
 export type Handle = { row: boolean; rect: Rect; a: Shown; b: Shown; lenA: number; lenB: number };
 
-export const PANES: Pane[] = ["note", "prs", "trash", "settings", "gallery"];
+export const PANES: Pane[] = ["note", "prs", "trash", "settings", "gallery", "calendar"];
 
 /** Each pane's accessible name, as a locale key. */
 export const PANE_LABEL: Record<Pane, Key> = {
@@ -27,6 +27,7 @@ export const PANE_LABEL: Record<Pane, Key> = {
   trash: "trash.title",
   settings: "settings.aria",
   gallery: "gallery.title",
+  calendar: "calendar.title",
 };
 
 export const DEFAULT_LAYOUT: Layout = {
@@ -39,7 +40,7 @@ export const DEFAULT_LAYOUT: Layout = {
       { id: "note", size: 0.3 },
     ],
   },
-  popups: ["trash", "settings", "gallery"],
+  popups: ["trash", "settings", "gallery", "calendar"],
 };
 
 /** A popup's size belongs to the pane; `fit` makes `h` a most, not a size. */
@@ -49,6 +50,7 @@ export const POPUP: Record<Pane, { w: number; h: number; fit?: boolean }> = {
   trash: { w: 560, h: 480, fit: true },
   settings: { w: 600, h: 520 },
   gallery: { w: 760, h: 600 },
+  calendar: { w: 820, h: 640 },
 };
 
 /** The divider between tiles. */

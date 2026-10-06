@@ -1,6 +1,7 @@
 /** A small, tidy project for the README screenshot: `npm run dev`, then open `/?demo`. */
 import type { IssueRef } from "./github";
 import type { Meta, Note } from "./types";
+import { addDays, dayKey, joinDue } from "./calendar";
 
 export const demo = import.meta.env.DEV && new URLSearchParams(location.search).has("demo");
 
@@ -127,8 +128,20 @@ const SEEDS: Seed[] = [
   },
 ];
 
+/** Due dates as days from today, with an optional time, so the calendar always has a week to show. */
+const DUE: Record<string, [number, string?]> = {
+  sketch: [-6],
+  tiles: [-3, "17:00"],
+  landing: [-2],
+  search: [-1],
+  screens: [1, "15:00"],
+  docs: [4],
+  release: [10, "09:00"],
+};
+
 export function demoNotes(): Note[] {
   const at = (minutesAgo: number) => new Date(Date.now() - minutesAgo * 60_000).toISOString();
+  const today = dayKey(new Date());
   return SEEDS.map((s, i) => ({
     created: at(60 * 24 * 14 - i * 90),
     modified: at(i * 37 + 5),
@@ -136,6 +149,7 @@ export function demoNotes(): Note[] {
     status: "todo",
     width: null,
     file: `${s.id}.md`,
+    due: DUE[s.id] ? joinDue(addDays(today, DUE[s.id][0]), DUE[s.id][1] ?? null) : null,
     ...s,
   }));
 }

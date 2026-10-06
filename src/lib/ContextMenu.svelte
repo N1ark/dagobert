@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-  import { menu, tooltip, type MaybeEntry, type MenuControl } from "purr";
+  import { menu, tooltip, type MaybeEntry, type MenuControl, type MenuItem } from "purr";
   import {
     AlignBottom,
     AlignCenterHorizontal,
@@ -18,6 +18,7 @@
     AlignRight,
     AlignTop,
     ArrowSquareOut,
+    CalendarBlank,
     Copy,
     DistributeHorizontal,
     DistributeVertical,
@@ -30,6 +31,9 @@
   import { t } from "./i18n";
   import { keys } from "./keys";
   import type { Note } from "./types";
+  import { addDays, moveDue } from "./calendar";
+  import { clock } from "./clock.svelte";
+  import { formatDue } from "./time";
 
   /** The canvas's menu, for a note, a selection, a link or the background; renders nothing of its own. */
   let {
@@ -113,6 +117,7 @@
             run: () => store.setStatus(id, stage.name),
           }))
         : []),
+      dueEntry([note]),
       ...tagEntries(
         (tag) => note.tags.includes(tag),
         (tag) => store.toggleTag(id, tag),
@@ -122,6 +127,29 @@
       "separator",
       { label: t("ctx.delete"), icon: Trash, danger: true, confirm: t("ctx.reallyDelete"), run: () => store.remove(id) },
     ];
+  }
+
+  /** A submenu of quick due dates; each note keeps its time of day. */
+  function dueEntry(notes: Note[]): MenuItem {
+    const today = clock.today;
+    const set = (day: string) => notes.forEach((n) => store.setDue(n.id, n.due ? moveDue(n.due, day) : day));
+    const one = notes.length === 1 ? notes[0].due : null;
+    return {
+      label: t("ctx.due"),
+      icon: CalendarBlank,
+      note: one ? formatDue(one, today) : undefined,
+      items: [
+        { label: t("due.today"), run: () => set(today) },
+        { label: t("due.tomorrow"), run: () => set(addDays(today, 1)) },
+        { label: t("ctx.due.nextWeek"), run: () => set(addDays(today, 7)) },
+        "separator",
+        {
+          label: t("ctx.due.clear"),
+          disabled: !notes.some((n) => n.due),
+          run: () => notes.forEach((n) => store.setDue(n.id, null)),
+        },
+      ],
+    };
   }
 
   function groupEntries(group: Note[], ids: string[]): MaybeEntry[] {
@@ -134,6 +162,7 @@
       { kind: "custom", render: aligns },
       { label: t("ctx.group.allDone"), run: () => group.forEach((n) => store.setDone(n.id, true)) },
       { label: t("ctx.group.allNotDone"), run: () => group.forEach((n) => store.setDone(n.id, false)) },
+      dueEntry(group),
       ...tagEntries(has, (tag) => {
         const all = has(tag) === true;
         for (const n of group) (all ? store.removeTag : store.addTag).call(store, n.id, tag);

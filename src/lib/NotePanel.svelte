@@ -13,9 +13,12 @@
   import NoteLink from "./NoteLink.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
-  import { t } from "./i18n";
+  import { t, plural } from "./i18n";
   import { keys } from "./keys";
-  import { X, Plus, ArrowSquareOut, GearSix } from "purr/icons";
+  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Warning } from "purr/icons";
+  import { dueState, joinDue, parseDue } from "./calendar";
+  import { clock } from "./clock.svelte";
+  import { formatDue } from "./time";
 
   let { note, onjump, standalone = false }: { note: Note; onjump: (id: string) => void; standalone?: boolean } = $props();
 
@@ -35,6 +38,9 @@
   const workflow = $derived(store.workflowOf(note));
   const custom = $derived(note.workflow !== null && !note.tracking);
   const progress = $derived(note.tracking ? store.progress(note) : null);
+  const due = $derived(parseDue(note.due));
+  const dueSt = $derived(dueState(note.due, done, clock.now));
+  const late = $derived(store.lateDeps(note));
   let titleEl = $state<HTMLInputElement | null>(null);
   let titleFocused = $state(false);
 
@@ -221,6 +227,41 @@
           ><GearSix /></IconButton
         >
       </div>
+
+      <div class="due-row" class:overdue={dueSt === "overdue"}>
+        <span class="icon" title={t("panel.due")}><CalendarBlank /></span>
+        <input
+          type="date"
+          class="field-input date"
+          value={due?.date ?? ""}
+          aria-label={t("panel.due")}
+          onchange={(e) => {
+            const v = e.currentTarget.value;
+            store.setDue(note.id, v ? joinDue(v, due?.time ?? null) : null);
+          }}
+        />
+        {#if due}
+          <input
+            type="time"
+            class="field-input time"
+            value={due.time ?? ""}
+            aria-label={t("panel.due.time")}
+            title={t("panel.due.time")}
+            onchange={(e) => store.setDue(note.id, joinDue(due.date, e.currentTarget.value || null))}
+          />
+          {#if dueSt}<span class="when">{dueSt === "overdue" ? t("calendar.overdue") : formatDue(note.due!, clock.today)}</span>{/if}
+          <IconButton label={t("panel.due.clear")} onclick={() => store.setDue(note.id, null)}><X /></IconButton>
+        {/if}
+      </div>
+      {#if late.length}
+        <div class="late">
+          <Warning weight="fill" />
+          <span>{plural("panel.due.late", late.length)}</span>
+          {#each late as d (d.id)}
+            <NoteLink id={d.id} {onjump} />
+          {/each}
+        </div>
+      {/if}
 
       <div class="meta">
         <span title={formatAbsolute(note.created)}>{t("panel.created", { when: relative(note.created) })}</span>
@@ -456,6 +497,43 @@
   }
   .wf {
     color: var(--muted);
+  }
+  .due-row {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-3);
+    min-height: var(--btn);
+    padding: 0 var(--sp-5) var(--gap-3) var(--sp-5);
+    color: var(--muted);
+  }
+  .due-row .icon {
+    display: inline-flex;
+  }
+  .due-row .field-input {
+    width: auto;
+    min-height: 0;
+    padding: var(--gap-1) var(--gap-3);
+    font-size: var(--fs-xs);
+  }
+  .due-row .date:invalid,
+  .due-row .time:invalid {
+    color: var(--muted);
+  }
+  .when {
+    font-size: var(--fs-xs);
+  }
+  .due-row.overdue .icon,
+  .due-row.overdue .when {
+    color: var(--danger);
+  }
+  .late {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--gap-2);
+    padding: 0 var(--sp-5) var(--gap-3) var(--sp-5);
+    font-size: var(--fs-xs);
+    color: var(--warn);
   }
   .meta {
     display: flex;

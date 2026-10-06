@@ -77,7 +77,7 @@ not their children; needs `core:window:allow-start-dragging` in the capability).
 
 ## Panels
 
-Note, pull requests, trash, settings and the media gallery are **panes** (`Pane` in `tiles.ts`), and every one
+Note, pull requests, trash, settings, the media gallery and the calendar are **panes** (`Pane` in `tiles.ts`), and every one
 lives in the same container: `Dock.svelte` on the desktop, purr's `Sheet` on a phone. A
 component renders only its content (a `.pane` with purr's `PanelHeader`); App's `pane`
 snippet picks it, so the same markup goes into either container. `isOpen` / `close` in
@@ -117,6 +117,21 @@ Filter chips, a search over file names, alt texts and note titles, a large view 
 `Lightbox`: ← → step through, Escape or a click outside closes it; reveal in Finder). A tile
 dragged out (pointer events, since Tauri keeps HTML5 drags for files) dispatches `media-drop`
 with its embed at the element under the pointer, looking through a popped-up pane's `.scrim`.
+
+## Calendar
+
+`Calendar.svelte` is a pane (popup by default) with a month grid (purr's `MonthGrid`, filled
+through its `day` / `actions` snippets) and an agenda (overdue, then each day from today); the
+view and "show done" are remembered per machine, and a phone starts on the agenda. Due-date
+maths is `calendar.ts` (pure, tested, so it keeps its own few day-key helpers rather than
+importing purr's): `parseDue` / `joinDue`, `dueState`, `groupByDay`, `isLater` (the note panel
+warns about dependencies due after the note, `store.lateDeps`). Labels (`Tomorrow`, `Friday`,
+`Thu, Oct 15`) are purr's `formatDay` with our strings, via `formatDay` / `formatDue` in
+`time.ts`. A chip dragged onto another day (`data-day`, which `MonthGrid` puts on each) keeps
+its time (`moveDue`); the `+` on a day creates a note due then.
+Due dates are set in the note panel (native date and time inputs, time optional), from the
+canvas menu's "Due date" submenu, or the palette's "Make due today"; all go through
+`store.setDue` (undoable).
 
 ## Dialogs and popovers
 

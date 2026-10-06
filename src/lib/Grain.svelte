@@ -2,6 +2,7 @@
   /** Decorative WebGL film grain and node haloes; drawing lives in grainGL.ts (docs/canvas.md). */
   import { onMount } from "svelte";
   import { createGrain, MAX_CURVES, MAX_RECTS, type GrainFrame, type GrainRenderer } from "./grainGL";
+  import { parseColor } from "purr";
 
   export type Rect = { id: string; x: number; y: number; w: number; h: number };
   type Pt = { x: number; y: number };
@@ -61,11 +62,12 @@
   };
 
   function accent(): [number, number, number] {
-    const v = getComputedStyle(document.documentElement).getPropertyValue("--accent2").trim();
-    const m = /^#([0-9a-f]{6})$/i.exec(v);
-    if (!m) return [0.69, 0.27, 0.67];
-    const n = parseInt(m[1], 16);
-    return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+    try {
+      const rgb = parseColor(getComputedStyle(document.documentElement).getPropertyValue("--theme2"));
+      return [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
+    } catch {
+      return [0.69, 0.27, 0.67];
+    }
   }
 
   function setup() {
