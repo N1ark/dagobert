@@ -120,16 +120,18 @@ with its embed at the element under the pointer, looking through a popped-up pan
 
 ## Calendar
 
-`Calendar.svelte` is a pane (popup by default) with a month grid (purr's `MonthGrid`, filled
-through its `day` / `actions` snippets) and an agenda (overdue, then each day from today); the
+`Calendar.svelte` is a pane (popup by default) with a month view (purr's `MonthScroller`: weeks
+in one scroll that snaps to each month, `year`/`month` bound to the title, filled through its
+`day` / `actions` snippets) and an agenda (overdue, then each day from today); the
 view and "show done" are remembered per machine, and a phone starts on the agenda. Due-date
 maths is `calendar.ts` (pure, tested, so it keeps its own few day-key helpers rather than
 importing purr's): `parseDue` / `joinDue`, `dueState`, `groupByDay`, `isLater` (the note panel
 warns about dependencies due after the note, `store.lateDeps`). Labels (`Tomorrow`, `Friday`,
 `Thu, Oct 15`) are purr's `formatDay` with our strings, via `formatDay` / `formatDue` in
-`time.ts`. A chip dragged onto another day (`data-day`, which `MonthGrid` puts on each) keeps
+`time.ts`. A chip dragged onto another day (`data-day`, which `MonthScroller` puts on each) keeps
 its time (`moveDue`); the `+` on a day creates a note due then.
-Due dates are set in the note panel (native date and time inputs, time optional), from the
+Due dates are set in the note panel (a calendar button beside the workflow's gear; once set, the
+day and a clock open purr's `DatePicker` / `TimePicker` in a popover), from the
 canvas menu's "Due date" submenu, or the palette's "Make due today"; all go through
 `store.setDue` (undoable).
 

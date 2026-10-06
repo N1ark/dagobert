@@ -2,7 +2,7 @@
   import { store } from "./store.svelte";
   import { isMobile } from "./backend";
   import type { Note } from "./types";
-  import { ConfirmButton, formatAbsolute, IconButton, ProgressRing, Tag } from "purr";
+  import { ConfirmButton, DatePicker, formatAbsolute, IconButton, Popover, ProgressRing, Tag, TimePicker } from "purr";
   import { relative } from "./time";
   import LiveEditor from "./LiveEditor.svelte";
   import LinkPicker from "./LinkPicker.svelte";
@@ -15,16 +15,17 @@
   import { headings } from "./toc";
   import { t, plural } from "./i18n";
   import { keys } from "./keys";
-  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Warning } from "purr/icons";
+  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Clock, Warning } from "purr/icons";
   import { dueState, joinDue, parseDue } from "./calendar";
   import { clock } from "./clock.svelte";
-  import { formatDue } from "./time";
+  import { formatDay, formatTime } from "./time";
 
   let { note, onjump, standalone = false }: { note: Note; onjump: (id: string) => void; standalone?: boolean } = $props();
 
   let tagInput = $state("");
   let confirmDelete = $state(false);
   let picking = $state<{ tag: string; anchor: HTMLElement } | null>(null);
+  let picker = $state<{ kind: "date" | "time"; anchor: HTMLElement } | null>(null);
   let adding = $state<string | null>(null);
   // The panel is re-keyed per note, so the initial value is the right one.
   // svelte-ignore state_referenced_locally
@@ -228,35 +229,64 @@
           onclick={() => store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)}
           ><GearSix /></IconButton
         >
-      </div>
-
-      {#if !note.permanent}
-        <div class="due-row" class:overdue={dueSt === "overdue"}>
-          <span class="icon" title={t("panel.due")}><CalendarBlank /></span>
-          <input
-            type="date"
-            class="field-input date"
-            value={due?.date ?? ""}
-            aria-label={t("panel.due")}
-            onchange={(e) => {
-              const v = e.currentTarget.value;
-              store.setDue(note.id, v ? joinDue(v, due?.time ?? null) : null);
-            }}
-          />
+        {#if !note.permanent}
           {#if due}
-            <input
-              type="time"
-              class="field-input time"
-              value={due.time ?? ""}
-              aria-label={t("panel.due.time")}
-              title={t("panel.due.time")}
-              onchange={(e) => store.setDue(note.id, joinDue(due.date, e.currentTarget.value || null))}
-            />
-            {#if dueSt}<span class="when">{dueSt === "overdue" ? t("calendar.overdue") : formatDue(note.due!, clock.today)}</span>{/if}
-            <IconButton label={t("panel.due.clear")} onclick={() => store.setDue(note.id, null)}><X /></IconButton>
+            <span class="due" class:overdue={dueSt === "overdue"}>
+              <button
+                class="btn btn--ghost btn--sm when"
+                title={dueSt === "overdue" ? t("calendar.overdue") : t("panel.due")}
+                onclick={(e) => (picker = { kind: "date", anchor: e.currentTarget })}
+                ><CalendarBlank />{formatDay(due.date, clock.today)}</button
+              >
+              <button
+                class="btn btn--ghost btn--sm when"
+                class:btn--icon={!due.time}
+                aria-label={t("panel.due.time")}
+                title={t("panel.due.time")}
+                onclick={(e) => (picker = { kind: "time", anchor: e.currentTarget })}
+                ><Clock />{#if due.time}{formatTime(due.time)}{/if}</button
+              >
+              <IconButton label={t("panel.due.clear")} size="sm" onclick={() => store.setDue(note.id, null)}><X /></IconButton>
+            </span>
+          {:else}
+            <IconButton label={t("panel.due.set")} onclick={(e) => (picker = { kind: "date", anchor: e.currentTarget as HTMLElement })}
+              ><CalendarBlank /></IconButton
+            >
           {/if}
-        </div>
+        {/if}
+      </div>
+      {#if picker}
+        <Popover
+          anchor={picker.anchor}
+          label={t(picker.kind === "date" ? "panel.due" : "panel.due.time")}
+          onclose={() => (picker = null)}
+          autofocus
+        >
+          {#if picker.kind === "date"}
+            <DatePicker
+              value={due?.date ?? null}
+              today={clock.today}
+              prevLabel={t("calendar.prev")}
+              nextLabel={t("calendar.next")}
+              onpick={(day) => {
+                store.setDue(note.id, joinDue(day, due?.time ?? null));
+                picker = null;
+              }}
+            />
+          {:else if due}
+            <TimePicker
+              value={due.time}
+              label={t("panel.due.time")}
+              noneLabel={t("panel.due.noTime")}
+              onpick={(time) => {
+                store.setDue(note.id, joinDue(due.date, time));
+                picker = null;
+              }}
+            />
+          {/if}
+        </Popover>
       {/if}
+
       {#if late.length}
         <div class="late">
           <Warning weight="fill" />
@@ -445,6 +475,7 @@
   }
   .workflow-row {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--gap-3);
     padding: var(--gap-1) var(--sp-5) var(--gap-3) var(--sp-5);
@@ -502,32 +533,19 @@
   .wf {
     color: var(--muted);
   }
-  .due-row {
-    display: flex;
-    align-items: center;
-    gap: var(--gap-3);
-    min-height: var(--btn);
-    padding: 0 var(--sp-5) var(--gap-3) var(--sp-5);
-    color: var(--muted);
-  }
-  .due-row .icon {
+  .due {
     display: inline-flex;
+    align-items: center;
+    gap: var(--gap-1);
+    margin-left: var(--gap-2);
   }
-  .due-row .field-input {
-    width: auto;
-    min-height: 0;
-    padding: var(--gap-1) var(--gap-3);
+  .due .when {
+    gap: var(--gap-2);
     font-size: var(--fs-xs);
-  }
-  .due-row .date:invalid,
-  .due-row .time:invalid {
+    font-weight: 400;
     color: var(--muted);
   }
-  .when {
-    font-size: var(--fs-xs);
-  }
-  .due-row.overdue .icon,
-  .due-row.overdue .when {
+  .due.overdue .when {
     color: var(--danger);
   }
   .late {
