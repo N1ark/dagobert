@@ -26,6 +26,7 @@ export const demoMeta: Meta = {
   ],
   default_template: "",
   tracking_template: "",
+  note_template: "",
   repos: { atlas: REPO },
   palette: [],
   git: { enabled: false, interval_min: 5 },

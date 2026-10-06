@@ -99,6 +99,7 @@ const mock: { notes: Map<string, Note>; trash: Note[]; meta: Meta; local: Local 
         workflows: [],
         default_template: "",
         tracking_template: "",
+        note_template: "",
         repos: {},
         palette: [],
         git: { enabled: false, interval_min: 5 },

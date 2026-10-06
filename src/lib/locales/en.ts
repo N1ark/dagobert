@@ -340,6 +340,7 @@ export default {
   "settings.git": "Git tracking",
   "settings.nav.todo": "Todo",
   "settings.nav.tracking": "Tracking issue",
+  "settings.nav.note": "Note",
   "settings.nav.builtin": "Built-in",
   "settings.nav.unnamed": "Unnamed",
   "settings.nav.new": "New workflow",
@@ -348,6 +349,8 @@ export default {
   "settings.tracking.help":
     "A **tracking issue** has no status of its own: it shows a progress ring and counts as done once every note it depends on is done.", // markdown
   "settings.tracking.placeholder": "## Scope\n…",
+  "settings.note.help": "A **note** is just a note: no checkbox or status, never done, and it doesn't hold up the notes that depend on it.", // markdown
+  "settings.note.placeholder": "## Context\n…",
   "settings.git.help":
     "Commits your notes regularly, pulls what other machines pushed and pushes back. A note whose body couldn't be cleanly merged shows a warning until you clean up the conflict.", // markdown
   "settings.git.enable": "Track this project with git",

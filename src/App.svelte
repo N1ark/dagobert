@@ -128,7 +128,7 @@
     }
   }
   let showWorkflows = $state(false);
-  let settingsSection = $state<"workflows" | "tracking" | "github" | "git">("workflows");
+  let settingsSection = $state<"workflows" | "tracking" | "note" | "github" | "git">("workflows");
   let settingsWorkflow = $state<string | null | undefined>(undefined);
   /** Bumped per opening, so an already open settings pane goes to the page asked for. */
   let settingsKey = $state(0);

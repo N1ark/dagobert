@@ -99,6 +99,8 @@ export interface Meta {
   default_template: string;
   /** Template for new tracking issues. */
   tracking_template: string;
+  /** Template for new permanent notes (the "Note" kind). */
+  note_template?: string;
   /** GitHub repo aliases: alias -> "owner/name". */
   repos: Record<string, string>;
   /** User-added swatches shown in colour pickers after the built-in palette. */

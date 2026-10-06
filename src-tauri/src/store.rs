@@ -180,6 +180,9 @@ pub struct Meta {
     /// Template for new tracking issues.
     #[serde(default)]
     pub tracking_template: String,
+    /// Template for new permanent notes (the "Note" kind).
+    #[serde(default)]
+    pub note_template: String,
     /// User-added swatches shown in colour pickers after the built-in palette.
     #[serde(default)]
     pub palette: Vec<String>,
@@ -644,6 +647,7 @@ pub struct MetaPatch {
     pub repos: Option<BTreeMap<String, String>>,
     pub default_template: Option<String>,
     pub tracking_template: Option<String>,
+    pub note_template: Option<String>,
     pub palette: Option<Vec<String>>,
     pub git: Option<GitSettings>,
 }
@@ -680,6 +684,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(t) = patch.tracking_template {
         meta.tracking_template = t;
+    }
+    if let Some(t) = patch.note_template {
+        meta.note_template = t;
     }
     if let Some(p) = patch.palette {
         meta.palette = p;
@@ -807,6 +814,7 @@ mod tests {
                 tag_colors: Some(tag_colors),
                 workflows: Some(vec![wf]),
                 default_template: Some("- [ ] ".into()),
+                note_template: Some("## Idea\n".into()),
                 palette: Some(vec!["#ff8800".into()]),
                 ..Default::default()
             },
@@ -822,11 +830,13 @@ mod tests {
         assert_eq!(m.tag_colors["a"], "#61afef");
         assert_eq!(m.workflows[0].template, "## Checklist\n- [ ] tests");
         assert_eq!(m.default_template, "- [ ] ");
+        assert_eq!(m.note_template, "## Idea\n");
         // Old files without templates still load.
         let legacy: Meta =
             serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
         assert_eq!(legacy.workflows[0].template, "");
         assert_eq!(legacy.default_template, "");
+        assert_eq!(legacy.note_template, "");
         assert!(legacy.palette.is_empty());
         assert!(!legacy.git.enabled && legacy.git.interval_min == 5);
 

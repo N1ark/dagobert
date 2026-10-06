@@ -85,6 +85,8 @@ class Store {
   /** Template for new notes on the built-in Todo workflow. */
   defaultTemplate = $state("");
   trackingTemplate = $state("");
+  /** Template for new permanent notes. */
+  noteTemplate = $state("");
   /** Tags currently used to filter the canvas (OR semantics). */
   tagFilter = $state<string[]>([]);
   selectedId = $state<string | null>(null);
@@ -97,7 +99,7 @@ class Store {
   /** Installed by App: select a note and centre the canvas on it. */
   jump: (id: string) => void = (id) => this.select(id);
   /** Set by `App`: shows the settings panel (mobile routes the cog through it). */
-  openSettings: (section: "workflows" | "tracking", workflow: string | null) => void = () => {};
+  openSettings: (section: "workflows" | "tracking" | "note", workflow: string | null) => void = () => {};
   /** Set by `App`: slides the mobile panel out rather than dropping it. */
   dismissPanel: () => void = () => {};
 
@@ -449,6 +451,7 @@ class Store {
   setPermanent(id: string, permanent: boolean) {
     const n = this.byId(id);
     if (!n || !!n.permanent === permanent) return;
+    const blank = this.#bodyIsBlank(n);
     n.permanent = permanent;
     if (permanent) {
       n.tracking = false;
@@ -456,6 +459,7 @@ class Store {
       n.status = DEFAULT_WORKFLOW.stages[0].name;
       n.due = null;
     }
+    if (blank) n.body = renderTemplate(this.templateFor(n.workflow, false, permanent), n.title);
     this.touch(id, { immediate: true, label: "kind" });
   }
 
@@ -485,7 +489,8 @@ class Store {
   }
 
   /** Raw template for a workflow id (null = built-in Todo) or a tracking issue. */
-  templateFor(workflowId: string | null, tracking = false): string {
+  templateFor(workflowId: string | null, tracking = false, permanent = false): string {
+    if (permanent) return this.noteTemplate;
     if (tracking) return this.trackingTemplate;
     return workflowId ? (this.workflows.find((w) => w.id === workflowId)?.template ?? "") : this.defaultTemplate;
   }
@@ -494,7 +499,7 @@ class Store {
   #bodyIsBlank(n: Note): boolean {
     const b = n.body.trim();
     if (!b) return true;
-    const tpl = this.templateFor(n.workflow, !!n.tracking);
+    const tpl = this.templateFor(n.workflow, !!n.tracking, !!n.permanent);
     return b === tpl.trim() || b === renderTemplate(tpl, n.title).trim();
   }
 
@@ -623,6 +628,7 @@ class Store {
     if (meta.workflows) this.workflows = meta.workflows;
     if (meta.default_template !== undefined) this.defaultTemplate = meta.default_template;
     if (meta.tracking_template !== undefined) this.trackingTemplate = meta.tracking_template;
+    if (meta.note_template !== undefined) this.noteTemplate = meta.note_template;
     if (meta.repos) this.repos = meta.repos;
     if (meta.palette) this.palette = meta.palette;
     if (!meta.git) return false;
@@ -694,7 +700,7 @@ class Store {
       ...init,
     };
     // New notes start from their workflow's template; clones/pastes pass a body.
-    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow, !!note.tracking), note.title);
+    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow, !!note.tracking, !!note.permanent), note.title);
     this.notes.push(note);
     this.#record("create", { id: note.id, before: null, after: $state.snapshot(note) });
     this.save(note.id, true);
@@ -1317,6 +1323,7 @@ class Store {
       workflows: $state.snapshot(this.workflows),
       default_template: this.defaultTemplate,
       tracking_template: this.trackingTemplate,
+      note_template: this.noteTemplate,
       repos: $state.snapshot(this.repos),
       palette: $state.snapshot(this.palette),
       git: { enabled: this.gitEnabled, interval_min: this.gitInterval },

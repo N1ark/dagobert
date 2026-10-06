@@ -226,7 +226,8 @@
         </select>
         <IconButton
           label={t("panel.manageWorkflows")}
-          onclick={() => store.openSettings(note.tracking ? "tracking" : "workflows", note.tracking ? null : note.workflow)}
+          onclick={() =>
+            store.openSettings(note.tracking ? "tracking" : note.permanent ? "note" : "workflows", note.tracking ? null : note.workflow)}
           ><GearSix /></IconButton
         >
         {#if !note.permanent}
