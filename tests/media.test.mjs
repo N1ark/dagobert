@@ -1,6 +1,18 @@
 import assert from "node:assert/strict";
 import { marked } from "marked";
-import { extOf, kindOf, fileExt, parseAlt, embed, stripMedia, firstMedia, assetNames, mediaExtension } from "../src/lib/media.ts";
+import {
+  extOf,
+  kindOf,
+  fileExt,
+  parseAlt,
+  embed,
+  stripMedia,
+  firstMedia,
+  assetNames,
+  mediaExtension,
+  imageCount,
+  galleryRuns,
+} from "../src/lib/media.ts";
 assert.equal(extOf("assets/9f2c1ab3e07d.PNG"), "png");
 assert.equal(extOf("https://x.y/a.jpg?w=2#top"), "jpg");
 assert.equal(extOf("noext"), "");
@@ -33,4 +45,14 @@ assert.match(
   marked.parse("![](assets/a.m4a)", { async: false }),
   /<p><audio src="assets\/a.m4a" controls preload="metadata"><\/audio><\/p>/,
 );
+assert.equal(imageCount("![a](assets/a.png)\n![b|200](assets/b.jpg)"), 2);
+assert.equal(imageCount("![a](assets/a.png) caption"), 0);
+assert.equal(imageCount("![v](assets/v.mov)"), 0);
+assert.equal(imageCount("plain"), 0);
+const img = "![](assets/a.png)";
+const runs = (blocks, skip) => galleryRuns(blocks, skip).map((r) => (r.gallery ? `${r.start}-${r.end}` : `${r.start}`));
+assert.deepEqual(runs(["text", img, img, img, "text", img]), ["0", "1-4", "4", "5"]);
+assert.deepEqual(runs([`${img} ${img}`, "text"]), ["0-1", "1"]);
+assert.deepEqual(runs([img, img, img], 1), ["0", "1", "2"]);
+assert.deepEqual(runs([img, img, img, img], 1), ["0", "1", "2-4"]);
 console.log("media ok");

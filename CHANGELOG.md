@@ -8,6 +8,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
+- Images next to each other in a note lay out as a gallery.
 - A "Note" kind for notes that are just notes: no checkbox, never done, and they don't hold up what depends on them.
 - Due dates, with an optional time: set them from the calendar button in the note panel or from the right-click menu; cards show them and turn red when overdue.
 - A calendar panel (⇧⌘D) with a month view and an agenda; drag a note to another day to reschedule it. The month view scrolls through the weeks and stops at each month, as on macOS.

@@ -104,6 +104,12 @@ block's width; on release `setMediaWidth(block, index, width)` (`editor.ts`, tes
 spans skipped so `index` matches the rendered order) writes `|<width>` into the source, one
 undo step labelled `resizeMedia`. Double-clicking the handle removes it.
 
+Galleries: `galleryRuns` (`media.ts`, tested) groups consecutive image-only blocks holding two
+images or more (the active block breaks a run); `LiveEditor` wraps a run in `.gallery`, whose
+blocks, `.md` and `<p>` are `display: contents`, so every `.media` is a flex item. Each grows by
+its width/height ratio (`--r`, set when the image loads), which makes justified rows; `max-width`
+caps a row that can't fill at 200 px high, and the resize handle is hidden there.
+
 Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
 streams it on the Rust side; a `File` → `save_asset`), which skips unsupported files. Tauri
 swallows HTML5 file drops, so `backend.onFileDrop` uses `onDragDropEvent` (window drag/drop

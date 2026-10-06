@@ -110,3 +110,27 @@ export function firstMedia(text: string): MediaKind | null {
 export function assetNames(text: string): string[] {
   return [...text.matchAll(/assets\/([\w.-]+\.[a-z0-9]+)/gi)].map((m) => m[1]);
 }
+
+/** How many images a block holds when it holds nothing else, else 0. */
+export function imageCount(block: string): number {
+  let n = 0;
+  const rest = block.replace(EMBED_RE, (m, _alt: string, url: string) => ((kindOf(url) ?? "image") === "image" ? (n++, "") : m));
+  return rest.trim() ? 0 : n;
+}
+
+/** Blocks as `[start, end)` runs; consecutive image-only blocks with two images or more make one gallery run. */
+export function galleryRuns(blocks: string[], skip: number | null = null): { start: number; end: number; gallery: boolean }[] {
+  const runs: { start: number; end: number; gallery: boolean }[] = [];
+  for (let i = 0; i < blocks.length;) {
+    let j = i,
+      images = 0;
+    while (j < blocks.length && j !== skip && imageCount(blocks[j])) images += imageCount(blocks[j++]);
+    if (images >= 2) runs.push({ start: i, end: j, gallery: true });
+    else {
+      j = Math.max(j, i + 1);
+      for (let k = i; k < j; k++) runs.push({ start: k, end: k + 1, gallery: false });
+    }
+    i = j;
+  }
+  return runs;
+}

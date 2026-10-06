@@ -14,7 +14,7 @@
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict, insertBlocks } from "./blocks";
-  import { fileExt, kindOf, type MediaDrop } from "./media";
+  import { fileExt, galleryRuns, kindOf, type MediaDrop } from "./media";
 
   /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
   let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
@@ -29,6 +29,8 @@
   const blocks = $derived(splitBlocks(note.body));
   /** Index of the block being edited, or null when everything is rendered. */
   let active = $state<number | null>(null);
+  /** Images next to each other lay out as one gallery; the block being edited breaks it. */
+  const runs = $derived(galleryRuns(blocks, active));
   /** Raw text of the active block while it's being edited. */
   let draft = $state("");
   let mention = $state<{ start: number; query: string; left: number; top: number } | null>(null);
@@ -229,6 +231,13 @@
     const next = [...blocks];
     next[i] = setMediaWidth(blocks[i], index, width);
     setBody(joinBlocks(next), "resizeMedia");
+  }
+
+  /** A gallery sizes each image by its shape, known once it loads. */
+  function onImageLoad(e: Event) {
+    const img = e.target as HTMLElement;
+    if (!(img instanceof HTMLImageElement) || !img.closest(".gallery") || !img.naturalHeight) return;
+    img.parentElement?.style.setProperty("--r", String(img.naturalWidth / img.naturalHeight));
   }
 
   /** Dragging an embed's corner handle resizes it live; the width lands in the source on release. */
@@ -517,27 +526,39 @@
     rows="1"></textarea>
 {/snippet}
 
+{#snippet view(i: number)}
+  {@const block = blocks[i]}
+  {#if active === i}
+    <div class="block editing" class:code={activeIsCode} data-block={i}>
+      {@render input()}
+    </div>
+  {:else if isConflict(block)}
+    <div class="block" data-block={i}>
+      <ConflictBlock {block} onresolve={(keep) => resolve(i, keep)} onedit={(e) => onBlockClick(e, i)} />
+    </div>
+  {:else}
+    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+    <div
+      class="block"
+      data-block={i}
+      onclick={(e) => onBlockClick(e, i)}
+      onpointerdown={(e) => onResizeStart(e, i)}
+      ondblclick={(e) => onResizeReset(e, i)}
+    >
+      <Markdown source={block} />
+    </div>
+  {/if}
+{/snippet}
+
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="live" bind:this={container} onclick={onContainerClick}>
-  {#each blocks as block, i (i)}
-    {#if active === i}
-      <div class="block editing" class:code={activeIsCode} data-block={i}>
-        {@render input()}
-      </div>
-    {:else if isConflict(block)}
-      <div class="block" data-block={i}>
-        <ConflictBlock {block} onresolve={(keep) => resolve(i, keep)} onedit={(e) => onBlockClick(e, i)} />
+<div class="live" bind:this={container} onclick={onContainerClick} onloadcapture={onImageLoad}>
+  {#each runs as run (run.start)}
+    {#if run.gallery}
+      <div class="gallery">
+        {#each blocks.slice(run.start, run.end) as _, k (run.start + k)}{@render view(run.start + k)}{/each}
       </div>
     {:else}
-      <div
-        class="block"
-        data-block={i}
-        onclick={(e) => onBlockClick(e, i)}
-        onpointerdown={(e) => onResizeStart(e, i)}
-        ondblclick={(e) => onResizeReset(e, i)}
-      >
-        <Markdown source={block} />
-      </div>
+      {@render view(run.start)}
     {/if}
   {/each}
   {#if active !== null && active >= blocks.length}
@@ -632,6 +653,35 @@
       transparent 80%
     );
     filter: drop-shadow(0 0 1px #000a);
+  }
+  /* Justified rows: each image grows by its width-to-height ratio, so a row shares one height. */
+  .gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--gap-2);
+    margin: 0.3em 0;
+  }
+  .gallery::after {
+    content: "";
+    flex-grow: 1e4;
+  }
+  .gallery :global(:is(.block, .md, p)) {
+    display: contents;
+  }
+  .gallery :global(.media) {
+    flex: var(--r, 1) 1 calc(var(--r, 1) * 90px);
+    min-width: 0;
+    /* A row that can't fill stops growing at 200px high instead of one huge image. */
+    max-width: calc(var(--r, 1) * 200px);
+  }
+  .gallery :global(.media img) {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+  }
+  .gallery :global(.media .resize) {
+    display: none !important;
   }
   .editing {
     background: color-mix(in srgb, var(--color2) 2.5%, transparent);
