@@ -693,13 +693,15 @@
         {/if}
       </div>
       {#if !isMobile}
-        <input
-          class="field-input search"
-          placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
-          bind:value={query}
-          bind:this={searchEl}
-          onkeydown={onSearchKey}
-        />
+        <span class="search-wrap">
+          <input
+            class="field-input search"
+            placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
+            bind:value={query}
+            bind:this={searchEl}
+            onkeydown={onSearchKey}
+          />
+        </span>
         {#if matches}
           <span class="hint">{plural("toolbar.matches", matches.size)}</span>
         {/if}
@@ -771,14 +773,6 @@
         >
         <IconButton label={t("toolbar.fit")} tip={t("toolbar.fit.tip")} size="lg" class="opt" onclick={() => canvas?.fitAll()}
           ><CornersOut /></IconButton
-        >
-        <!-- Stands in for the buttons a narrow window hides. -->
-        <IconButton
-          label={t("toolbar.more")}
-          tip={{ text: t("toolbar.more"), hint: keys.commands }}
-          size="lg"
-          class="more"
-          onclick={() => openPalette("commands")}><Terminal /></IconButton
         >
         <IconButton
           label={t("toolbar.new")}
@@ -946,10 +940,24 @@
     font-weight: inherit;
     color: var(--color);
   }
-  .search {
-    width: 260px;
+  /* Text the pill can't fit fades out before its right edge instead of being cut. */
+  .search-wrap {
+    position: relative;
+    display: flex;
+    flex: 0 1 260px;
     min-width: 96px;
-    flex: 0 1 auto;
+  }
+  .search-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px auto;
+    width: calc(var(--sp-5) * 3);
+    border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
+    background: linear-gradient(to right, transparent, var(--field-bg));
+    pointer-events: none;
+  }
+  .search {
+    width: 100%;
     padding: var(--sp-1) var(--sp-4);
     border-radius: var(--radius-pill);
   }
@@ -974,9 +982,6 @@
   .stats .dot {
     margin: 0 0.3em;
   }
-  .toolbar :global(.more) {
-    display: none;
-  }
   /* A narrow window drops what the command palette also reaches, least used first. */
   @media (max-width: 940px) {
     .stats .counts {
@@ -993,9 +998,6 @@
     }
     .toolbar :global(.opt) {
       display: none;
-    }
-    .toolbar :global(.more) {
-      display: inline-flex;
     }
   }
   @media (max-width: 620px) {
