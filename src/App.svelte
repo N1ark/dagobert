@@ -240,6 +240,23 @@
     );
   });
 
+  // The search's text fades at the edge only when it doesn't fit.
+  let searchBox = $state<HTMLElement | null>(null);
+  let searchOverflows = $state(false);
+  $effect(() => {
+    const box = searchBox;
+    if (!box) return;
+    void query;
+    const measure = () => {
+      const el = box.querySelector<HTMLElement>(".placeholder") ?? searchEl;
+      searchOverflows = !!el && el.scrollWidth > el.clientWidth + 1;
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+  });
+
   const stats = $derived({
     total: store.notes.filter((n) => !n.permanent).length,
     done: store.notes.filter((n) => store.isDone(n)).length,
@@ -693,14 +710,14 @@
         {/if}
       </div>
       {#if !isMobile}
-        <span class="search-wrap">
-          <input
-            class="field-input search"
-            placeholder={t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}
-            bind:value={query}
-            bind:this={searchEl}
-            onkeydown={onSearchKey}
-          />
+        <!-- WebKit clips a placeholder short of the field's edge, so it's drawn here to fade with the text. -->
+        <span class="field-input search" class:fade={searchOverflows} bind:this={searchBox}>
+          <input aria-label={t("action.search")} bind:value={query} bind:this={searchEl} onkeydown={onSearchKey} />
+          {#if !query}
+            <span class="placeholder" aria-hidden="true"
+              >{t("toolbar.search.placeholder", { search: keys.search, quickOpen: keys["quick-open"] })}</span
+            >
+          {/if}
         </span>
         {#if matches}
           <span class="hint">{plural("toolbar.matches", matches.size)}</span>
@@ -940,28 +957,42 @@
     font-weight: inherit;
     color: var(--color);
   }
-  /* Text the pill can't fit fades out before its right edge instead of being cut. */
-  .search-wrap {
+  /* The pill is the field; the text inside fades out before its edge instead of being cut. */
+  .search {
     position: relative;
     display: flex;
     flex: 0 1 260px;
     min-width: 96px;
-  }
-  .search-wrap::after {
-    content: "";
-    position: absolute;
-    inset: 1px 1px 1px auto;
-    width: calc(var(--sp-5) * 3);
-    border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-    background: linear-gradient(to right, transparent, var(--field-bg));
-    pointer-events: none;
-  }
-  .search {
-    width: 100%;
-    padding: var(--sp-1) var(--sp-4);
+    padding: 0;
     border-radius: var(--radius-pill);
   }
+  .search .placeholder {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding-left: var(--sp-4);
+    overflow: hidden;
+    white-space: pre;
+    color: var(--faint);
+    pointer-events: none;
+  }
+  .search.fade :is(input, .placeholder) {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 5em), #0008 calc(100% - 3em), transparent calc(100% - var(--sp-4)));
+    mask-image: linear-gradient(to right, #000 calc(100% - 5em), #0008 calc(100% - 3em), transparent calc(100% - var(--sp-4)));
+  }
+  .search input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-1) 0 var(--sp-1) var(--sp-4);
+    color: inherit;
+    font: inherit;
+    background: none;
+    border: none;
+    outline: none;
+  }
   .hint {
+    white-space: nowrap;
     font-size: var(--fs-xs);
     color: var(--muted);
   }
