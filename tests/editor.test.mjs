@@ -37,3 +37,16 @@ console.log("editor ok");
   assert.equal(setMediaWidth(b, 5, 10), b, "no such embed");
   console.log("setMediaWidth ok");
 }
+{
+  const { linkToEmbed, embedToLink } = await import("../src/lib/editor.ts");
+  const u = "https://svelte.dev/docs?a=1";
+  assert.equal(linkToEmbed(`See [the docs](${u}) now`, u), `See ![the docs](${u}) now`);
+  assert.equal(linkToEmbed(`See <${u}>`, u), `See ![](${u})`);
+  assert.equal(linkToEmbed(`${u} and ${u}`, u, 1), `${u} and ![](${u})`);
+  assert.equal(linkToEmbed(`![x](${u}) [y](${u})`, u), `![x](${u}) ![y](${u})`, "embeds aren't links");
+  assert.equal(linkToEmbed(`${u}/deeper`, u), `${u}/deeper`, "a longer URL isn't this one");
+  assert.equal(embedToLink(`![the docs](${u})`, u, "Svelte"), `[the docs](${u})`);
+  assert.equal(embedToLink(`![](${u})`, u, "Svelte [docs]"), `[Svelte docs](${u})`);
+  assert.equal(embedToLink(`![](${u}) ![](${u})`, u, null, 1), `![](${u}) <${u}>`);
+  console.log("link embeds ok");
+}

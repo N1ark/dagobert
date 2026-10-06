@@ -12,6 +12,7 @@ import {
   mediaExtension,
   imageCount,
   galleryRuns,
+  isLinkEmbed,
 } from "../src/lib/media.ts";
 assert.equal(extOf("assets/9f2c1ab3e07d.PNG"), "png");
 assert.equal(extOf("https://x.y/a.jpg?w=2#top"), "jpg");
@@ -31,7 +32,11 @@ assert.equal(embed("assets/a.png", "my [1]|x.png"), "![my 1 x.png](assets/a.png)
 assert.equal(stripMedia("see ![d.png|300](assets/a.png) here"), "see  here");
 assert.equal(stripMedia("see ![d.png|300](assets/a.png) here", true), "see d.png here");
 assert.equal(firstMedia("text ![](assets/a.mov)"), "video");
-assert.equal(firstMedia("![](https://x.y/pic)"), "image");
+assert.equal(firstMedia("![](https://x.y/pic)"), null, "a web page is a preview card");
+assert.equal(firstMedia("![](https://x.y/pic) ![](https://x.y/pic.jpg)"), "image");
+assert.equal(isLinkEmbed("https://x.y/pic"), true);
+assert.equal(isLinkEmbed("https://x.y/a.png"), false);
+assert.equal(isLinkEmbed("assets/a"), false);
 assert.equal(firstMedia("[link](a.png)"), null);
 assert.deepEqual(assetNames("![](assets/abc.png) and ![x](assets/d-e.mp3)"), ["abc.png", "d-e.mp3"]);
 marked.use(mediaExtension);

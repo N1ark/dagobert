@@ -3,6 +3,7 @@ mod github;
 #[cfg(target_os = "ios")]
 mod keyboard;
 mod merge;
+mod preview;
 mod state;
 mod store;
 mod symbols;
@@ -374,6 +375,12 @@ fn sf_symbol(names: Vec<String>, point_size: f64) -> tauri::ipc::Response {
     )
 }
 
+/// A web page for a link preview: its final URL, content type and the start of its HTML.
+#[tauri::command]
+async fn link_preview(url: String) -> Result<preview::Page, String> {
+    blocking(move || preview::fetch(&url)).await?
+}
+
 /// Starts the GitHub App device flow; the frontend shows the code and opens the URL.
 #[tauri::command]
 async fn github_signin_start() -> Result<github::DeviceStart, String> {
@@ -447,6 +454,7 @@ pub fn run() {
             save_meta,
             save_local,
             github_signin_start,
+            link_preview,
             github_signin_poll,
             github_refresh,
             sf_symbol,

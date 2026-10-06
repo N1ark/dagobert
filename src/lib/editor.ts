@@ -110,3 +110,24 @@ export function setMediaWidth(block: string, index: number, width: number | null
     return m.replace(`[${alt}]`, `[${next}]`);
   });
 }
+
+const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The `n`-th link to `url` in a block (`[text](url)`, `<url>` or the bare URL) as a preview embed, its text kept as the alt. */
+export function linkToEmbed(block: string, url: string, n = 0): string {
+  const u = reEscape(url);
+  const re = new RegExp(`(?<!!)\\[([^\\]\\n]*)\\]\\(\\s*<?${u}>?(?:\\s+"[^"\\n]*")?\\s*\\)|<${u}>|(?<![\\w(</])${u}(?![\\w/])`, "g");
+  let i = 0;
+  return block.replace(re, (m, text: string | undefined) => (i++ === n ? `![${(text ?? "").replace(/[|]/g, " ")}](${url})` : m));
+}
+
+/** The `n`-th preview embed of `url` back to a link: its alt as the text, else `title`, else the bare URL. */
+export function embedToLink(block: string, url: string, title: string | null, n = 0): string {
+  const re = new RegExp(`!\\[([^\\]\\n]*)\\]\\(\\s*<?${reEscape(url)}>?(?:\\s+"[^"\\n]*")?\\s*\\)`, "g");
+  let i = 0;
+  return block.replace(re, (m, alt: string) => {
+    if (i++ !== n) return m;
+    const text = alt.trim() || title?.replace(/[[\]]/g, "").trim();
+    return text ? `[${text}](${url})` : `<${url}>`;
+  });
+}

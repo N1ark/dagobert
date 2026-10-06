@@ -120,6 +120,19 @@ past its middle), `Canvas` creates a note there named after the first file. "Ins
 `insert-media` event that the selected note's editor takes to insert at the caret; unclaimed,
 `store.appendBlocks` appends.
 
+## Link previews
+
+`![](https://…)` whose URL has no media extension (`isLinkEmbed`) is a preview card rather than an
+image: `Markdown.svelte` adds an `image` renderer that returns `cardHtml(url, previews.get(url))`
+(or the image itself when the page turned out to be one, `isImage`), and `false` for anything
+else so `mediaExtension` takes it. `previews.svelte.ts` fetches each URL once (`link_preview` in
+`preview.rs`: http(s) only, 8 s, read up to the end of `<head>`, at most 2 MB; a stand-in in the
+browser), parses it with `parsePreview` (`og:`, then `twitter:`, then `<title>` / `description` /
+favicon, tested) and keeps the results in localStorage (`dagobert.previews`, 300 newest). A
+fetch starts in a microtask, outside the `$derived` render. Right-clicking a web link in the
+editor offers Open / Copy and "Show as preview" (`linkToEmbed`, its text kept as the alt); on a
+card, "Show as link" (`embedToLink`: the alt, else the page's title, else `<url>`).
+
 ## Templates
 
 `Workflow.template` and `Meta.default_template` (for Todo) are edited in `WorkflowEditor`;

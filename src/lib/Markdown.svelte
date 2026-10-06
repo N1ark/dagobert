@@ -2,12 +2,23 @@
   import { marked } from "marked";
   import DOMPurify from "dompurify";
   import { highlightExtension, highlighterReady, loadHighlighter } from "./highlight";
-  import { mediaExtension } from "./media";
+  import { isLinkEmbed, mediaExtension, mediaHtml } from "./media";
+  import { cardHtml } from "./preview";
+  import { previews } from "./previews.svelte";
   import { backend } from "./backend";
   import { store } from "./store.svelte";
 
   // Once per app: `use` wraps the renderer again on every call.
-  marked.use(highlightExtension, mediaExtension);
+  marked.use(highlightExtension, mediaExtension, {
+    renderer: {
+      // A web page embedded as `![](https://…)` is a preview card, or the image it turns out to be.
+      image({ href, title, text }) {
+        if (!isLinkEmbed(href)) return false;
+        const p = previews.get(href);
+        return p?.isImage ? mediaHtml(href, text, title) : cardHtml(href, p);
+      },
+    },
+  });
 
   // Project media load through the asset protocol, whose URLs DOMPurify's allowlist would drop.
   const MEDIA_TAGS = new Set(["IMG", "VIDEO", "AUDIO", "SOURCE"]);
@@ -27,6 +38,12 @@
 
   let { source }: { source: string } = $props();
 
+  /** A preview card's image or icon that won't load is left out rather than drawn broken. */
+  function hideBroken(e: Event) {
+    const img = e.target;
+    if (img instanceof HTMLImageElement && img.closest(".link-card")) img.style.display = "none";
+  }
+
   let highlighted = $state(highlighterReady());
   // A fence with a language loads the highlighter, then renders again.
   $effect(() => {
@@ -45,7 +62,7 @@
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="md" use:prIcons={() => html} onclick={(e) => onLinkClick(e)}>
+<div class="md" use:prIcons={() => html} onclick={(e) => onLinkClick(e)} onerrorcapture={hideBroken}>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}

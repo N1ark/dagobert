@@ -155,6 +155,10 @@ export default {
   "ctx.group.reallyDelete": "Confirm {n}",
   "ctx.edge": "{from} → {to}",
   "ctx.removeLink": "Remove link",
+  "link.open": "Open link",
+  "link.copy": "Copy link",
+  "link.asPreview": "Show as preview",
+  "link.asLink": "Show as link",
   "ctx.newHere": "New note here",
   "ctx.paste": "Paste",
 
@@ -457,6 +461,8 @@ export default {
   "history.merge": "merge from another machine",
   "history.media": "insert media",
   "history.resizeMedia": "resize media",
+  "history.preview": "show as preview",
+  "history.unpreview": "show as link",
   "history.due": "set due date",
   "history.undue": "remove due date",
 

@@ -8,8 +8,10 @@
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
-  import { matches } from "purr";
-  import { continueList, indent, link, pasteLink, setMediaWidth, toggleWrap, type Sel } from "./editor";
+  import { copyText, matches, menu } from "purr";
+  import { openUrl } from "@tauri-apps/plugin-opener";
+  import { previews } from "./previews.svelte";
+  import { continueList, embedToLink, indent, link, linkToEmbed, pasteLink, setMediaWidth, toggleWrap, type Sel } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
@@ -231,6 +233,31 @@
     const next = [...blocks];
     next[i] = setMediaWidth(blocks[i], index, width);
     setBody(joinBlocks(next), "resizeMedia");
+  }
+
+  /** Right-click on a web link or a preview card: open, copy, or switch between the two. */
+  function onLinkMenu(e: MouseEvent) {
+    const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
+    const el = a?.closest<HTMLElement>("[data-block]");
+    const url = a?.getAttribute("href");
+    if (!a || !el || !url || !/^https?:/.test(url)) return;
+    const i = Number(el.dataset.block);
+    const card = a.classList.contains("link-card");
+    const same = [...el.querySelectorAll("a[href]")].filter(
+      (x) => x.getAttribute("href") === url && x.classList.contains("link-card") === card,
+    );
+    const n = same.indexOf(a);
+    const swap = () => {
+      const next = [...blocks];
+      next[i] = card ? embedToLink(blocks[i], url, previews.get(url)?.title ?? null, n) : linkToEmbed(blocks[i], url, n);
+      setBody(joinBlocks(next), card ? "unpreview" : "preview");
+    };
+    menu.show(e, [
+      { label: t("link.open"), run: () => void openUrl(url).catch(console.error) },
+      { label: t("link.copy"), run: () => void copyText(url) },
+      "separator",
+      { label: t(card ? "link.asLink" : "link.asPreview"), run: swap },
+    ]);
   }
 
   /** A gallery sizes each image by its shape, known once it loads. */
@@ -551,7 +578,7 @@
 {/snippet}
 
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="live" bind:this={container} onclick={onContainerClick} onloadcapture={onImageLoad}>
+<div class="live" bind:this={container} onclick={onContainerClick} onloadcapture={onImageLoad} oncontextmenu={onLinkMenu}>
   {#each runs as run (run.start)}
     {#if run.gallery}
       <div class="gallery">

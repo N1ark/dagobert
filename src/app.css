@@ -43,6 +43,71 @@ body.mobile {
   display: none;
 }
 
+/* A web page embedded as `![](https://…)`: its preview card. */
+.md .link-card {
+  display: flex;
+  max-width: 100%;
+  margin: var(--gap-2) 0;
+  overflow: hidden;
+  color: var(--color);
+  text-decoration: none;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.md .link-card:hover {
+  text-decoration: none;
+  border-color: color-mix(in srgb, var(--theme2) 40%, var(--border));
+}
+.md .link-card .lc-image {
+  flex: none;
+  width: 34%;
+  max-width: 180px;
+  aspect-ratio: 1.6;
+  object-fit: cover;
+  border-radius: 0;
+}
+.md .lc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: var(--gap-3) var(--gap-4);
+  line-height: 1.35;
+}
+.md .lc-title {
+  font-weight: 600;
+  color: var(--color2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.md .lc-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.88em;
+  color: var(--muted);
+}
+.md .lc-site {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-2);
+  margin-top: auto;
+  font-size: 0.8em;
+  color: var(--faint);
+}
+.md .lc-icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+.md .link-card.loading .lc-title {
+  font-weight: 400;
+  color: var(--muted);
+}
+
 /* [[wikilinks]] between notes */
 .wikilink {
   color: var(--theme2);

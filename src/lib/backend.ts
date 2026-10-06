@@ -472,6 +472,17 @@ export const backend = {
 
   // ---- GitHub sign-in --------------------------------------------------------
 
+  /** A web page for a link preview; a browser can't fetch across sites, so it gets a stand-in. */
+  async linkPreview(url: string): Promise<{ url: string; content_type: string; html: string | null }> {
+    if (inTauri) return invoke("link_preview", { url });
+    const host = new URL(url).hostname;
+    return {
+      url,
+      content_type: "text/html",
+      html: `<title>${host}</title><meta name="description" content="What ${host} says about this page, fetched by the app.">`,
+    };
+  },
+
   /** Begins the device flow; the caller shows `user_code` and opens `verification_uri`. */
   async githubSigninStart(): Promise<DeviceStart> {
     if (!inTauri) throw new Error("no-client-id");

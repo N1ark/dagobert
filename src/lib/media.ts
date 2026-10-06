@@ -99,10 +99,15 @@ export function stripMedia(text: string, keepAlt = false): string {
   return text.replace(EMBED_RE, (_, alt: string) => (keepAlt ? parseAlt(alt).alt : ""));
 }
 
-/** The kind of the first embed in `text`, if any. */
+/** A web page embedded as a preview card: a web link with no media extension. */
+export function isLinkEmbed(href: string): boolean {
+  return /^https?:\/\//i.test(href) && !kindOf(href);
+}
+
+/** The kind of the first media embed in `text`, if any; preview cards aren't media. */
 export function firstMedia(text: string): MediaKind | null {
   if (!text.includes("![")) return null;
-  for (const m of text.matchAll(EMBED_RE)) return kindOf(m[2]) ?? "image";
+  for (const m of text.matchAll(EMBED_RE)) if (!isLinkEmbed(m[2])) return kindOf(m[2]) ?? "image";
   return null;
 }
 
