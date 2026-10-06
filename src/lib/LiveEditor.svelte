@@ -41,7 +41,8 @@
 
   const activeIsCode = $derived(isCode(draft));
   // Safari's smart punctuation turns markdown into curly quotes and en-dashes; a phone keyboard needs it for prose.
-  const prose = $derived(isMobile && !activeIsCode);
+  const prose = $derived(!activeIsCode);
+  const autocorrect = $derived(isMobile && prose);
 
   /** Map a keydown to a command, or null. */
   function command(e: KeyboardEvent, s: Sel): Sel | null {
@@ -548,8 +549,8 @@
     onclick={updateMention}
     onblur={() => setTimeout(() => (mention = issue = null), 150)}
     spellcheck={prose}
-    autocapitalize={prose ? "sentences" : "off"}
-    {...{ autocorrect: prose ? "on" : "off" }}
+    autocapitalize={autocorrect ? "sentences" : "off"}
+    {...{ autocorrect: autocorrect ? "on" : "off" }}
     rows="1"></textarea>
 {/snippet}
 
