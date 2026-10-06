@@ -587,6 +587,10 @@
     padding: 10px 16px 4px;
     cursor: text;
   }
+  /* The textarea can't go below 16px on a phone (Safari zooms), so the rendered text matches it. */
+  :global(body.mobile) .live {
+    font-size: 16px;
+  }
   .block {
     position: relative;
     padding: 2px 8px;

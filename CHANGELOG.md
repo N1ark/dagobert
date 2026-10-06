@@ -27,6 +27,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Fixed
 
 - Undo and redo from the command palette work, so they do on the phone too.
+- On the phone, text no longer changes size when you start editing it.
 
 ## [0.11.0] - 2026-09-28
 
