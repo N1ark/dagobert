@@ -306,6 +306,22 @@
     resizeMedia(i, index, null);
   }
 
+  /** A click between a gallery's images edits the nearest one. */
+  function onGalleryClick(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest("[data-block]")) return;
+    const near = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(".media")]
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          el,
+          d: Math.hypot(Math.max(r.left - e.clientX, 0, e.clientX - r.right), Math.max(r.top - e.clientY, 0, e.clientY - r.bottom)),
+        };
+      })
+      .sort((a, b) => a.d - b.d)[0];
+    const i = near?.el.closest<HTMLElement>("[data-block]")?.dataset.block;
+    if (i !== undefined) activate(Number(i), 0);
+  }
+
   function onContainerClick(e: MouseEvent) {
     if (e.target === container) appendBlock();
   }
@@ -582,7 +598,7 @@
 <div class="live" bind:this={container} onclick={onContainerClick} onloadcapture={onImageLoad} oncontextmenu={onLinkMenu}>
   {#each runs as run (run.start)}
     {#if run.gallery}
-      <div class="gallery">
+      <div class="gallery" onclick={onGalleryClick}>
         {#each blocks.slice(run.start, run.end) as _, k (run.start + k)}{@render view(run.start + k)}{/each}
       </div>
     {:else}
@@ -683,11 +699,22 @@
     filter: drop-shadow(0 0 1px #000a);
   }
   /* Justified rows: each image grows by its width-to-height ratio, so a row shares one height. */
+  /* Hovered and padded like a block, since its blocks have no box of their own. */
   .gallery {
     display: flex;
     flex-wrap: wrap;
     gap: var(--gap-2);
-    margin: 0.3em 0;
+    padding: calc(0.3em + 2px) 8px;
+    margin: 0 -8px;
+  }
+  @media (hover: hover) {
+    .gallery:hover {
+      background: color-mix(in srgb, var(--color2) 2%, transparent);
+    }
+    .gallery :global(.media:hover img) {
+      outline: 2px solid color-mix(in srgb, var(--theme2) 60%, transparent);
+      outline-offset: 1px;
+    }
   }
   .gallery::after {
     content: "";

@@ -109,6 +109,8 @@ images or more (the active block breaks a run); `LiveEditor` wraps a run in `.ga
 blocks, `.md` and `<p>` are `display: contents`, so every `.media` is a flex item. Each grows by
 its width/height ratio (`--r`, set when the image loads), which makes justified rows; `max-width`
 caps a row that can't fill at 200 px high, and the resize handle is hidden there.
+The gallery is hovered like a block and outlines the image under the pointer; a click between
+images edits the nearest one (`onGalleryClick`).
 
 Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
 streams it on the Rust side; a `File` → `save_asset`), which skips unsupported files. Tauri
