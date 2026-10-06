@@ -13,6 +13,7 @@ import {
   imageCount,
   galleryRuns,
   isLinkEmbed,
+  galleryHeight,
 } from "../src/lib/media.ts";
 assert.equal(extOf("assets/9f2c1ab3e07d.PNG"), "png");
 assert.equal(extOf("https://x.y/a.jpg?w=2#top"), "jpg");
@@ -24,10 +25,12 @@ assert.equal(kindOf("a.pdf"), null);
 assert.equal(fileExt({ name: "image", type: "image/jpeg" }), "jpg");
 assert.equal(fileExt({ name: "", type: "image/svg+xml" }), "svg");
 assert.equal(fileExt({ name: "Shot.PNG", type: "image/png" }), "png");
-assert.deepEqual(parseAlt("diagram.png|300"), { alt: "diagram.png", width: 300 });
-assert.deepEqual(parseAlt("|300x200"), { alt: "", width: 300 });
-assert.deepEqual(parseAlt("a | b"), { alt: "a | b", width: null });
-assert.deepEqual(parseAlt("plain"), { alt: "plain", width: null });
+assert.deepEqual(parseAlt("diagram.png|300"), { alt: "diagram.png", width: 300, height: null });
+assert.deepEqual(parseAlt("|300x200"), { alt: "", width: 300, height: 200 });
+assert.deepEqual(parseAlt("moodboard|x160"), { alt: "moodboard", width: null, height: 160 });
+assert.deepEqual(parseAlt("a | b"), { alt: "a | b", width: null, height: null });
+assert.deepEqual(parseAlt("plain|"), { alt: "plain|", width: null, height: null });
+assert.deepEqual(parseAlt("plain"), { alt: "plain", width: null, height: null });
 assert.equal(embed("assets/a.png", "my [1]|x.png"), "![my 1 x.png](assets/a.png)");
 assert.equal(stripMedia("see ![d.png|300](assets/a.png) here"), "see  here");
 assert.equal(stripMedia("see ![d.png|300](assets/a.png) here", true), "see d.png here");
@@ -61,4 +64,6 @@ assert.deepEqual(runs(["text", img, img, img, "text", img]), ["0", "1-4", "4", "
 assert.deepEqual(runs([`${img} ${img}`, "text"]), ["0-1", "1"]);
 assert.deepEqual(runs([img, img, img], 1), ["0", "1", "2"]);
 assert.deepEqual(runs([img, img, img, img], 1), ["0", "1", "2-4"]);
+assert.equal(galleryHeight("![a|x160](assets/a.png)\n![b|x90](assets/b.png)"), 160);
+assert.equal(galleryHeight("![a|300](assets/a.png)"), null);
 console.log("media ok");

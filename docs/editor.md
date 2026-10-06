@@ -107,8 +107,12 @@ undo step labelled `resizeMedia`. Double-clicking the handle removes it.
 Galleries: `galleryRuns` (`media.ts`, tested) groups consecutive image-only blocks holding two
 images or more (the active block breaks a run); `LiveEditor` wraps a run in `.gallery`, whose
 blocks, `.md` and `<p>` are `display: contents`, so every `.media` is a flex item. Each grows by
-its width/height ratio (`--r`, set when the image loads), which makes justified rows; `max-width`
-caps a row that can't fill at 200 px high, and the resize handle is hidden there.
+its width/height ratio (`--r`, set when the image loads) from a base height (`--gallery-row`,
+90 px), which makes justified rows; `max-width` caps a row that can't fill at 2.2× that. The
+corner handle on any of its images sets the base height for the whole gallery (`resizeGallery`),
+kept on its first image as `|x<height>` (`setMediaHeight`, `galleryHeight`; `parseAlt` reads the
+height, which nothing else uses). A second press on any handle resets it (`resetSize`): the
+first press's pointer capture keeps a real `dblclick` from arriving.
 The gallery is hovered like a block and outlines the image under the pointer; a click between
 images edits the nearest one (`onGalleryClick`).
 Clicking an image opens it full screen in purr's `Lightbox`, with the note's other images a step

@@ -1,5 +1,5 @@
 /** Pure text-editing commands for the markdown textarea. */
-import { EMBED_RE, parseAlt } from "./media.ts";
+import { EMBED_RE, parseAlt, sizeSuffix } from "./media.ts";
 
 export interface Sel {
   text: string;
@@ -101,14 +101,26 @@ export function indent(s: Sel, out: boolean): Sel {
 /** Code spans first, so embeds inside them are skipped; the embed's alt is group 2. */
 const EMBED_OR_CODE = new RegExp("(`+)[^`]*?\\1|" + EMBED_RE.source, "g");
 
-/** Sets (or with null removes) the `|width` of the `index`-th embed in a block, as rendered. */
-export function setMediaWidth(block: string, index: number, width: number | null): string {
+/** Sets (or with null removes) the width or height of the `index`-th embed in a block, as rendered, keeping the other. */
+function setMediaSize(block: string, index: number, size: { width?: number | null; height?: number | null }): string {
   let n = -1;
   return block.replace(EMBED_OR_CODE, (m, code: string | undefined, alt: string) => {
     if (code !== undefined || ++n !== index) return m;
-    const next = parseAlt(alt).alt + (width ? `|${width}` : "");
+    const now = parseAlt(alt);
+    const next =
+      now.alt + sizeSuffix(size.width !== undefined ? size.width : now.width, size.height !== undefined ? size.height : now.height);
     return m.replace(`[${alt}]`, `[${next}]`);
   });
+}
+
+/** Sets (or with null removes) the `|width` of the `index`-th embed in a block, as rendered. */
+export function setMediaWidth(block: string, index: number, width: number | null): string {
+  return setMediaSize(block, index, { width });
+}
+
+/** Sets (or with null removes) the `|x…` height of the `index`-th embed: a gallery's row height when it's the first. */
+export function setMediaHeight(block: string, index: number, height: number | null): string {
+  return setMediaSize(block, index, { height });
 }
 
 const reEscape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

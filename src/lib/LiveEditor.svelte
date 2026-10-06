@@ -11,12 +11,23 @@
   import { copyText, Lightbox, matches, menu, type LightboxItem } from "purr";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { previews } from "./previews.svelte";
-  import { continueList, embedToLink, indent, link, linkToEmbed, pasteLink, setMediaWidth, toggleWrap, type Sel } from "./editor";
+  import {
+    continueList,
+    embedToLink,
+    indent,
+    link,
+    linkToEmbed,
+    pasteLink,
+    setMediaHeight,
+    setMediaWidth,
+    toggleWrap,
+    type Sel,
+  } from "./editor";
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
   import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict, insertBlocks } from "./blocks";
-  import { fileExt, galleryRuns, kindOf, type MediaDrop } from "./media";
+  import { fileExt, galleryHeight, galleryRuns, kindOf, type MediaDrop } from "./media";
 
   /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
   let { note, oncreatelink }: { note: Note; oncreatelink: (title: string) => void } = $props();
@@ -29,6 +40,10 @@
   let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
 
   const blocks = $derived(splitBlocks(note.body));
+  /** A gallery row's base height, unless its first image sets one. */
+  const GALLERY_ROW = 90;
+  /** A gallery's row height while its handle is dragged, by the gallery's first block. */
+  let rowDrag = $state<{ first: number; height: number } | null>(null);
   /** Index of the block being edited, or null when everything is rendered. */
   let active = $state<number | null>(null);
   /** Images next to each other lay out as one gallery; the block being edited breaks it. */
@@ -281,6 +296,8 @@
     img.parentElement?.style.setProperty("--r", String(img.naturalWidth / img.naturalHeight));
   }
 
+  let lastHandleDown = 0;
+
   /** Dragging an embed's corner handle resizes it live; the width lands in the source on release. */
   function onResizeStart(e: PointerEvent, i: number) {
     const handle = (e.target as HTMLElement).closest<HTMLElement>(".resize");
@@ -290,6 +307,15 @@
     if (!handle || !wrap || !media || e.button !== 0) return;
     e.preventDefault();
     e.stopPropagation();
+    // A second press on the handle resets: the first one's pointer capture keeps `dblclick` from coming.
+    const now = performance.now();
+    if (now - lastHandleDown < 400) {
+      lastHandleDown = 0;
+      return resetSize(i, block, wrap);
+    }
+    lastHandleDown = now;
+    const gallery = wrap.closest<HTMLElement>(".gallery");
+    if (gallery) return resizeGallery(e, handle, gallery, media);
     const index = [...block.querySelectorAll(".media")].indexOf(wrap);
     const max = block.querySelector(".md")?.clientWidth ?? Infinity;
     const start = media.getBoundingClientRect().width;
@@ -311,12 +337,44 @@
     handle.addEventListener("pointercancel", end);
   }
 
-  /** Double-clicking the handle goes back to the natural size. */
-  function onResizeReset(e: MouseEvent, i: number) {
-    const wrap = (e.target as HTMLElement).closest(".resize")?.parentElement;
-    if (!wrap) return;
-    const index = [...(e.currentTarget as HTMLElement).querySelectorAll(".media")].indexOf(wrap);
-    resizeMedia(i, index, null);
+  /** In a gallery the handle sets the row height for all of it, kept on its first image as `|x…`. */
+  function resizeGallery(e: PointerEvent, handle: HTMLElement, gallery: HTMLElement, media: HTMLElement) {
+    const first = Number(gallery.querySelector<HTMLElement>("[data-block]")?.dataset.block);
+    const start = galleryHeight(blocks[first]) ?? GALLERY_ROW;
+    const seen = media.getBoundingClientRect().height;
+    const y0 = e.clientY;
+    let height = start;
+    handle.setPointerCapture(e.pointerId);
+    // Rows grow past their base height to fill the width, so the drag scales by what's on screen.
+    const move = (ev: PointerEvent) => {
+      height = Math.round(Math.max(40, Math.min(400, (start * (seen + ev.clientY - y0)) / seen)));
+      rowDrag = { first, height };
+    };
+    const end = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", end);
+      handle.removeEventListener("pointercancel", end);
+      rowDrag = null;
+      if (height === start) return;
+      const next = [...blocks];
+      next[first] = setMediaHeight(blocks[first], 0, height);
+      setBody(joinBlocks(next), "resizeMedia");
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", end);
+    handle.addEventListener("pointercancel", end);
+  }
+
+  /** Back to the natural size (a gallery's default row height). */
+  function resetSize(i: number, block: HTMLElement, wrap: HTMLElement) {
+    const gallery = wrap.closest<HTMLElement>(".gallery");
+    if (gallery) {
+      const first = Number(gallery.querySelector<HTMLElement>("[data-block]")?.dataset.block);
+      const next = [...blocks];
+      next[first] = setMediaHeight(blocks[first], 0, null);
+      return setBody(joinBlocks(next), "resizeMedia");
+    }
+    resizeMedia(i, [...block.querySelectorAll(".media")].indexOf(wrap), null);
   }
 
   /** A click between a gallery's images edits the nearest one. */
@@ -595,13 +653,7 @@
     </div>
   {:else}
     <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-    <div
-      class="block"
-      data-block={i}
-      onclick={(e) => onBlockClick(e, i)}
-      onpointerdown={(e) => onResizeStart(e, i)}
-      ondblclick={(e) => onResizeReset(e, i)}
-    >
+    <div class="block" data-block={i} onclick={(e) => onBlockClick(e, i)} onpointerdown={(e) => onResizeStart(e, i)}>
       <Markdown source={block} />
     </div>
   {/if}
@@ -611,7 +663,9 @@
 <div class="live" bind:this={container} onclick={onContainerClick} onloadcapture={onImageLoad} oncontextmenu={onLinkMenu}>
   {#each runs as run (run.start)}
     {#if run.gallery}
-      <div class="gallery" onclick={onGalleryClick}>
+      {@const rowH = galleryHeight(blocks[run.start])}
+      {@const h = rowDrag?.first === run.start ? rowDrag.height : rowH}
+      <div class="gallery" style:--gallery-row={h ? `${h}px` : null} onclick={onGalleryClick}>
         {#each blocks.slice(run.start, run.end) as _, k (run.start + k)}{@render view(run.start + k)}{/each}
       </div>
     {:else}
@@ -752,19 +806,16 @@
     display: contents;
   }
   .gallery :global(.media) {
-    flex: var(--r, 1) 1 calc(var(--r, 1) * 90px);
+    flex: var(--r, 1) 1 calc(var(--r, 1) * var(--gallery-row, 90px));
     min-width: 0;
-    /* A row that can't fill stops growing at 200px high instead of one huge image. */
-    max-width: calc(var(--r, 1) * 200px);
+    /* A row that can't fill stops growing at about twice its base height instead of one huge image. */
+    max-width: calc(var(--r, 1) * var(--gallery-row, 90px) * 2.2);
   }
   .gallery :global(.media img) {
     display: block;
     width: 100%;
     height: auto;
     border-radius: var(--radius-sm);
-  }
-  .gallery :global(.media .resize) {
-    display: none !important;
   }
   .editing {
     background: color-mix(in srgb, var(--color2) 2.5%, transparent);

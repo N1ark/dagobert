@@ -49,10 +49,17 @@ export function fileExt(file: { name: string; type: string }): string {
   return extOf(file.name) || (file.type.split("/")[1] ?? "").replace("jpeg", "jpg").replace("svg+xml", "svg");
 }
 
-/** `alt|300` or `alt|300x200` (Obsidian's syntax) → the alt text and a width; height is ignored. */
-export function parseAlt(text: string): { alt: string; width: number | null } {
-  const m = /^(.*?)\s*\|\s*(\d+)(?:x\d+)?\s*$/.exec(text);
-  return m ? { alt: m[1], width: Number(m[2]) || null } : { alt: text, width: null };
+/** `alt|300`, `alt|300x200` (Obsidian's syntax) or `alt|x200` → the alt text and a size; only a gallery reads the height. */
+export function parseAlt(text: string): { alt: string; width: number | null; height: number | null } {
+  const m = /^(.*?)\s*\|\s*(\d+)?(?:x(\d+))?\s*$/.exec(text);
+  if (!m || (!m[2] && !m[3])) return { alt: text, width: null, height: null };
+  return { alt: m[1], width: Number(m[2]) || null, height: Number(m[3]) || null };
+}
+
+/** The `|300`, `|300x200` or `|x200` an alt text ends with for a size. */
+export function sizeSuffix(width: number | null, height: number | null): string {
+  if (!width && !height) return "";
+  return `|${width ?? ""}${height ? `x${height}` : ""}`;
 }
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -140,4 +147,10 @@ export function galleryRuns(blocks: string[], skip: number | null = null): { sta
     i = j;
   }
   return runs;
+}
+
+/** A gallery's row height: the `|x…` of its first image, if it has one. */
+export function galleryHeight(block: string): number | null {
+  for (const m of block.matchAll(EMBED_RE)) return parseAlt(m[1]).height;
+  return null;
 }

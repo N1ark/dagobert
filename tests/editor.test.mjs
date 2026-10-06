@@ -28,11 +28,13 @@ console.log("editor ok");
   console.log("pasteLink ok");
 }
 {
-  const { setMediaWidth } = await import("../src/lib/editor.ts");
+  const { setMediaWidth, setMediaHeight } = await import("../src/lib/editor.ts");
   const b = '![a](assets/x.png) `![c](d.png)` ![b|90x40](assets/y.mp4 "t")';
   assert.equal(setMediaWidth(b, 0, 320), '![a|320](assets/x.png) `![c](d.png)` ![b|90x40](assets/y.mp4 "t")');
-  assert.equal(setMediaWidth(b, 1, 200), '![a](assets/x.png) `![c](d.png)` ![b|200](assets/y.mp4 "t")');
-  assert.equal(setMediaWidth(b, 1, null), '![a](assets/x.png) `![c](d.png)` ![b](assets/y.mp4 "t")');
+  assert.equal(setMediaWidth(b, 1, 200), '![a](assets/x.png) `![c](d.png)` ![b|200x40](assets/y.mp4 "t")', "keeps the height");
+  assert.equal(setMediaWidth(b, 1, null), '![a](assets/x.png) `![c](d.png)` ![b|x40](assets/y.mp4 "t")');
+  assert.equal(setMediaHeight(b, 0, 160), '![a|x160](assets/x.png) `![c](d.png)` ![b|90x40](assets/y.mp4 "t")');
+  assert.equal(setMediaHeight("![a|300x160](x.png)", 0, null), "![a|300](x.png)");
   assert.equal(setMediaWidth("![|300](x.png)", 0, null), "![](x.png)");
   assert.equal(setMediaWidth(b, 5, 10), b, "no such embed");
   console.log("setMediaWidth ok");
