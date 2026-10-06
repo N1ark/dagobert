@@ -8,7 +8,7 @@
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
   import type { IssueRef } from "./github";
-  import { copyText, matches, menu } from "purr";
+  import { copyText, Lightbox, matches, menu, type LightboxItem } from "purr";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { previews } from "./previews.svelte";
   import { continueList, embedToLink, indent, link, linkToEmbed, pasteLink, setMediaWidth, toggleWrap, type Sel } from "./editor";
@@ -214,8 +214,21 @@
     return at >= 0 ? at : raw.length;
   }
 
+  /** The note's images, open in the viewer at `viewing`. */
+  let viewer = $state<{ items: LightboxItem[]; index: number } | null>(null);
+
+  /** A click on an image shows it full screen, with the note's other images a step away; ⌥ edits it instead. */
+  function viewImage(e: MouseEvent): boolean {
+    const img = e.target;
+    if (!(img instanceof HTMLImageElement) || !img.closest(".media") || e.altKey || !container) return false;
+    const all = [...container.querySelectorAll<HTMLImageElement>(".media img")];
+    viewer = { items: all.map((el) => ({ src: el.currentSrc || el.src, kind: "image", alt: el.alt })), index: all.indexOf(img) };
+    return true;
+  }
+
   function onBlockClick(e: MouseEvent, i: number) {
     const target = e.target as HTMLElement;
+    if (viewImage(e)) return;
     // Links are handled by <Markdown>; players keep their own clicks.
     if (target.closest("a, .resize, video, audio")) return;
     if (target instanceof HTMLInputElement && target.type === "checkbox") {
@@ -308,7 +321,7 @@
 
   /** A click between a gallery's images edits the nearest one. */
   function onGalleryClick(e: MouseEvent) {
-    if ((e.target as HTMLElement).closest("[data-block]")) return;
+    if ((e.target as HTMLElement).closest("[data-block]") || viewImage(e)) return;
     const near = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(".media")]
       .map((el) => {
         const r = el.getBoundingClientRect();
@@ -644,6 +657,18 @@
   <div class="tail" onclick={() => appendBlock()}></div>
 </div>
 
+{#if viewer}
+  <Lightbox
+    items={viewer.items}
+    bind:index={viewer.index}
+    onclose={() => (viewer = null)}
+    label={t("gallery.viewer")}
+    closeLabel={t("pane.close")}
+    previousLabel={t("gallery.previous")}
+    nextLabel={t("gallery.next")}
+  />
+{/if}
+
 <style>
   .live {
     position: relative;
@@ -671,6 +696,9 @@
   }
   .block :global(.md > :last-child) {
     margin-bottom: 0.3em;
+  }
+  .block :global(.media img) {
+    cursor: zoom-in;
   }
   .block :global(.md input[type="checkbox"]) {
     pointer-events: auto;

@@ -8,6 +8,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
+- Click an image in a note to see it full screen; ← and → step through the note's other images, ⌥-click edits it.
 - Links can show as a preview card with the page's title, description and image: right-click a link in a note and pick "Show as preview".
 - Images next to each other in a note lay out as a gallery.
 - A "Note" kind for notes that are just notes: no checkbox, never done, and they don't hold up what depends on them.

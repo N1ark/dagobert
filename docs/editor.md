@@ -111,6 +111,8 @@ its width/height ratio (`--r`, set when the image loads), which makes justified 
 caps a row that can't fill at 200 px high, and the resize handle is hidden there.
 The gallery is hovered like a block and outlines the image under the pointer; a click between
 images edits the nearest one (`onGalleryClick`).
+Clicking an image opens it full screen in purr's `Lightbox`, with the note's other images a step
+away (`viewImage`); ⌥-click edits its block instead.
 
 Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
 streams it on the Rust side; a `File` → `save_asset`), which skips unsupported files. Tauri
