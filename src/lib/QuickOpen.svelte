@@ -38,7 +38,7 @@
       .filter((n) => !tag || n.tags.some((x) => x.toLowerCase().startsWith(tag)))
       .sort((a, b) => b.modified.localeCompare(a.modified))
       .map((note): Item => ({ id: note.id, label: note.title || t("app.untitled"), note }));
-    const hits = rank(notes, text, { keys: [(i) => i.label], limit: 10 });
+    const hits = rank(notes, text, { keys: [(i) => i.label] });
     const exact = hits.some((h) => h.item.note!.title.trim().toLowerCase() === text.toLowerCase());
     if (text && !tag && !exact)
       hits.push({ item: { id: "create", label: t("quick.create", { title: text }), create: text }, score: 0, field: 0, indices: [] });
