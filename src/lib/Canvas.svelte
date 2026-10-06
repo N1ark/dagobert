@@ -852,8 +852,21 @@
   let wheelQueue: { dx: number; dy: number; zoom: boolean; cx: number; cy: number }[] = [];
   let wheelRaf = 0;
 
+  /**
+   * A scroll gesture belongs to where it started: momentum from a list in a popup that has since
+   * closed lands on the canvas, but mustn't pan it. Events closer than this are one gesture.
+   */
+  const WHEEL_GAP = 120;
+  let wheelAt = -Infinity;
+  let wheelOurs = true;
+  function noteWheel(e: WheelEvent) {
+    if (e.timeStamp - wheelAt > WHEEL_GAP) wheelOurs = container.contains(e.target as Node);
+    wheelAt = e.timeStamp;
+  }
+
   function onWheel(e: WheelEvent) {
     e.preventDefault();
+    if (!wheelOurs) return;
     stopGlide();
     wheelQueue.push({ dx: e.deltaX, dy: e.deltaY, zoom: e.ctrlKey || e.metaKey, cx: e.clientX, cy: e.clientY });
     if (!wheelRaf) wheelRaf = requestAnimationFrame(applyWheel);
@@ -971,6 +984,7 @@
     window.addEventListener("pointercancel", forgetPointer, true);
     window.addEventListener("blur", forgetAll);
     document.addEventListener("visibilitychange", forgetAll);
+    window.addEventListener("wheel", noteWheel, { capture: true, passive: true });
     container.addEventListener("wheel", onWheel, { passive: false });
     if (isMobile) {
       container.addEventListener("gesturestart", stopGesture);
@@ -982,6 +996,7 @@
       cancelAnimationFrame(gestureRaf);
       stopGlide();
       container.removeEventListener("wheel", onWheel);
+      window.removeEventListener("wheel", noteWheel, true);
       container.removeEventListener("gesturestart", stopGesture);
       container.removeEventListener("gesturechange", stopGesture);
       window.removeEventListener("keydown", onKeyDown);

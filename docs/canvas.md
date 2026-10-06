@@ -23,6 +23,9 @@ Performance rules (profile in Safari, not Chrome — Chrome is fine either way):
   pans / pinches and node drags / resizes / marquees likewise (`scheduleGesture`,
   `applyMove`): input fires far more often than the display
   refreshes, and WebKit re-flushes style and hit-tests the world after each event.
+- A wheel gesture belongs to where it started (`noteWheel`, a window capture listener: events
+  less than `WHEEL_GAP` apart are one gesture), so momentum from a list in a popup that closes
+  mid-scroll doesn't pan the canvas.
 - `.world` carries `will-change: transform` so it's a compositor layer from the start
   (otherwise WebKit promotes it mid-gesture with a ~65 ms hitch), and its transform is
   inline rather than via custom properties on `.canvas` (changing an inherited property

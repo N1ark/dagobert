@@ -33,6 +33,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Fixed
 
+- Scrolling a list in a popup and closing it mid-scroll no longer sends the leftover momentum to the canvas.
 - Undo and redo from the command palette work, so they do on the phone too.
 - On the phone, text no longer changes size when you start editing it.
 - Spellcheck in notes, and autocorrect on the phone (not in code blocks).
