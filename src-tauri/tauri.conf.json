@@ -15,7 +15,7 @@
         "title": "Dagobert",
         "width": 1280,
         "height": 800,
-        "minWidth": 800,
+        "minWidth": 480,
         "minHeight": 500,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true

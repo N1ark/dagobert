@@ -711,17 +711,21 @@
         >
       {/if}
       <span class="stats" class:hide={isMobile} title={t("toolbar.stats.title")}>
-        <span class="ready">{t("toolbar.stats.ready", { n: stats.ready })}</span> · {t("toolbar.stats.done", {
-          done: stats.done,
-          total: stats.total,
-        })}
+        <span class="counts"
+          ><span class="ready">{t("toolbar.stats.ready", { n: stats.ready })}</span> · {t("toolbar.stats.done", {
+            done: stats.done,
+            total: stats.total,
+          })}</span
+        >
         {#if stats.overdue}
-          · <button class="btn btn--link overdue" onclick={() => (showCalendar = true)} use:tooltip={t("toolbar.stats.overdue.tip")}
+          <span class="dot">·</span>
+          <button class="btn btn--link overdue" onclick={() => (showCalendar = true)} use:tooltip={t("toolbar.stats.overdue.tip")}
             >{t("toolbar.stats.overdue", { n: stats.overdue })}</button
           >
         {/if}
         {#if store.conflictIds.size}
-          · <button class="btn btn--link conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
+          <span class="dot">·</span>
+          <button class="btn btn--link conflicts" onclick={() => store.nextConflict()} use:tooltip={t("toolbar.conflicts.tip")}
             ><Warning weight="fill" /> {store.conflictIds.size}</button
           >
         {/if}
@@ -742,11 +746,12 @@
         <IconButton label={t("minimap.toggle")} size="lg" pressed={minimap.open} onclick={toggleMinimap}><MapTrifold /></IconButton>
         <IconButton label={t("toolbar.more")} size="lg" onclick={() => openPalette("commands")}><Terminal /></IconButton>
       {:else}
-        <IconButton label={t("toolbar.trash")} size="lg" onclick={() => (showTrash = true)}><Trash /></IconButton>
+        <IconButton label={t("toolbar.trash")} size="lg" class="opt" onclick={() => (showTrash = true)}><Trash /></IconButton>
         <IconButton
           label={t("toolbar.calendar")}
           shortcut={keys.calendar}
           size="lg"
+          class="opt-narrow"
           pressed={showCalendar}
           onclick={() => (showCalendar = !showCalendar)}><CalendarBlank /></IconButton
         >
@@ -754,17 +759,26 @@
           label={t("toolbar.prs")}
           tip={{ text: t("toolbar.prs.tip"), hint: keys.prs }}
           size="lg"
+          class="opt-narrow"
           pressed={showPRs}
           onclick={togglePRs}><GitPullRequest /></IconButton
         >
-        <IconButton label={t("toolbar.focus")} tip={t("toolbar.focus.tip")} size="lg" pressed={focus} onclick={toggleFocus}
+        <IconButton label={t("toolbar.focus")} tip={t("toolbar.focus.tip")} size="lg" class="opt" pressed={focus} onclick={toggleFocus}
           ><Crosshair /></IconButton
         >
-        <IconButton label={t("toolbar.tidy")} tip={t("toolbar.tidy.tip")} size="lg" onclick={() => canvas?.tidy()}
+        <IconButton label={t("toolbar.tidy")} tip={t("toolbar.tidy.tip")} size="lg" class="opt" onclick={() => canvas?.tidy()}
           ><TreeStructure /></IconButton
         >
-        <IconButton label={t("toolbar.fit")} tip={t("toolbar.fit.tip")} size="lg" onclick={() => canvas?.fitAll()}
+        <IconButton label={t("toolbar.fit")} tip={t("toolbar.fit.tip")} size="lg" class="opt" onclick={() => canvas?.fitAll()}
           ><CornersOut /></IconButton
+        >
+        <!-- Stands in for the buttons a narrow window hides. -->
+        <IconButton
+          label={t("toolbar.more")}
+          tip={{ text: t("toolbar.more"), hint: keys.commands }}
+          size="lg"
+          class="more"
+          onclick={() => openPalette("commands")}><Terminal /></IconButton
         >
         <IconButton
           label={t("toolbar.new")}
@@ -934,6 +948,8 @@
   }
   .search {
     width: 260px;
+    min-width: 96px;
+    flex: 0 1 auto;
     padding: var(--sp-1) var(--sp-4);
     border-radius: var(--radius-pill);
   }
@@ -948,9 +964,44 @@
     display: none;
   }
   .stats {
+    display: flex;
+    align-items: center;
     font-size: var(--fs-xs);
     color: var(--muted);
+    white-space: nowrap;
     margin-right: var(--gap-2);
+  }
+  .stats .dot {
+    margin: 0 0.3em;
+  }
+  .toolbar :global(.more) {
+    display: none;
+  }
+  /* A narrow window drops what the command palette also reaches, least used first. */
+  @media (max-width: 940px) {
+    .stats .counts {
+      display: none;
+    }
+    .stats .counts + .dot {
+      display: none;
+    }
+  }
+  @media (max-width: 900px) {
+    .logo,
+    .sep {
+      display: none;
+    }
+    .toolbar :global(.opt) {
+      display: none;
+    }
+    .toolbar :global(.more) {
+      display: inline-flex;
+    }
+  }
+  @media (max-width: 620px) {
+    .toolbar :global(.opt-narrow) {
+      display: none;
+    }
   }
   .stats .ready {
     color: var(--theme2);

@@ -13,6 +13,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- The window can be made much narrower: the toolbar drops the counts, then the less used buttons (still in the command palette).
 - A refreshed look shared with N1ark's other apps: buttons, fields, menus, dialogs, toasts and tooltips, with Inter and Fira Code built in.
 - Menus walk with the arrow keys and jump to the item you type; tag toggles leave the menu open.
 - Deleting from the note panel, the trash or the media panel takes a second press instead of a Cancel button.
