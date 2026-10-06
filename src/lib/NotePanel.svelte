@@ -278,6 +278,7 @@
               value={due.time}
               label={t("panel.due.time")}
               noneLabel={t("panel.due.noTime")}
+              placeholder={t("panel.due.typeTime")}
               onpick={(time) => {
                 store.setDue(note.id, joinDue(due.date, time));
                 picker = null;

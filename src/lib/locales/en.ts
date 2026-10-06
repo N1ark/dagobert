@@ -180,6 +180,7 @@ export default {
   "panel.due.clear": "Remove due date",
   "panel.due.set": "Set a due date",
   "panel.due.noTime": "No time",
+  "panel.due.typeTime": "Type a time",
   "panel.due.late.one": "{n} dependency is due after this note",
   "panel.due.late.other": "{n} dependencies are due after this note",
   "panel.tag.color": "Change colour",
