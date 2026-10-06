@@ -1166,6 +1166,9 @@ class Store {
     if (!(await backend.openNoteWindow(this.path, id, n.title))) {
       this.select(id);
       this.sheetFull = true;
+    } else if (this.selectedId === id && !this.isEmpty(n)) {
+      // It moves to the window rather than showing in two places; an empty one would be discarded.
+      this.select(null);
     }
   }
 
