@@ -2,6 +2,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
+import { setTheme as setAppTheme } from "@tauri-apps/api/app";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
@@ -548,6 +549,21 @@ export const backend = {
   async openExternal(url: string) {
     if (!inTauri) window.open(url, "_blank");
     else await openUrl(url);
+  },
+
+  /** The native chrome's appearance (title bar, menus), app-wide; `system` follows macOS. */
+  setAppTheme(mode: "system" | "light" | "dark") {
+    if (inTauri && !isMobile) setAppTheme(mode === "system" ? null : mode).catch(console.error);
+  },
+
+  /** Tells every window the appearance changed; each re-reads it from localStorage. */
+  announceAppearance() {
+    if (inTauri) emit("dagobert-appearance").catch(console.error);
+  },
+
+  onAppearance(cb: () => void): () => void {
+    if (!inTauri) return () => {};
+    return on("dagobert-appearance", cb);
   },
 
   setWindowTitle(title: string) {

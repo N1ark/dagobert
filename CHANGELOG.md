@@ -17,6 +17,7 @@ All notable changes to Dagobert are documented here. The format follows
 - A "Checklist" kind: a note holding a task list, done once every item is ticked. Its card shows the progress and the next items, tickable right there; its template is in Settings → Checklist.
 - A "Note" kind for notes that are just notes: no checkbox, never done, and they don't hold up what depends on them. Its template is in Settings → Note.
 - Due dates, with an optional time: set them from the calendar button in the note panel or from the right-click menu; cards show them and turn red when overdue.
+- Settings → Appearance: a light theme (or follow the system), an accent colour, and how faded completed notes look on the canvas.
 - A calendar panel (⇧⌘D) with a month view and an agenda; drag a note to another day to reschedule it. The month view scrolls through the weeks and stops at each month, as on macOS.
 
 ### Changed

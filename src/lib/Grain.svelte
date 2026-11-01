@@ -2,7 +2,8 @@
   /** Decorative WebGL film grain and node haloes; drawing lives in grainGL.ts (docs/canvas.md). */
   import { onMount } from "svelte";
   import { createGrain, MAX_CURVES, MAX_RECTS, type GrainFrame, type GrainRenderer } from "./grainGL";
-  import { parseColor } from "purr";
+  import { liveTheme, parseColor } from "purr";
+  import { appearance } from "./appearance.svelte";
 
   export type Rect = { id: string; x: number; y: number; w: number; h: number };
   type Pt = { x: number; y: number };
@@ -51,6 +52,8 @@
     bg: { x: 0, y: 0, zoom: 1 },
     grid: { radius: 1.3, alpha: 1 },
     tint: [0.69, 0.27, 0.67],
+    sand: [0.95, 0.92, 0.86],
+    dot: [1, 1, 1],
     rects: new Float32Array(MAX_RECTS * 4),
     rectCount: 0,
     strength: new Float32Array(MAX_RECTS),
@@ -61,23 +64,37 @@
     curvesVersion: 0,
   };
 
-  function accent(): [number, number, number] {
+  function token(style: CSSStyleDeclaration, name: string, fallback: [number, number, number]): [number, number, number] {
     try {
-      const rgb = parseColor(getComputedStyle(document.documentElement).getPropertyValue("--theme2"));
+      const rgb = parseColor(style.getPropertyValue(name));
       return [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
     } catch {
-      return [0.69, 0.27, 0.67];
+      return fallback;
     }
+  }
+
+  /** The accent and the theme's sand, read again whenever either changes. */
+  function colours() {
+    const style = getComputedStyle(document.documentElement);
+    frame.tint = token(style, "--theme2", frame.tint);
+    frame.sand = token(style, "--grain-sand", frame.sand);
+    frame.dot = token(style, "--grain-dot", frame.dot);
+    dirty = true;
   }
 
   function setup() {
     renderer = createGrain(canvas);
-    if (renderer) {
-      frame.tint = accent();
-      dirty = true;
-    }
+    if (renderer) colours();
     return !!renderer;
   }
+
+  $effect(() => {
+    void liveTheme.current;
+    void appearance.accent;
+    if (!renderer) return;
+    colours();
+    render(performance.now());
+  });
 
   function dpr() {
     return window.devicePixelRatio || 1;

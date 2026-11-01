@@ -182,10 +182,10 @@
     vector-effect: non-scaling-stroke;
   }
   .node {
-    fill: #3a3a3a;
+    fill: var(--mini-node);
   }
   .node.done {
-    fill: #262626;
+    fill: var(--mini-done);
   }
   .node.selected {
     fill: var(--theme2);

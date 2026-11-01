@@ -26,6 +26,9 @@ export type GrainFrame = {
   /** Dot grid: radius in device px, opacity. */
   grid: { radius: number; alpha: number };
   tint: [number, number, number];
+  /** The neutral sand, and the dot grid (which the halo's tint also leans towards), per theme. */
+  sand: [number, number, number];
+  dot: [number, number, number];
   /** Selected node rects in device px (top-left origin), `MAX_RECTS * 4` floats. */
   rects: Float32Array;
   rectCount: number;
@@ -93,6 +96,8 @@ export function createGrain(canvas: HTMLCanvasElement): GrainRenderer | null {
     "u_bg",
     "u_grid",
     "u_tint",
+    "u_sand",
+    "u_dot",
     "u_ccount",
     "u_flow",
   ]);
@@ -231,6 +236,8 @@ export function createGrain(canvas: HTMLCanvasElement): GrainRenderer | null {
       g.uniform3f(u.u_bg, f.bg.x, f.bg.y, f.bg.zoom);
       g.uniform2f(u.u_grid, f.grid.radius, f.grid.alpha);
       g.uniform3fv(u.u_tint, f.tint);
+      g.uniform3fv(u.u_sand, f.sand);
+      g.uniform3fv(u.u_dot, f.dot);
       g.activeTexture(g.TEXTURE0);
       g.bindTexture(g.TEXTURE_2D, flowTex);
       g.bindBuffer(g.ARRAY_BUFFER, quad);

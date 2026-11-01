@@ -44,7 +44,7 @@ const n = make(NEW), o = OLD ? make(OLD) : null;
 function frameFor(vx, vy, zoom, nodes, edges, time) {
   const P = 0.7;
   const f = { time, dpr, offset: { x: vx * dpr, y: vy * dpr }, zoom, bg: { x: (P * vx + (1 - P) * W / dpr / 2) * dpr, y: (P * vy + (1 - P) * H / dpr / 2) * dpr, zoom: P * zoom },
-    grid: { radius: 1.3 * dpr, alpha: 1 }, tint: [0.7, 0.3, 0.7], rects: new Float32Array(64), rectCount: nodes.length, strength: new Float32Array(16),
+    grid: { radius: 1.3 * dpr, alpha: 1 }, tint: [0.7, 0.3, 0.7], sand: [0.95, 0.92, 0.86], dot: [1, 1, 1], rects: new Float32Array(64), rectCount: nodes.length, strength: new Float32Array(16),
     curvesA: new Float32Array(192), curvesB: new Float32Array(192), curveCount: edges.length, curveStrength: new Float32Array(48), curvesVersion: 0 };
   nodes.forEach((q, i) => { f.rects.set([(vx + q.x * zoom) * dpr, (vy + q.y * zoom) * dpr, q.w * zoom * dpr, q.h * zoom * dpr], i * 4); f.strength[i] = 1; });
   edges.forEach((c, i) => { f.curvesA.set(c.slice(0, 4), i * 4); f.curvesB.set(c.slice(4, 8), i * 4); f.curveStrength[i] = 1; });

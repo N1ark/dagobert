@@ -1,7 +1,8 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import type { Workflow } from "./types";
-  import { X, ArrowUp, ArrowDown, Plus, GithubLogo, GitBranch, Circuitry } from "purr/icons";
+  import { X, ArrowUp, ArrowDown, Plus, GithubLogo, GitBranch, Circuitry, Palette } from "purr/icons";
+  import AppearanceSettings from "./AppearanceSettings.svelte";
   import ColorPicker from "./ColorPicker.svelte";
   import DockButton from "./DockButton.svelte";
   import { stageColor } from "./workflows";
@@ -13,7 +14,7 @@
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
 
-  type Section = "workflows" | "tracking" | "note" | "checklist" | "github" | "git";
+  type Section = "workflows" | "tracking" | "note" | "checklist" | "github" | "git" | "appearance";
   let { onclose, section = "workflows", workflow }: { onclose: () => void; section?: Section; workflow?: string | null } = $props();
 
   // svelte-ignore state_referenced_locally
@@ -45,6 +46,7 @@
       sections: [
         { id: "github", label: t("settings.github"), icon: GithubLogo },
         { id: "git", label: t("settings.git"), icon: GitBranch },
+        { id: "appearance", label: t("settings.appearance"), icon: Palette },
       ],
     },
     {
@@ -62,7 +64,7 @@
   const current = $derived(page === "workflows" ? (selectedId === null ? "todo" : `wf:${selectedId}`) : page);
 
   function select(id: string) {
-    if (id === "github" || id === "git" || id === "tracking" || id === "note" || id === "checklist") {
+    if (id === "github" || id === "git" || id === "tracking" || id === "note" || id === "checklist" || id === "appearance") {
       page = id;
       return;
     }
@@ -154,6 +156,8 @@
           () => store.saveMeta(),
           t("settings.checklist.placeholder"),
         )}
+      {:else if page === "appearance"}
+        <AppearanceSettings />
       {:else if page === "git"}
         <p class="help"><InlineMd source={t("settings.git.help")} /></p>
         {#if !isMobile}

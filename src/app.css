@@ -1,11 +1,27 @@
 /* Dagobert on purr: the tokens, reset and shared classes come from `purr/styles.css`; this is
-   what only Dagobert has. Dark only (`applyTheme` in main.ts). */
+   what only Dagobert has. The theme and accent are the user's (`appearance.svelte.ts`). */
 
 :root {
   --font-size: 14px;
+  /* The canvas: edges, minimap blocks, the grain's sand and dot grid. */
+  --edge: oklch(0.76 0 0);
+  --edge-head: oklch(0.68 0 0);
+  --mini-node: oklch(0.83 0 0);
+  --mini-done: oklch(0.92 0 0);
+  --grain-sand: oklch(0.42 0.02 75);
+  --grain-dot: #000;
   --toolbar-h: 44px;
   /* The logo mark in the toolbar. */
   --mark: 18px;
+}
+
+html.dark {
+  --edge: #444;
+  --edge-head: #555;
+  --mini-node: #3a3a3a;
+  --mini-done: #262626;
+  --grain-sand: #f2ebdb;
+  --grain-dot: #fff;
 }
 
 body.mobile {

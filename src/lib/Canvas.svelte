@@ -1250,7 +1250,11 @@
     position: absolute;
     pointer-events: none;
     /* Dots at 16 + 32k like the shader; --dot is the radius in world units (gridStyle). */
-    background-image: radial-gradient(circle at 16px 16px, #ffffff1c var(--dot), transparent var(--dot));
+    background-image: radial-gradient(
+      circle at 16px 16px,
+      color-mix(in srgb, var(--grain-dot) 11%, transparent) var(--dot),
+      transparent var(--dot)
+    );
     background-size: 32px 32px;
   }
   .world {
@@ -1305,14 +1309,14 @@
   }
   .edge .line {
     fill: none;
-    stroke: #444;
+    stroke: var(--edge);
     stroke-width: 1.5;
     transition:
       stroke var(--dur),
       opacity var(--dur);
   }
   .edge .head {
-    fill: #555;
+    fill: var(--edge-head);
     transition: fill var(--dur);
   }
   .edge:hover .line,

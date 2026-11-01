@@ -23,6 +23,7 @@
   import { minimap, toggleMinimap } from "./lib/minimapState.svelte";
   import {
     MapTrifold,
+    Palette,
     Plus,
     ArrowCounterClockwise,
     ArrowClockwise,
@@ -131,7 +132,7 @@
     }
   }
   let showWorkflows = $state(false);
-  let settingsSection = $state<"workflows" | "tracking" | "note" | "checklist" | "github" | "git">("workflows");
+  let settingsSection = $state<"workflows" | "tracking" | "note" | "checklist" | "github" | "git" | "appearance">("workflows");
   let settingsWorkflow = $state<string | null | undefined>(undefined);
   /** Bumped per opening, so an already open settings pane goes to the page asked for. */
   let settingsKey = $state(0);
@@ -536,6 +537,12 @@
         icon: GitBranch,
         symbol: ["arrow.triangle.branch"],
         menu: "Tools",
+        enabled: has,
+      }),
+      a("appearance", t("action.appearance"), () => openSettings("appearance"), {
+        icon: Palette,
+        symbol: ["paintpalette", "circle.lefthalf.filled"],
+        menu: "View",
         enabled: has,
       }),
     ];

@@ -184,9 +184,20 @@ makes every size (it writes the iOS ones into `gen/apple`; copy them to `icons/i
 the android folder it adds, see [mobile.md](mobile.md)); then copy `icon.svg` to `logo.svg`
 and `mark.svg` to `icon.svg` here and in `public/`, and delete the three generated files. `public/` holds
 copies served by Vite for the favicon, toolbar and welcome screen. The theme tokens are
-purr's (`main.ts` applies its dark theme; `app.css` only sets the 14px `--font-size` and the
-toolbar's sizes); rendered markdown is purr's `.md`. Fonts (Inter Variable, Fira Code) are
-bundled by `purr/fonts.css`; nothing is fetched.
+purr's; `app.css` only sets the 14px `--font-size`, the toolbar's sizes and the canvas's own
+colours (`--edge`, `--mini-*`, `--grain-*`, light in `:root` and dark in `html.dark`); rendered
+markdown is purr's `.md`. Fonts (Inter Variable, Fira Code) are bundled by `purr/fonts.css`;
+nothing is fetched.
+
+## Appearance
+
+Settings → Appearance (`AppearanceSettings.svelte`) holds per-machine preferences, not project
+data: theme (system / light / dark, dark by default), accent (one of purr's `ACCENTS`) and the
+opacity of done cards (`--done-opacity`). `appearance.svelte.ts` keeps them in localStorage
+(`dagobert.appearance`), paints them from `main.ts` before mounting (purr's `applyTheme`), sets
+the native app appearance (`setAppTheme`, so menus and the SF Symbol tint follow), and picks up
+another window's change through the `storage` event and a `dagobert-appearance` Tauri event.
+`Grain` re-reads its colours when the theme or accent changes.
 
 ### Note icons
 

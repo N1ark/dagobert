@@ -209,7 +209,7 @@
       0 10px 26px 2px var(--scrim);
   }
   .node.done {
-    opacity: 0.55;
+    opacity: var(--done-opacity, 0.55);
   }
   .node.dim {
     opacity: 0.18;

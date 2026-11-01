@@ -21,6 +21,8 @@ uniform float u_zoom;
 uniform vec3 u_bg; // background camera: offset.xy (device px), zoom
 uniform vec2 u_grid; // dot grid: radius (device px), opacity
 uniform vec3 u_tint;
+uniform vec3 u_sand; // neutral sand, per theme
+uniform vec3 u_dot; // dot grid colour, white on dark and black on light
 
 // Signed distance to a rounded box centred on the origin.
 float rbox(vec2 p, vec2 b, float r) {
@@ -98,8 +100,8 @@ void main() {
   a = min(a, 1.0) * 0.6;
 
   // Neutral, slightly warm sand at the edges; tinted towards the accent in the halo.
-  vec3 haloCol = mix(u_tint, vec3(1.0), 0.35);
-  vec3 col = mix(vec3(0.95, 0.92, 0.86), haloCol, clamp(glow * 1.4, 0.0, 0.85));
+  vec3 haloCol = mix(u_tint, u_dot, 0.35);
+  vec3 col = mix(u_sand, haloCol, clamp(glow * 1.4, 0.0, 0.85));
 
   // Edge travellers take the halo colour wherever they outshine the local sand.
   float f = 0.0;
@@ -111,5 +113,5 @@ void main() {
   float ga = dots(wp, 32.0, u_bg.z * u_dpr, u_grid.x) * u_grid.y * 0.11;
 
   // Sand over grid (premultiplied).
-  gl_FragColor = vec4(col * a + vec3(ga) * (1.0 - a), a + ga * (1.0 - a));
+  gl_FragColor = vec4(col * a + u_dot * ga * (1.0 - a), a + ga * (1.0 - a));
 }

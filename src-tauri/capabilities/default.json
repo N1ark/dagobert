@@ -6,6 +6,7 @@
   "windows": ["main", "note-*"],
   "permissions": [
     "core:default",
+    "core:app:allow-set-app-theme",
     "opener:default",
     "dialog:allow-open",
     "core:webview:allow-create-webview-window",

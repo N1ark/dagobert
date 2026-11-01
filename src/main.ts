@@ -1,13 +1,14 @@
 import { mount } from "svelte";
-import { applyPlatform, applyTheme } from "purr";
+import { applyPlatform } from "purr";
 import "purr/fonts.css";
 import "purr/styles.css";
 import "purr/shell.css";
 import "./app.css";
 import App from "./App.svelte";
 import { backend, inTauri, isMobile } from "./lib/backend";
+import { startAppearance } from "./lib/appearance.svelte";
 
-applyTheme({ mode: "dark" });
+startAppearance();
 // WKWebView only learns the keyboard's height from UIKit; the browser dev loop uses the visual viewport.
 applyPlatform({ mobile: isMobile, keyboard: inTauri ? backend.onKeyboard : undefined });
 
