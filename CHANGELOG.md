@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-01
+
 ### Added
 
 - Settings → GitHub can use the GitHub CLI's sign-in instead, for organisations that block the Dagobert app.
