@@ -25,10 +25,20 @@ export function prKey(repo: string, number: number): string {
 /** A failed API call, with the HTTP status it failed with. */
 class ApiError extends Error {
   status: number;
+  /** Epoch ms GitHub asked us to wait until, when rate limited. */
+  retryAt: number | null;
   constructor(res: Response) {
     super(failure(res));
     this.status = res.status;
+    const after = Number(res.headers.get("retry-after"));
+    const reset = Number(res.headers.get("x-ratelimit-reset"));
+    this.retryAt = after ? Date.now() + after * 1000 : rateLimited(res) && reset ? reset * 1000 : null;
   }
+}
+
+/** When a failure says to come back later (rate limit), else null. */
+export function retryAt(e: unknown): number | null {
+  return e instanceof ApiError ? e.retryAt : null;
 }
 
 function failure(res: Response): string {
@@ -38,15 +48,29 @@ function failure(res: Response): string {
   return t("github.status", { status: res.status });
 }
 
-function send(path: string, tok: string | null) {
+/** Last body per request and its ETag; a signed-in 304 doesn't count against the rate limit. */
+const etags = new Map<string, { etag: string; body: string }>();
+
+async function send(path: string, tok: string | null): Promise<Response> {
   const headers: Record<string, string> = { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
   if (tok) headers.Authorization = `Bearer ${tok}`;
-  return fetch(`https://api.github.com${path}`, { headers });
+  const key = `${tok ? "auth" : "anon"} ${path}`;
+  const memo = etags.get(key);
+  if (memo) headers["If-None-Match"] = memo.etag;
+  const res = await fetch(`https://api.github.com${path}`, { headers });
+  if (res.status === 304 && memo) return new Response(memo.body, { status: 200, headers: res.headers });
+  const etag = res.ok && !path.startsWith("/search/") ? res.headers.get("etag") : null;
+  if (etag) {
+    etags.delete(key);
+    etags.set(key, { etag, body: await res.clone().text() });
+    if (etags.size > 200) etags.delete(etags.keys().next().value!);
+  }
+  return res;
 }
 
 /** Rate limiting, rather than the repo being missing or out of reach. */
 function rateLimited(res: Response) {
-  return res.status === 403 && res.headers.get("x-ratelimit-remaining") === "0";
+  return res.status === 429 || (res.status === 403 && (res.headers.get("x-ratelimit-remaining") === "0" || res.headers.has("retry-after")));
 }
 
 /** Repos the token can't reach, learned as we go, so the next read skips straight to anonymous. */
@@ -59,6 +83,7 @@ async function scopedToken(repo?: string): Promise<string | null> {
   if (tok !== scopeOf) {
     scopeOf = tok;
     readAnonymously.clear();
+    etags.clear();
   }
   return repo && readAnonymously.has(repo) ? null : tok;
 }
@@ -162,6 +187,11 @@ function cached(key: string, fetcher: () => Promise<IssueRef[]>): Promise<IssueR
     inflight.set(key, p);
   }
   return p;
+}
+
+/** Whether the last request went out with a token, so with the higher rate limit. */
+export function authed(): boolean {
+  return scopeOf !== null;
 }
 
 /** Drop everything cached so the next call hits the network again. */

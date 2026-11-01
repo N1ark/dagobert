@@ -18,6 +18,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Pull request and issue states refresh on their own every few minutes, and when you come back to the app.
 - Quick open (⌘K) lists every note, scrolling, rather than the first ten.
 - Opening a note in a new window closes its pane, so it isn't shown twice.
 - The window can be made much narrower: the toolbar drops the counts, then the less used buttons (still in the command palette).

@@ -32,6 +32,10 @@ Read this when touching `github.ts`, `auth.svelte.ts`, `github.rs`, `secrets.ts`
   repo (app not installed there) retries anonymously and remembers the repo in
   `readAnonymously` (reset when the token changes), so public repos work without the
   install.
+- `send()` keeps the last body and ETag per request (200 at most, search excluded, reset with
+  the token) and revalidates with `If-None-Match`: a 304 is served from memory and, signed
+  in, doesn't count against the rate limit. `ApiError.retryAt` (`retryAt(e)`) carries
+  `retry-after` / `x-ratelimit-reset`; 429 and secondary limits count as rate limited.
 - `cached()`: 5 min TTL per key, concurrent callers share one request; `invalidate()`
   backs the refresh button. `recentIssues` is a repo's 100 most recently updated issues +
   PRs in one request; `issue(repo, n)` serves from it, else one request per number (a 404
@@ -52,6 +56,13 @@ Read this when touching `github.ts`, `auth.svelte.ts`, `github.rs`, `secrets.ts`
   first seconds after launch, deferred to an idle callback) and `refreshPRs()`, which moves
   `details` into `stale` so sidebar rows keep their place and old title/author while the
   state reloads.
+- `syncPRs()` also polls: every `POLL` (5 min; 15 signed out, where 304s still count) it
+  `invalidate()`s and reloads every ref quietly (`load(batch, true)`: no spinner, a failure
+  keeps the shown state, only changed keys are written, so icons update in place). Failures
+  double the wait up to an hour, and a rate limit waits for its reset. Nothing goes out
+  while the window is `away()` (hidden; on the desktop, also unfocused): the timer skips,
+  and coming back after `AWAY` (2 min) polls at once. Each window polls for itself, so with
+  several open only the focused one does.
 - `PrIcon.svelte` — shared state icon (PR open/draft/closed/merged, issue open/done/closed,
   closed = `state_reason` not "completed"): pass `item` or a cache `key`. A `key` not in
   `details` shows the grey `GitPullRequestUnknown` (unless `prCache.stale` says it wasn't
