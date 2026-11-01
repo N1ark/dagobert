@@ -39,6 +39,8 @@
     ArrowSquareOut,
     Copy,
     ImageSquare,
+    Paperclip,
+    FolderSimplePlus,
     Images,
     ClipboardText,
     CopySimple,
@@ -392,6 +394,18 @@
         menu: "Note",
         enabled: !!sel,
       }),
+      a("link-file", t("action.link-file"), () => insertLinks(false), {
+        icon: Paperclip,
+        symbol: ["doc.badge.plus", "doc"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
+      a("link-folder", t("action.link-folder"), () => insertLinks(true), {
+        icon: FolderSimplePlus,
+        symbol: ["folder.badge.plus", "folder"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
       a("copy-note", t("action.copy-note"), () => store.selectedId && store.copy(store.selectedId), {
         icon: Copy,
         symbol: ["doc.on.doc"],
@@ -525,8 +539,9 @@
         enabled: has,
       }),
     ];
-    // No tracking toggle and nothing to reveal in: a phone has neither.
-    return isMobile ? actions.filter((x) => x.id !== "git-toggle" && x.id !== "reveal" && x.id !== "update") : actions;
+    // No tracking toggle, nothing to reveal in and no files to link to: a phone has none.
+    const desktopOnly = ["git-toggle", "reveal", "update", "link-file", "link-folder"];
+    return isMobile ? actions.filter((x) => !desktopOnly.includes(x.id)) : actions;
   });
 
   /** Undo/redo from the menu: native inside text fields (not the palette's search), ours elsewhere. */
@@ -599,6 +614,15 @@
     const embeds = id ? await store.pickMedia() : [];
     if (!id || !embeds.length) return;
     if (window.dispatchEvent(new CustomEvent("insert-media", { detail: { id, embeds }, cancelable: true }))) store.appendBlocks(id, embeds);
+  }
+
+  /** Links to picked files or a folder, put in the selected note like media. */
+  async function insertLinks(directory: boolean) {
+    const id = store.selectedId;
+    const links = id ? await store.pickLinks(directory) : [];
+    if (!id || !links.length) return;
+    if (window.dispatchEvent(new CustomEvent("insert-media", { detail: { id, embeds: links }, cancelable: true })))
+      store.appendBlocks(id, links);
   }
 
   onMount(() => {

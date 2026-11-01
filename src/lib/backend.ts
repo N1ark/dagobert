@@ -13,6 +13,7 @@ import type {
   Asset,
   DeviceStart,
   DevicePoll,
+  FileTarget,
   GitStatus,
   Local,
   Meta,
@@ -304,6 +305,39 @@ export const backend = {
       cancelled = true;
       un?.();
     };
+  },
+
+  // ---- file links ------------------------------------------------------------
+
+  /** Each link's absolute path and kind; the browser makes one up (`missing` in the path = out of reach). */
+  async statLinks(path: string, links: string[]): Promise<FileTarget[]> {
+    if (inTauri) return invoke("stat_links", { path, links });
+    return links.map((l) => ({
+      path: l.replace(/^~/, "/Users/you").replace(/^(?![/~])/, `${path}/notes/`),
+      kind: l.includes("missing") ? null : /\.\w+$/.test(l) ? "file" : "dir",
+    }));
+  },
+
+  /** How links to these paths are written: relative inside the project, `~/…` under home. */
+  async linkTargets(path: string, files: string[]): Promise<string[]> {
+    if (inTauri) return invoke("link_targets", { path, files });
+    return files.map((f) => f.replace(/^\/Users\/you\//, "~/"));
+  },
+
+  /** Files or a folder to link to, from the open dialog. */
+  async pickLinkTargets(directory: boolean): Promise<string[]> {
+    if (!inTauri) return [directory ? "/Users/you/code/dagobert" : "/Users/you/Documents/Spec sheet.pdf"];
+    const picked = await openDialog({ multiple: !directory, directory, title: t(directory ? "filelink.pickFolder" : "filelink.pickFile") });
+    return picked === null ? [] : typeof picked === "string" ? [picked] : picked;
+  },
+
+  /** Opens a file with its default app, a folder in Finder. */
+  async openPath(path: string) {
+    if (inTauri) await invoke("open_path", { path });
+  },
+
+  async revealPath(path: string) {
+    if (inTauri && !isMobile) await revealItemInDir(path);
   },
 
   /** The URL an `assets/<name>` link loads from. */

@@ -159,3 +159,9 @@ export interface Token {
 export type Refreshed = { state: "token"; token: Token } | { state: "rejected"; reason: string };
 
 export type DevicePoll = { state: "pending" } | { state: "slow-down"; interval: number } | { state: "token"; token: Token };
+
+/** A local file link resolved by `stat_links`: its absolute path, and a `file`, a `dir` or out of reach. */
+export interface FileTarget {
+  path: string;
+  kind: "file" | "dir" | null;
+}

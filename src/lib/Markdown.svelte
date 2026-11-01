@@ -4,6 +4,7 @@
   import { highlightExtension, highlighterReady, loadHighlighter } from "./highlight";
   import { isLinkEmbed, mediaExtension, mediaHtml } from "./media";
   import { cardHtml } from "./preview";
+  import { fileLinkHtml, isLocalHref } from "./filelinks";
   import { previews } from "./previews.svelte";
   import { backend } from "./backend";
   import { store } from "./store.svelte";
@@ -16,6 +17,10 @@
         if (!isLinkEmbed(href)) return false;
         const p = previews.get(href);
         return p?.isImage ? mediaHtml(href, text, title) : cardHtml(href, p);
+      },
+      // A link to a local file or folder opens it rather than a page.
+      link({ href, tokens }) {
+        return isLocalHref(href) ? fileLinkHtml(href, this.parser.parseInline(tokens)) : false;
       },
     },
   });
@@ -34,6 +39,7 @@
   import { renderWikilinks } from "./wikilinks";
   import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
+  import { fileLinkIcons } from "./fileLinkIcons.svelte";
   import { t } from "./i18n";
 
   let { source }: { source: string } = $props();
@@ -62,7 +68,7 @@
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="md" use:prIcons={() => html} onclick={(e) => onLinkClick(e)} onerrorcapture={hideBroken}>
+<div class="md" use:prIcons={() => html} use:fileLinkIcons={() => html} onclick={(e) => onLinkClick(e)} onerrorcapture={hideBroken}>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}

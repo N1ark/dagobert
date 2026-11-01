@@ -11,6 +11,7 @@
   import { copyText, Lightbox, matches, menu, type LightboxItem } from "purr";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { previews } from "./previews.svelte";
+  import { fileTargets } from "./fileTargets.svelte";
   import {
     continueList,
     embedToLink,
@@ -38,6 +39,9 @@
   let issuePopup = $state<IssuePopup | null>(null);
   /** Active `alias#query` GitHub picker. */
   let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
+
+  // A note being shown checks its file links again.
+  fileTargets.recheck();
 
   const blocks = $derived(splitBlocks(note.body));
   /** A gallery row's base height, unless its first image sets one. */
@@ -266,6 +270,8 @@
 
   /** Right-click on a web link or a preview card: open, copy, or switch between the two. */
   function onLinkMenu(e: MouseEvent) {
+    const file = (e.target as HTMLElement).closest<HTMLElement>("a.filelink[data-path]")?.dataset.path;
+    if (file) return fileMenu(e, file);
     const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
     const el = a?.closest<HTMLElement>("[data-block]");
     const url = a?.getAttribute("href");
@@ -286,6 +292,16 @@
       { label: t("link.copy"), run: () => void copyText(url) },
       "separator",
       { label: t(card ? "link.asLink" : "link.asPreview"), run: swap },
+    ]);
+  }
+
+  /** Right-click on a file link: open it, show it in Finder, or copy its full path. */
+  function fileMenu(e: MouseEvent, raw: string) {
+    const path = fileTargets.get(raw)?.path ?? raw;
+    menu.show(e, [
+      { label: t("filelink.open"), run: () => void fileTargets.open(raw) },
+      !isMobile && { label: t("filelink.reveal"), run: () => void fileTargets.reveal(raw) },
+      { label: t("filelink.copy"), run: () => void copyText(path) },
     ]);
   }
 

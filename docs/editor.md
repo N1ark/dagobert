@@ -1,7 +1,7 @@
 # Note panel and editor
 
 Read this when touching `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`,
-`editor.ts`, `wikilinks.ts`, `links.ts`, `MentionPopup.svelte`, `Markdown.svelte`,
+`editor.ts`, `wikilinks.ts`, `links.ts`, `filelinks.ts`, `MentionPopup.svelte`, `Markdown.svelte`,
 `InlineMd.svelte` or `highlight.ts`.
 
 ## NotePanel.svelte
@@ -119,7 +119,7 @@ Clicking an image opens it full screen in purr's `Lightbox`, with the note's oth
 away (`viewImage`); ⌥-click edits its block instead.
 
 Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
-streams it on the Rust side; a `File` → `save_asset`), which skips unsupported files. Tauri
+streams it on the Rust side; a `File` → `save_asset`), which links other paths on disk (below) and skips other files. Tauri
 swallows HTML5 file drops, so `backend.onFileDrop` uses `onDragDropEvent` (window drag/drop
 events in the browser) and App dispatches a bubbling `media-drop` (`MediaDrop`) at the
 element under the point: `LiveEditor` inserts before the block under the pointer (after it
@@ -127,6 +127,27 @@ past its middle), `Canvas` creates a note there named after the first file. "Ins
 (`insert-media`, the dialog plugin; the photo picker on iOS) fires a cancelable window
 `insert-media` event that the selected note's editor takes to insert at the caret; unclaimed,
 `store.appendBlocks` appends.
+
+## Links to files and folders
+
+A plain markdown link whose destination has no URL scheme, or is `file:`, points at the disk
+(`filelinks.ts` `isLocalHref`, tested): `[spec](/Users/me/spec.pdf)`, `[repo](~/code/foo)`,
+`[x](file:///…)`, or relative to the note, so `../docs/x.pdf` is `<project>/docs/x.pdf` (as GitHub
+reads it). Destinations are percent-decoded; `fileLink` writes `%`, `<`, `>` and `\` encoded and
+brackets one holding spaces or parentheses (`[a](</My Docs/a.pdf>)`). `Markdown.svelte`'s `link`
+renderer emits `a.filelink[data-path]` (no `href`), and the `fileLinkIcons` action mounts
+`FileLinkIcon` in each: file / folder / warning icon, the `missing` class, the full path as tooltip.
+
+`fileTargets.svelte.ts` caches `stat_links` (`files.rs`: resolves `~`, `file://` and relative
+paths, then `metadata` + opening it, so an unreadable path counts as missing) per project + raw
+destination, batched in a microtask; a mounted `LiveEditor` and window focus re-check every link seen.
+On a phone only paths inside the project are reachable. Clicking re-checks and opens it (`open_path`,
+the opener plugin from Rust, so no path scope); right-click offers Open / Reveal in Finder / Copy path.
+
+Making one: a dropped file or folder that isn't media is linked where it is rather than imported
+(`store.addMedia`, through `link_targets`: `./…` inside `notes/`, `../…` elsewhere in the project,
+`~/…` under home, else absolute); "Link a file…" / "Link a folder…" (desktop only) pick with the
+dialog plugin and insert like "Insert media…".
 
 ## Link previews
 

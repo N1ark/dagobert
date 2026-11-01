@@ -11,6 +11,7 @@ import { isConflict, joinBlocks, splitBlocks } from "./blocks";
 import { CHECKLIST_TEMPLATE, taskProgress, toggleTask } from "./checklist";
 import { t, plural, type HistoryLabel } from "./i18n";
 import { assetNames, EMBED_RE, embed, extOf, fileExt, fileName, kindOf, parseAlt, type MediaSource } from "./media";
+import { baseName, fileLink } from "./filelinks";
 
 const RECENT_KEY = "dagobert.recent";
 const LAST_KEY = "dagobert.last";
@@ -881,12 +882,19 @@ class Store {
 
   // ---- media ---------------------------------------------------------------
 
-  /** Saves pasted, dropped or picked media as assets; returns their embeds (other files are skipped). */
+  /** Saves pasted, dropped or picked media as assets; returns their embeds, and links to any other file or folder on disk. */
   async addMedia(items: MediaSource[], named = true): Promise<string[]> {
     const path = this.path;
     if (!path) return [];
+    const others = items.filter((i): i is string => typeof i === "string" && !kindOf(extOf(i)));
+    const links = others.length ? await this.#fileLinks(path, others) : [];
     const out: string[] = [];
     for (const item of items) {
+      const linked = typeof item === "string" ? others.indexOf(item) : -1;
+      if (linked >= 0) {
+        if (links[linked]) out.push(links[linked]);
+        continue;
+      }
       const ext = typeof item === "string" ? extOf(item) : fileExt(item);
       if (!kindOf(ext)) continue;
       try {
@@ -910,6 +918,29 @@ class Store {
   async pickMedia(): Promise<string[]> {
     try {
       return this.addMedia(await backend.pickMedia());
+    } catch (e) {
+      toast.error(e);
+      return [];
+    }
+  }
+
+  /** Links to these paths, written relative to the project where they can be. */
+  async #fileLinks(path: string, files: string[]): Promise<string[]> {
+    try {
+      const targets = await backend.linkTargets(path, files);
+      return files.map((f, i) => fileLink(baseName(f), targets[i]));
+    } catch (e) {
+      toast.error(e);
+      return [];
+    }
+  }
+
+  /** Files or a folder from the open dialog, as links. */
+  async pickLinks(directory: boolean): Promise<string[]> {
+    const path = this.path;
+    try {
+      const files = await backend.pickLinkTargets(directory);
+      return path && files.length ? this.#fileLinks(path, files) : [];
     } catch (e) {
       toast.error(e);
       return [];

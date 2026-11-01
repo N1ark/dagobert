@@ -1,3 +1,4 @@
+mod files;
 #[cfg(desktop)]
 mod gh;
 mod git;
@@ -383,6 +384,27 @@ async fn link_preview(url: String) -> Result<preview::Page, String> {
     blocking(move || preview::fetch(&url)).await?
 }
 
+/// Each linked path resolved against the project and checked (see `files::stat`).
+#[tauri::command]
+async fn stat_links(path: String, links: Vec<String>) -> Result<Vec<files::Target>, String> {
+    blocking(move || files::stat(Path::new(&path), &links)).await
+}
+
+/// How links to dropped or picked paths are written.
+#[tauri::command]
+fn link_targets(path: String, files: Vec<String>) -> Vec<String> {
+    files::link_targets(Path::new(&path), &files)
+}
+
+/// Opens a linked file or folder with its default app.
+#[tauri::command]
+fn open_path(app: AppHandle, path: String) -> Result<(), String> {
+    use tauri_plugin_opener::OpenerExt;
+    app.opener()
+        .open_path(path, None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 /// Starts the GitHub App device flow; the frontend shows the code and opens the URL.
 #[tauri::command]
 async fn github_signin_start() -> Result<github::DeviceStart, String> {
@@ -466,6 +488,9 @@ pub fn run() {
             save_local,
             github_signin_start,
             link_preview,
+            stat_links,
+            link_targets,
+            open_path,
             github_signin_poll,
             github_refresh,
             gh_token,

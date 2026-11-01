@@ -145,6 +145,31 @@ body.mobile {
   margin-right: 3px;
 }
 
+/* Links to local files and folders */
+.filelink {
+  color: var(--theme2);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--theme2) 40%, transparent);
+  cursor: pointer;
+}
+.filelink:hover {
+  border-bottom-color: var(--theme2);
+}
+.filelink .filelink-icon {
+  display: inline-flex;
+  vertical-align: -2px;
+  margin-right: 3px;
+}
+.filelink.missing {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: var(--faint);
+  border-bottom: 1px dashed var(--faint);
+}
+.filelink.missing .filelink-icon {
+  color: var(--warn);
+}
+
 /* ---- phone layout ----------------------------------------------------------------------- */
 /* Overrides for components whose own rules assume a desktop window. The class is set once in
    main.ts; `isMobile` gates the markup that goes with it. */

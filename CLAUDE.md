@@ -46,7 +46,7 @@ The native window can't be screenshotted from the CLI.
 
 - `src-tauri/src/` — `store.rs` (all disk I/O), `watch.rs` (file watcher, desktop only),
   `state.rs` (managed state), `git.rs` / `merge.rs` / `sync.rs` (git tracking),
-  `symbols.rs` (SF Symbols), `update.rs` (self-update), `lib.rs` (commands).
+  `symbols.rs` (SF Symbols), `files.rs` (links to local files), `update.rs` (self-update), `lib.rs` (commands).
 - `src/lib/backend.ts` — wraps `invoke`; in-memory mock in the browser; `isMobile`.
 - `src/lib/secrets.ts` — the GitHub sign-in session (one token for the API and git).
 - `src/lib/store.svelte.ts` — the single `store` instance: notes, viewport, selection,
@@ -61,7 +61,7 @@ The native window can't be screenshotted from the CLI.
 - `calendar.ts`, `clock.svelte.ts`, `Calendar.svelte` — due dates and the calendar pane.
 - Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
   `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`,
-  `media.ts`, `preview.ts`, `checklist.ts`. They run under
+  `media.ts`, `preview.ts`, `checklist.ts`, `filelinks.ts`. They run under
   plain Node, so they must not import `purr`.
 
 Details per area (read the one you're working in):
