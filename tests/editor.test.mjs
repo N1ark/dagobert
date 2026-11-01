@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { toggleWrap, link, continueList, indent } from "../src/lib/editor.ts";
+import { toggleWrap, link, continueList, indent, rawOffset } from "../src/lib/editor.ts";
 const sel = (text, start, end = start) => ({ text, start, end });
 // wrap / unwrap
 assert.deepEqual(toggleWrap(sel("hello world", 0, 5), "**"), sel("**hello** world", 2, 7));
@@ -51,4 +51,14 @@ console.log("editor ok");
   assert.equal(embedToLink(`![](${u})`, u, "Svelte [docs]"), `[Svelte docs](${u})`);
   assert.equal(embedToLink(`![](${u}) ![](${u})`, u, null, 1), `![](${u}) <${u}>`);
   console.log("link embeds ok");
+}
+{
+  // Rendered "Hello world" / "item one item two" against their markdown.
+  assert.equal(rawOffset("Hello **world**", "Hello wor", "ld", 0), 11);
+  assert.equal(rawOffset("- item one\n- item two", "item one\nitem", " two", 0), 17);
+  assert.equal(rawOffset("**bold** text", "bold ", "text", 0), 9);
+  assert.equal(rawOffset("abc", "", "", 3), 3);
+  assert.equal(rawOffset("First **bold** paragraph", "First bo", "ld paragraph", 0), 10);
+  assert.equal(rawOffset("[text](http://example.com) after", "text a", "fter", 0), 28);
+  console.log("rawOffset ok");
 }

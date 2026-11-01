@@ -19,6 +19,7 @@
     link,
     linkToEmbed,
     pasteLink,
+    rawOffset,
     setMediaHeight,
     setMediaWidth,
     toggleWrap,
@@ -27,7 +28,19 @@
   import { caretCoords } from "./wikilinks";
   import { t, type HistoryLabel } from "./i18n";
   import { keys } from "./keys";
-  import { splitBlocks, joinBlocks, locate, toggleCheckbox, isCode, isConflict, resolveConflict, insertBlocks } from "./blocks";
+  import {
+    splitBlocks,
+    joinBlocks,
+    locate,
+    toggleCheckbox,
+    isCode,
+    isConflict,
+    resolveConflict,
+    insertBlocks,
+    sliceBlocks,
+    spliceBlocks,
+    type BlockSpan,
+  } from "./blocks";
   import { fileExt, galleryHeight, galleryRuns, kindOf, type MediaDrop } from "./media";
 
   /** Live preview: blocks are rendered, and the one holding the caret becomes a textarea. */
@@ -199,17 +212,19 @@
     return () => ro.disconnect();
   });
 
-  /** Start a fresh paragraph after the last block ("virtual" until it has text). */
-  async function appendBlock() {
+  /** Start a fresh paragraph before block `at` (out of the body until it has text). */
+  async function openSlot(at: number) {
     const list = commit();
     active = null;
     draft = "";
-    active = list.length;
+    active = Math.min(at, list.length);
     detached = true;
     pendingCaret = 0;
     await tick();
     focusCaret();
   }
+
+  const appendBlock = () => openSlot(Infinity);
 
   /** Move editing to a neighbouring block; a detached slot sits right before block `active`. */
   function moveBy(delta: -1 | 1) {
@@ -226,17 +241,86 @@
     if (!node || node.nodeType !== Node.TEXT_NODE) return raw.length;
     const text = node.textContent ?? "";
     const off = range!.startOffset;
-    // Search for the words around the click in the raw block.
-    for (let len = 16; len >= 3; len -= 3) {
-      const before = text.slice(Math.max(0, off - len), off);
-      if (before.trim().length < 2) continue;
-      const at = raw.indexOf(before);
-      if (at >= 0) return at + before.length;
-    }
-    const after = text.slice(off, off + 12);
-    const at = after.trim() ? raw.indexOf(after) : -1;
-    return at >= 0 ? at : raw.length;
+    return rawOffset(raw, text.slice(0, off), text.slice(off), raw.length);
   }
+
+  /** A click that ends a drag-selection keeps it rather than editing. */
+  const selecting = () => !!container && !getSelection()?.isCollapsed && container.contains(getSelection()?.anchorNode ?? null);
+
+  /** Where a point in rendered block `el` falls in its markdown: its ends exactly, best effort in between. */
+  function pointOffset(el: HTMLElement, raw: string, node: Node, off: number): number {
+    const r = document.createRange();
+    r.setStart(el, 0);
+    r.setEnd(node, off);
+    const before = r.toString();
+    r.setStart(node, off);
+    r.setEnd(el, el.childNodes.length);
+    const after = r.toString();
+    if (!before.trim()) return 0;
+    if (!after.trim()) return raw.length;
+    return rawOffset(raw, before, after, raw.length);
+  }
+
+  /** The page's text selection over rendered blocks, in markdown offsets; null when there's none. */
+  function selectedSpan(): BlockSpan | null {
+    const sel = getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount || !container) return null;
+    if ((document.activeElement as HTMLElement | null)?.closest("input, textarea, select, [contenteditable]")) return null;
+    const range = sel.getRangeAt(0);
+    const els = [...container.querySelectorAll<HTMLElement>("[data-block]")].filter((el) => range.intersectsNode(el));
+    if (!els.length) return null;
+    const first = els[0];
+    const last = els[els.length - 1];
+    const s = Number(first.dataset.block);
+    const e = Number(last.dataset.block);
+    const start = first.contains(range.startContainer) ? pointOffset(first, blocks[s], range.startContainer, range.startOffset) : 0;
+    const end = last.contains(range.endContainer) ? pointOffset(last, blocks[e], range.endContainer, range.endOffset) : blocks[e].length;
+    return s === e && end <= start ? null : { s, start, e, end };
+  }
+
+  /** Copying rendered blocks copies their markdown; cutting also removes it. */
+  function onCopy(e: ClipboardEvent) {
+    const span = selectedSpan();
+    if (!span || !e.clipboardData) return;
+    e.preventDefault();
+    const html = document.createElement("div");
+    html.append(getSelection()!.getRangeAt(0).cloneContents());
+    e.clipboardData.setData("text/plain", sliceBlocks(blocks, span));
+    e.clipboardData.setData("text/html", html.innerHTML);
+    if (e.type === "cut") replaceSpan(span, "");
+  }
+
+  /** Typing, ⌫ or ⌦ over selected rendered text replaces it, like in a text field. */
+  function onSelectionKey(e: KeyboardEvent) {
+    if (e.metaKey || e.ctrlKey || e.isComposing) return;
+    const text = e.key.length === 1 ? e.key : e.key === "Backspace" || e.key === "Delete" ? "" : null;
+    const span = text === null ? null : selectedSpan();
+    if (!span) return;
+    // First, so the note panel's ⌫ (delete the note) and the canvas's keys don't see it.
+    e.preventDefault();
+    e.stopPropagation();
+    replaceSpan(span, text!);
+  }
+
+  function replaceSpan(span: BlockSpan, text: string) {
+    deactivate();
+    getSelection()?.removeAllRanges();
+    const next = spliceBlocks(blocks, span, text);
+    setBody(joinBlocks(next));
+    if (next[span.s].trim()) activate(span.s, span.start + text.length);
+    else openSlot(span.s);
+  }
+
+  $effect(() => {
+    document.addEventListener("copy", onCopy);
+    document.addEventListener("cut", onCopy);
+    window.addEventListener("keydown", onSelectionKey, true);
+    return () => {
+      document.removeEventListener("copy", onCopy);
+      document.removeEventListener("cut", onCopy);
+      window.removeEventListener("keydown", onSelectionKey, true);
+    };
+  });
 
   /** The note's images, open in the viewer at `viewing`. */
   let viewer = $state<{ items: LightboxItem[]; index: number } | null>(null);
@@ -263,7 +347,7 @@
       setBody(joinBlocks(next), "check");
       return;
     }
-    activate(i, caretFromClick(e, blocks[i]));
+    if (!selecting()) activate(i, caretFromClick(e, blocks[i]));
   }
 
   /** The block's `index`-th embed, rewritten to `width` (null = natural size). */
@@ -400,7 +484,7 @@
 
   /** A click between a gallery's images edits the nearest one. */
   function onGalleryClick(e: MouseEvent) {
-    if ((e.target as HTMLElement).closest("[data-block]") || viewImage(e)) return;
+    if ((e.target as HTMLElement).closest("[data-block]") || selecting() || viewImage(e)) return;
     const near = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>(".media")]
       .map((el) => {
         const r = el.getBoundingClientRect();
@@ -415,7 +499,7 @@
   }
 
   function onContainerClick(e: MouseEvent) {
-    if (e.target === container) appendBlock();
+    if (e.target === container && !selecting()) appendBlock();
   }
 
   // ---- textarea ------------------------------------------------------------
@@ -736,7 +820,7 @@
       oncreate={createAndLink}
     />
   {/if}
-  <div class="tail" onclick={() => appendBlock()}></div>
+  <div class="tail" onclick={() => selecting() || appendBlock()}></div>
 </div>
 
 {#if viewer}

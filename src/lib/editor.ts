@@ -143,3 +143,24 @@ export function embedToLink(block: string, url: string, title: string | null, n 
     return text ? `[${text}](${url})` : `<${url}>`;
   });
 }
+
+/** Best-effort offset in a raw block of a point in its rendering, from the rendered text `before` and `after` it. */
+export function rawOffset(raw: string, before: string, after: string, fallback: number): number {
+  // Markup only adds characters, so matches past the rendered offset come first.
+  for (const [floor, min] of [
+    [before.length, 2],
+    [0, 4],
+  ]) {
+    for (let len = Math.min(16, before.length); len >= min; len--) {
+      const b = before.slice(-len);
+      const at = b.trim().length < 2 ? -1 : raw.indexOf(b, Math.max(0, floor - len));
+      if (at >= 0) return at + len;
+    }
+    for (let len = Math.min(12, after.length); len >= min; len--) {
+      const a = after.slice(0, len);
+      const at = a.trim().length < 2 ? -1 : raw.indexOf(a, floor);
+      if (at >= 0) return at;
+    }
+  }
+  return fallback;
+}

@@ -40,8 +40,13 @@ holding `draft`. Rules worth knowing:
 - Backspace at offset 0 merges into the previous block; ↑/↓ on first/last line move
   between blocks; Esc leaves edit mode.
 - Clicking a rendered block places the caret near the click via `caretRangeFromPoint` +
-  text search; task checkboxes toggle in place (`toggleCheckbox`; `Markdown` strips
-  marked's `disabled` so the click arrives).
+  text search (`rawOffset`); task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
+  strips marked's `disabled` so the click arrives).
+- A drag-selection over rendered blocks stays: the click ending it (on the block, or on
+  `.live` when it spans several) doesn't edit (`selecting`). `selectedSpan` maps it to
+  markdown offsets (`pointOffset`: a block's ends exactly, `rawOffset` in between); copy/cut
+  put that markdown (`sliceBlocks`) on the clipboard, and a printable key, ⌫ or ⌦ replaces
+  it (`spliceBlocks`) in a capturing window `keydown`, ahead of the panel's ⌫ and the canvas.
 
 Body shortcuts (bold, italic, code, link, strike, ==highlight== from `keys.ts`; Enter
 continues lists, Tab/⇧Tab indents; pasting a URL over a selection makes a link) are pure

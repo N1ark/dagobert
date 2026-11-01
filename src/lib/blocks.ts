@@ -168,3 +168,24 @@ export function insertBlocks(
   const head = splitBlocks(joinBlocks([...blocks.slice(0, index), before, ...inserted]));
   return { blocks: splitBlocks(joinBlocks([...head, tail, ...blocks.slice(index + 1)])), after: head.length };
 }
+
+/** A span from offset `start` of block `s` to offset `end` of block `e`. */
+export interface BlockSpan {
+  s: number;
+  start: number;
+  e: number;
+  end: number;
+}
+
+/** The markdown a span covers. */
+export function sliceBlocks(blocks: string[], r: BlockSpan): string {
+  if (r.s === r.e) return blocks[r.s].slice(r.start, r.end);
+  return joinBlocks([blocks[r.s].slice(r.start), ...blocks.slice(r.s + 1, r.e), blocks[r.e].slice(0, r.end)]);
+}
+
+/** Replace a span with `text`, which joins what's left of its first and last blocks into one. */
+export function spliceBlocks(blocks: string[], r: BlockSpan, text: string): string[] {
+  const next = [...blocks];
+  next.splice(r.s, r.e - r.s + 1, blocks[r.s].slice(0, r.start) + text + blocks[r.e].slice(r.end));
+  return next;
+}

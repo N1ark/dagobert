@@ -52,3 +52,13 @@ console.log("blocks ok");
   assert.deepEqual(insertBlocks(["x"], 0, { start: 0, end: 0 }, [img]), { blocks: [img, "x"], after: 1 });
   console.log("insertBlocks ok");
 }
+{
+  const { sliceBlocks, spliceBlocks } = await import("../src/lib/blocks.ts");
+  const b = ["# Title", "first para", "- a\n- b"];
+  assert.equal(sliceBlocks(b, { s: 0, start: 0, e: 2, end: 7 }), "# Title\n\nfirst para\n\n- a\n- b");
+  assert.equal(sliceBlocks(b, { s: 1, start: 6, e: 2, end: 3 }), "para\n\n- a");
+  assert.equal(sliceBlocks(b, { s: 1, start: 0, e: 1, end: 5 }), "first");
+  assert.deepEqual(spliceBlocks(b, { s: 0, start: 2, e: 1, end: 6 }, ""), ["# para", "- a\n- b"]);
+  assert.deepEqual(spliceBlocks(b, { s: 1, start: 0, e: 2, end: 7 }, "x"), ["# Title", "x"]);
+  console.log("block spans ok");
+}
