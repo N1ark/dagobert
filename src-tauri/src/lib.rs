@@ -252,6 +252,11 @@ fn delete_asset(state: State<AppState>, path: String, name: String) -> Result<()
     store::delete_asset(root, &name)
 }
 
+#[tauri::command]
+async fn export_asset(path: String, name: String, dest: String) -> Result<(), String> {
+    blocking(move || store::export_asset(Path::new(&path), &name, Path::new(&dest))).await?
+}
+
 /// `keep`: asset names the app still refers to (unsaved edits, undo history).
 #[tauri::command]
 async fn purge_trash(path: String, file: Option<String>, keep: Vec<String>) -> Result<(), String> {
@@ -483,6 +488,7 @@ pub fn run() {
             import_asset,
             list_assets,
             delete_asset,
+            export_asset,
             read_meta,
             save_meta,
             save_local,

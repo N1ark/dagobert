@@ -32,6 +32,7 @@
     if (!src?.startsWith("assets/") || !store.path) return;
     const [link, frag] = src.split("#");
     node.setAttribute("src", backend.assetUrl(store.path, link) + (frag ? `#${frag}` : ""));
+    node.setAttribute("data-asset", link.slice("assets/".length));
   });
 </script>
 

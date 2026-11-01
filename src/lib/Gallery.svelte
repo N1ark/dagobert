@@ -8,9 +8,10 @@
   import InlineMd from "./InlineMd.svelte";
   import DockButton from "./DockButton.svelte";
   import MediaIcon from "./MediaIcon.svelte";
+  import MediaActions from "./MediaActions.svelte";
   import NoteLink from "./NoteLink.svelte";
-  import { Chip, ConfirmButton, IconButton, Lightbox, PanelHeader, SearchInput, type LightboxItem } from "purr";
-  import { Play, Trash, FolderOpen } from "purr/icons";
+  import { Chip, ConfirmButton, Lightbox, PanelHeader, SearchInput, type LightboxItem } from "purr";
+  import { Play, Trash } from "purr/icons";
   import { t, plural, locale } from "./i18n";
 
   let { onclose }: { onclose: () => void } = $props();
@@ -198,9 +199,9 @@
     previousLabel={t("gallery.previous")}
     nextLabel={t("gallery.next")}
   >
-    {#snippet actions(_, i)}
-      {#if !isMobile && shown[i]}
-        <IconButton label={t("panel.reveal")} size="lg" onclick={() => store.revealAsset(shown[i].name)}><FolderOpen /></IconButton>
+    {#snippet actions(item, i)}
+      {#if shown[i]}
+        <MediaActions src={item.src} name={shown[i].name} image={item.kind === "image"} />
       {/if}
     {/snippet}
   </Lightbox>

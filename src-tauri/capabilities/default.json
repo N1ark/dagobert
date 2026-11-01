@@ -9,6 +9,7 @@
     "core:app:allow-set-app-theme",
     "opener:default",
     "dialog:allow-open",
+    "dialog:allow-save",
     "core:webview:allow-create-webview-window",
     "core:window:allow-set-title",
     "core:window:allow-set-focus",

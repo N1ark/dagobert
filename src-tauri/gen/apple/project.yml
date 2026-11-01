@@ -51,6 +51,8 @@ targets:
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
+        # Asked for by Save Image, in a picture's long-press menu and the share sheet.
+        NSPhotoLibraryAddUsageDescription: Dagobert saves the pictures you choose to your photo library.
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

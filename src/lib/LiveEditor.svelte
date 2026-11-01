@@ -7,6 +7,8 @@
   import MentionPopup from "./MentionPopup.svelte";
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
+  import MediaActions from "./MediaActions.svelte";
+  import { copyImage } from "./images";
   import type { IssueRef } from "./github";
   import { copyText, Lightbox, matches, menu, type LightboxItem } from "purr";
   import { openUrl } from "@tauri-apps/plugin-opener";
@@ -322,15 +324,19 @@
     };
   });
 
-  /** The note's images, open in the viewer at `viewing`. */
-  let viewer = $state<{ items: LightboxItem[]; index: number } | null>(null);
+  /** The note's images, open in the viewer at `index`; `names` are their files in `assets/`. */
+  let viewer = $state<{ items: LightboxItem[]; names: (string | null)[]; index: number } | null>(null);
 
   /** A click on an image shows it full screen, with the note's other images a step away; ⌥ edits it instead. */
   function viewImage(e: MouseEvent): boolean {
     const img = e.target;
     if (!(img instanceof HTMLImageElement) || !img.closest(".media") || e.altKey || !container) return false;
     const all = [...container.querySelectorAll<HTMLImageElement>(".media img")];
-    viewer = { items: all.map((el) => ({ src: el.currentSrc || el.src, kind: "image", alt: el.alt })), index: all.indexOf(img) };
+    viewer = {
+      items: all.map((el) => ({ src: el.currentSrc || el.src, kind: "image", alt: el.alt })),
+      names: all.map((el) => el.dataset.asset ?? null),
+      index: all.indexOf(img),
+    };
     return true;
   }
 
@@ -357,8 +363,23 @@
     setBody(joinBlocks(next), "resizeMedia");
   }
 
+  /** Right-click on a picture: save, copy, reveal. A phone's long press gets the system's menu instead. */
+  function onImageMenu(e: MouseEvent): boolean {
+    const img = e.target;
+    if (isMobile || !(img instanceof HTMLImageElement) || !img.closest(".media")) return false;
+    const src = img.currentSrc || img.src;
+    const name = img.dataset.asset;
+    menu.show(e, [
+      ...(name ? [{ label: t("media.save"), run: () => store.exportAsset(name) }] : []),
+      { label: t("media.copy"), run: () => void copyImage(src) },
+      ...(name ? ["separator" as const, { label: t("panel.reveal"), run: () => store.revealAsset(name) }] : []),
+    ]);
+    return true;
+  }
+
   /** Right-click on a web link or a preview card: open, copy, or switch between the two. */
   function onLinkMenu(e: MouseEvent) {
+    if (onImageMenu(e)) return;
     const file = (e.target as HTMLElement).closest<HTMLElement>("a.filelink[data-path]")?.dataset.path;
     if (file) return fileMenu(e, file);
     const a = (e.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
@@ -832,7 +853,11 @@
     closeLabel={t("pane.close")}
     previousLabel={t("gallery.previous")}
     nextLabel={t("gallery.next")}
-  />
+  >
+    {#snippet actions(item, i)}
+      <MediaActions src={item.src} name={viewer?.names[i] ?? null} image />
+    {/snippet}
+  </Lightbox>
 {/if}
 
 <style>
@@ -865,6 +890,10 @@
   }
   .block :global(.media img) {
     cursor: zoom-in;
+  }
+  /* A long press on a picture offers the system's menu: share, save to Photos, copy. */
+  :global(body.mobile) .block :global(.media img) {
+    -webkit-touch-callout: default;
   }
   .block :global(.md input[type="checkbox"]) {
     pointer-events: auto;

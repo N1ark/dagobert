@@ -123,6 +123,14 @@ The gallery is hovered like a block and outlines the image under the pointer; a 
 images edits the nearest one (`onGalleryClick`).
 Clicking an image opens it full screen in purr's `Lightbox`, with the note's other images a step
 away (`viewImage`); ⌥-click edits its block instead.
+`Markdown` tags a project image with `data-asset` (its name in `assets/`). On a Mac, a
+right-click on an image (`onImageMenu`) and the viewer's buttons (`MediaActions`, also the
+gallery's) save a copy (`export_asset` behind a save dialog), copy it (`images.ts`: redrawn as
+PNG, the only image type WebKit's clipboard takes) or reveal it. A phone has no menu of ours:
+a long press gets WebKit's own (share, Save to Photos, copy; `-webkit-touch-callout` is turned
+back on for images, and `NSPhotoLibraryAddUsageDescription` is in the plist for the save), and
+the viewer has a Share button (`navigator.share` with the file, fetched beforehand because
+`share` must run straight in the tap).
 
 Getting media in: every route ends in `store.addMedia(items)` (a path → `import_asset`, which
 streams it on the Rust side; a `File` → `save_asset`), which links other paths on disk (below) and skips other files. Tauri

@@ -349,6 +349,12 @@ pub fn delete_asset(root: &Path, name: &str) -> Result<(), String> {
     remove_file(&asset_path(root, name)?)
 }
 
+/// Copies one asset out of the project, to where the save dialog said.
+pub fn export_asset(root: &Path, name: &str, dest: &Path) -> Result<(), String> {
+    fs::copy(asset_path(root, name)?, dest).map_err(|e| format!("{}: {e}", dest.display()))?;
+    Ok(())
+}
+
 /// Deletes assets no note in `notes/` or `trash/` mentions, sparing the names in `keep`.
 pub fn purge_unused_assets(root: &Path, keep: &[String]) -> Result<(), String> {
     let dir = assets_dir(root);
@@ -957,6 +963,10 @@ mod tests {
         assert_eq!(listed.len(), 1);
         assert_eq!(format!("assets/{}", listed[0].name), a);
         assert_eq!(listed[0].size, 3);
+        let out = dir.join("exported.png");
+        export_asset(&dir, &listed[0].name, &out).unwrap();
+        assert_eq!(fs::read(&out).unwrap(), b"one");
+        assert!(export_asset(&dir, "../dagobert.json", &out).is_err());
         assert!(delete_asset(&dir, "../notes").is_err());
         delete_asset(&dir, &listed[0].name).unwrap();
         assert!(list_assets(&dir).unwrap().is_empty());

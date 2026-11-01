@@ -1029,6 +1029,10 @@ class Store {
     if (this.path) backend.revealAsset(this.path, name).catch((e) => toast.error(e));
   }
 
+  exportAsset(name: string) {
+    if (this.path) backend.exportAsset(this.path, name).catch((e) => toast.error(e));
+  }
+
   // ---- clipboard -----------------------------------------------------------
 
   /** Internal clipboard: a snapshot of the last copied note. */

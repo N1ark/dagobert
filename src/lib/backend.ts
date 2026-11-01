@@ -1,6 +1,6 @@
 /** Thin wrapper over the Tauri commands, with an in-memory project for `npm run dev`. */
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { emit, listen } from "@tauri-apps/api/event";
 import { setTheme as setAppTheme } from "@tauri-apps/api/app";
 import { WebviewWindow, getAllWebviewWindows } from "@tauri-apps/api/webviewWindow";
@@ -247,6 +247,21 @@ export const backend = {
   async revealAsset(path: string, name: string) {
     if (!inTauri || isMobile) return;
     await revealItemInDir(`${path}/notes/assets/${name}`);
+  },
+
+  /** Copies an asset out of the project, to where the save dialog says (a download in the browser). */
+  async exportAsset(path: string, name: string): Promise<void> {
+    if (!inTauri) {
+      Object.assign(document.createElement("a"), { href: this.assetUrl(path, `assets/${name}`), download: name }).click();
+      return;
+    }
+    const ext = name.split(".").pop() ?? "";
+    const dest = await saveDialog({
+      title: t("media.saveTitle"),
+      defaultPath: name,
+      filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+    });
+    if (dest) await invoke("export_asset", { path, name, dest });
   },
 
   /** Copies a dropped or picked file into the project's assets, streaming it on the Rust side. */

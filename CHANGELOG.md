@@ -12,6 +12,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Notes can have an icon before their title, as an alternative to emoji: click the icon slot in the note panel, or "Set icon…" in the right-click menu, and search the whole icon set.
 - Links to files and folders on your Mac: drop one onto a note or use "Link a file…", click to open it; links to missing files are struck through.
 - Click an image in a note to see it full screen; ← and → step through the note's other images, ⌥-click edits it.
+- Save, copy or reveal an image from its right-click menu or the image viewer; on iPhone, long-press an image or tap Share in the viewer to share it or save it to Photos.
 - Links can show as a preview card with the page's title, description and image: right-click a link in a note and pick "Show as preview".
 - Images next to each other in a note lay out as a gallery; drag an image's corner to make its rows bigger or smaller.
 - A "Checklist" kind: a note holding a task list, done once every item is ticked. Its card shows the progress and the next items, tickable right there; its template is in Settings → Checklist.
