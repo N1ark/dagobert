@@ -24,6 +24,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Changed
 
+- Links to a note that is done are struck through, in notes, on cards and in the note panel.
 - Pull request and issue states refresh on their own every few minutes, and when you come back to the app.
 - Quick open (⌘K) lists every note, scrolling, rather than the first ten.
 - Tidy keeps links from running through other notes and crossing each other, and lays loose notes out in a grid.

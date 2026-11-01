@@ -61,6 +61,9 @@ fences (resolved → `<a class="wikilink" href="#note-<id>">`, missing →
 `<span class="wikilink missing">`) and also turns `alias#123` into `.ghref` links (see
 [github.md](github.md)). `mentions` = backlinks; `renameLinks` rewrites bodies when a
 title is committed; `caretCoords` measures the caret via a mirror div for the popups.
+A link to a done note (`store.isDone`) gets `.done`, struck through and muted: `doneLinks.svelte.ts`, an
+action on `Markdown` and `InlineMd`, toggles the class in an `$effect` reading each target, so ticking
+a note restyles the links to it without rendering any HTML again (`NoteLink` pills do the same).
 Clicks in rendered markdown go through `links.ts` `onLinkClick`: wikilinks call
 `store.jump` (which App overrides to also centre the canvas), http/mailto links open in
 the system browser.

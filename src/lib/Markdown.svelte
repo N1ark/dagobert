@@ -42,6 +42,7 @@
   import { onLinkClick } from "./links";
   import { prIcons } from "./prIcons.svelte";
   import { fileLinkIcons } from "./fileLinkIcons.svelte";
+  import { doneLinks } from "./doneLinks.svelte";
   import { t } from "./i18n";
 
   let { source }: { source: string } = $props();
@@ -70,7 +71,14 @@
 
 <!-- Links are intercepted so they open in the system browser. -->
 <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-<div class="md" use:prIcons={() => html} use:fileLinkIcons={() => html} onclick={(e) => onLinkClick(e)} onerrorcapture={hideBroken}>
+<div
+  class="md"
+  use:prIcons={() => html}
+  use:fileLinkIcons={() => html}
+  use:doneLinks={() => html}
+  onclick={(e) => onLinkClick(e)}
+  onerrorcapture={hideBroken}
+>
   {#if source.trim()}
     <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitised by DOMPurify -->
     {@html html}

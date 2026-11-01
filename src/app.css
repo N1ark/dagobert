@@ -146,6 +146,12 @@ body.mobile {
   text-decoration: none;
   border-bottom-color: var(--theme2);
 }
+.wikilink.done,
+.wikilink.done:hover {
+  color: var(--muted);
+  text-decoration: line-through;
+  border-bottom-color: color-mix(in srgb, var(--muted) 40%, transparent);
+}
 .wikilink.missing {
   color: var(--muted);
   border-bottom: 1px dashed var(--faint);

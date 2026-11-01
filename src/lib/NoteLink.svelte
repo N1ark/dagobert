@@ -12,6 +12,7 @@
 <button
   class="note-link"
   class:current={id === store.selectedId}
+  class:done={!!note && store.isDone(note)}
   aria-current={id === store.selectedId || undefined}
   onclick={() => onjump(id)}
 >
@@ -31,6 +32,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .note-link.done {
+    color: var(--muted);
+    text-decoration: line-through;
   }
   .note-link.current {
     background: var(--theme-mid);
