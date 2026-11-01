@@ -84,8 +84,25 @@ Deletes take two presses; it closes on outside pointerdown, Esc or window blur.
 
 ## layout.ts
 
-Pure layered layout (`layout(nodes, opts)`): longest-path layering, barycenter ordering
-sweeps, columns centred on the tallest, components stacked vertically (largest first).
+Pure layered (Sugiyama) layout (`layout(nodes, opts)`), shaped for the edges as drawn (one
+cubic from right-middle to left-middle, `edgeHandle`):
+
+- Layering: longest path, then each node slides toward the side with more edges (shorter edges
+  in total). An edge spanning several layers gets a dummy vertex per layer it crosses.
+- Order: DFS start, barycenter sweeps + transposition (best crossing count kept); dummies of
+  edges from/into one node stay adjacent in the layer next to it (those curves bunch up there).
+- Heights, phase 1: a convex least-squares problem (edges level, dummies tied to where the
+  curve really crosses that layer: `curveAt`), solved layer by layer with pool adjacent
+  violators (`pack`) under the layer's order and gaps.
+- Phase 2: a curve's top/bottom across a layer is linear in its two ends' heights, so "this
+  curve clears that card" is a linear constraint; cards are projected onto them (Hildreth,
+  `project`), soft-capped so an unsatisfiable one can't blow the layout up. Overlapping curves
+  pass a card on the same side. Three rounds, then a final pack so cards never overlap.
+- Components: largest first, packed in rows about as wide as a screen-shaped block (loose notes
+  form a grid). Deterministic and independent of input order; ~100 ms for 300 notes.
+
+Edges are not routed through dummies (positions are all that's stored), so dense graphs can
+still have a few curves over cards; `tests/layout.test.mjs` checks typical shapes stay clear.
 `Canvas.tidy()` applies it (selection-only when `store.multi.length > 1`, anchored at the
 selection's top-left) as one undo step, then fits the view.
 

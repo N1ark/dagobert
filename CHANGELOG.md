@@ -26,6 +26,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 - Pull request and issue states refresh on their own every few minutes, and when you come back to the app.
 - Quick open (⌘K) lists every note, scrolling, rather than the first ten.
+- Tidy keeps links from running through other notes and crossing each other, and lays loose notes out in a grid.
 - Opening a note in a new window closes its pane, so it isn't shown twice.
 - The window can be made much narrower: the toolbar drops the counts, then the less used buttons (still in the command palette).
 - A refreshed look shared with N1ark's other apps: buttons, fields, menus, dialogs, toasts and tooltips, with Inter and Fira Code built in.
