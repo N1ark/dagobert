@@ -12,7 +12,7 @@
     IssueOpened,
     GitPullRequestClosed,
     GitPullRequestUnknown,
-  } from "purr/icons";
+  } from "purr/glyphs";
 
   let {
     item,

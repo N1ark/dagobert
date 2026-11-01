@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Image, FilmStrip, Waveform } from "purr/icons";
+  import { Image, FilmStrip, Waveform } from "purr/glyphs";
   import type { MediaKind } from "./media";
 
   let { kind, size = 12 }: { kind: MediaKind; size?: number } = $props();

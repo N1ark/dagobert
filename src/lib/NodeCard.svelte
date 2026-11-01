@@ -4,7 +4,7 @@
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import { ProgressRing } from "purr";
-  import { CalendarBlank, Warning, WarningCircle } from "purr/icons";
+  import { CalendarBlank, Warning, WarningCircle } from "purr/glyphs";
   import { MARKER_RE } from "./blocks";
   import { firstMedia, stripMedia } from "./media";
   import MediaIcon from "./MediaIcon.svelte";
