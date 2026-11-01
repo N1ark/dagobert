@@ -10,12 +10,14 @@
   import TagColorPicker from "./TagColorPicker.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
+  import NoteIcon from "./NoteIcon.svelte";
   import NoteLink from "./NoteLink.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
   import { t, plural } from "./i18n";
   import { keys } from "./keys";
-  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Clock, Warning } from "purr/icons";
+  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Clock, Shapes, Warning } from "purr/icons";
+  import { noteIcon, pickIcon } from "./noteIcons.svelte";
   import { dueState, joinDue, parseDue } from "./calendar";
   import { clock } from "./clock.svelte";
   import { formatDay, formatTime } from "./time";
@@ -42,6 +44,7 @@
   const due = $derived(parseDue(note.due));
   const dueSt = $derived(dueState(note.due, done, clock.now));
   const late = $derived(store.lateDeps(note));
+  const Icon = $derived(noteIcon(note.icon));
   let titleEl = $state<HTMLInputElement | null>(null);
   let titleFocused = $state(false);
 
@@ -148,6 +151,9 @@
         <input type="checkbox" class="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
+    <IconButton label={t("icon.pick")} class={["icon-slot", !note.icon && "unset"]} onclick={(e) => pickIcon(note.id, e.currentTarget)}
+      >{#if Icon}<Icon />{:else}<Shapes />{/if}</IconButton
+    >
     <!-- Rendered until it's edited, like the body's blocks. -->
     <span class="title-wrap">
       <input
@@ -339,7 +345,9 @@
             <div class="chips">
               {#each g.items as d (d.id)}
                 <span class="chip" class:done={store.isDone(d)}>
-                  <button class="jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback={t("app.untitled")} /></button>
+                  <button class="jump" onclick={() => onjump(d.id)}
+                    ><NoteIcon name={d.icon} /><InlineMd source={d.title} fallback={t("app.untitled")} /></button
+                  >
                   <button class="x" onclick={() => g.remove(d.id)} aria-label={t("panel.link.remove")}><X /></button>
                 </span>
               {/each}
@@ -431,6 +439,13 @@
   }
   .done input {
     --check: 16px;
+  }
+  header :global(.icon-slot) {
+    margin-right: calc(-1 * var(--gap-3));
+    color: var(--color2);
+  }
+  header :global(.icon-slot.unset) {
+    color: var(--faint);
   }
   .title-wrap {
     flex: 1;

@@ -5,6 +5,7 @@
   import type { Note } from "./types";
   import type { Action } from "./menu";
   import InlineMd from "./InlineMd.svelte";
+  import NoteIcon from "./NoteIcon.svelte";
   import { parseQuery } from "./query";
   import { stageColor } from "./workflows";
   import { t } from "./i18n";
@@ -83,6 +84,7 @@
       {:else if item.note}
         {@const n = item.note}
         <span class="title truncate" class:done={store.isDone(n)}>
+          <NoteIcon name={n.icon} />
           {#if state.indices.length && !/[*_`[\]~]/.test(n.title)}
             <Highlight text={item.label} indices={state.indices} />
           {:else}

@@ -4,6 +4,7 @@
   import Canvas from "./lib/Canvas.svelte";
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
+  import IconPicker from "./lib/IconPicker.svelte";
   import type { Action } from "./lib/menu";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
   import Dock from "./lib/Dock.svelte";
@@ -912,6 +913,7 @@
 
 <ToastHost dismissLabel={t("app.dismiss")} />
 <ContextMenuHost label={t("ctx.label")} dismissLabel={t("app.dismiss")} />
+<IconPicker />
 
 <style>
   .app {

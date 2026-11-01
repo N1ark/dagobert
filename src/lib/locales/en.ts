@@ -142,6 +142,7 @@ export default {
   "ctx.due.clear": "No due date",
   "ctx.newTag": "new tag…",
   "ctx.resetWidth": "Reset width",
+  "ctx.icon": "Set icon…",
   "ctx.delete": "Delete…",
   "ctx.reallyDelete": "Confirm",
   "ctx.group.selected": "{n} notes selected",
@@ -490,6 +491,8 @@ export default {
   "history.unpreview": "show as link",
   "history.due": "set due date",
   "history.undue": "remove due date",
+  "history.icon": "set icon",
+  "history.unicon": "remove icon",
 
   // Relative times
   "time.justNow": "just now",
@@ -501,6 +504,13 @@ export default {
   "due.at": "{day}, {time}",
   "due.tip": "Due {when}",
   "due.tip.overdue": "Overdue: was due {when}",
+
+  // Note icons
+  "icon.pick": "Choose an icon",
+  "icon.search": "Search icons",
+  "icon.remove": "Remove icon",
+  "icon.none": "No icon matches.",
+  "icon.loading": "Loading icons",
 
   // Calendar pane
   "calendar.title": "Calendar",

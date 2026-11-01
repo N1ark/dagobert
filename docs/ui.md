@@ -188,6 +188,17 @@ purr's (`main.ts` applies its dark theme; `app.css` only sets the 14px `--font-s
 toolbar's sizes); rendered markdown is purr's `.md`. Fonts (Inter Variable, Fira Code) are
 bundled by `purr/fonts.css`; nothing is fetched.
 
+### Note icons
+
+A note's optional `icon` (frontmatter, omitted when unset) names a purr/Phosphor icon. Its
+shapes come from `virtual:note-icons` (a plugin in `vite.config.js`: every icon's regular
+weight, sorted, ~640 kB), which `noteIcons.svelte.ts` imports lazily the first time a note
+with an icon renders or the picker opens; `noteIcon(name)` caches one `glyph()` per name.
+`NoteIcon.svelte` draws it inline before a title (cards, quick open, pickers, calendar, link
+chips). `IconPicker.svelte`, mounted once in `App.svelte`, is opened with `pickIcon(id,
+anchor)` from the panel's icon slot or the card menu: purr's `rank` over the names, rows of
+8 in a `VirtualList`, arrows + ↩ from the search field.
+
 ## CI and releases
 
 `.github/workflows/ci.yml` runs format:check, lint, check, test, the Vite build and an iOS

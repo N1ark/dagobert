@@ -700,6 +700,7 @@ mod tests {
             permanent: false,
             checklist: false,
             due: None,
+            icon: None,
             x: 0.0,
             y: 0.0,
             width: None,

@@ -3,6 +3,7 @@
   import { store } from "./store.svelte";
   import type { Note } from "./types";
   import InlineMd from "./InlineMd.svelte";
+  import NoteIcon from "./NoteIcon.svelte";
   import { t } from "./i18n";
 
   let {
@@ -88,7 +89,9 @@
             onclick={() => pick(n.id)}
             onmouseenter={() => (active = i)}
           >
-            <span class="t" class:done={store.isDone(n)}><InlineMd source={n.title} fallback={t("app.untitled")} /></span>
+            <span class="t" class:done={store.isDone(n)}
+              ><NoteIcon name={n.icon} /><InlineMd source={n.title} fallback={t("app.untitled")} /></span
+            >
             {#if n.tags.length}<span class="tags">{n.tags.join(", ")}</span>{/if}
           </button>
         </li>

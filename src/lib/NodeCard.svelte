@@ -13,6 +13,7 @@
   import { dueState } from "./calendar";
   import { clock } from "./clock.svelte";
   import { formatDue } from "./time";
+  import NoteIcon from "./NoteIcon.svelte";
 
   let {
     note,
@@ -94,7 +95,9 @@
         aria-label={t("node.toggleDone")}
       ></button>
     {/if}
-    <div class="title" class:empty={!note.title}><InlineMd source={note.title} fallback={t("app.untitled")} /></div>
+    <div class="title" class:empty={!note.title}>
+      {#if note.icon}<NoteIcon name={note.icon} />{/if}<InlineMd source={note.title} fallback={t("app.untitled")} />
+    </div>
     {#if conflict}
       <span class="conflict" title={t("node.conflict")}><Warning weight="fill" /></span>
     {/if}
