@@ -8,6 +8,7 @@
   import LinkPicker from "./LinkPicker.svelte";
   import DockButton from "./DockButton.svelte";
   import TagColorPicker from "./TagColorPicker.svelte";
+  import TagInput from "./TagInput.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
   import NoteIcon from "./NoteIcon.svelte";
@@ -24,7 +25,6 @@
 
   let { note, onjump, standalone = false }: { note: Note; onjump: (id: string) => void; standalone?: boolean } = $props();
 
-  let tagInput = $state("");
   let confirmDelete = $state(false);
   let picking = $state<{ tag: string; anchor: HTMLElement } | null>(null);
   let picker = $state<{ kind: "date" | "time"; anchor: HTMLElement } | null>(null);
@@ -113,22 +113,8 @@
     titleBefore = note.title;
   }
 
-  function addTag() {
-    store.addTag(note.id, tagInput);
-    tagInput = "";
-  }
-
   function removeTag(t: string) {
     store.removeTag(note.id, t);
-  }
-
-  function onTagKey(e: KeyboardEvent) {
-    if (e.key === "Enter" || e.key === ",") {
-      e.preventDefault();
-      addTag();
-    } else if (e.key === "Backspace" && !tagInput && note.tags.length) {
-      removeTag(note.tags[note.tags.length - 1]);
-    }
   }
 
   function jumpTo(block: number) {
@@ -325,12 +311,11 @@
             removeLabel={t("panel.tag.remove")}
           />
         {/each}
-        <input
-          class="tag-input"
+        <TagInput
+          exclude={note.tags}
           placeholder={t(note.tags.length ? "panel.tag.add" : "panel.tag.addFirst")}
-          bind:value={tagInput}
-          onkeydown={onTagKey}
-          onblur={addTag}
+          onadd={(tag) => store.addTag(note.id, tag)}
+          onbackspace={() => note.tags.length && removeTag(note.tags[note.tags.length - 1])}
         />
       </div>
 
@@ -584,11 +569,6 @@
     padding: 0 var(--sp-5) var(--gap-4) var(--sp-5);
     font-size: var(--fs-micro);
     color: var(--muted);
-  }
-  .tag-input {
-    font-size: var(--fs-xs);
-    padding: var(--gap-1) var(--gap-2);
-    width: 90px;
   }
   .links {
     display: flex;

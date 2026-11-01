@@ -283,6 +283,7 @@ export default {
   "tags.colorOf": "colour of {tag}",
   "tags.clear": "Clear filter",
   "tags.colorLabel": "tag colour",
+  "tags.create": "New tag “{tag}”",
   "color.label": "colour",
   "color.remove": "Right-click to remove",
   "color.auto": "Automatic",

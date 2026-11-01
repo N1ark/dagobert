@@ -161,7 +161,9 @@ canvas menu's "Due date" submenu, or the palette's "Make due today"; all go thro
   `<input type="color">` (live preview on `input`, added and picked on `change`); custom
   swatches are removed by right-click. `TagColorPicker.svelte` wraps it; `TagMenu.svelte`
   is the toolbar popover listing all tags (click name = toggle filter, click dot =
-  recolour).
+  recolour). `TagInput.svelte` is the field that adds a tag (note panel, and `inline` in the
+  canvas menu): it suggests `store.allTags` ranked by purr's `rank`, a prefix match
+  pre-selected, else a "New tag" row; ↑ ↓ pick, Enter / Tab accept, blur or `,` adds what was typed.
 - purr's `tooltip` action — `use:tooltip={"text"}`: an instant tooltip. Also takes
   `{ text, hint }`, `{ html }` (must be DOMPurify output, e.g. `inlineHtml`) or a function
   evaluated per hover. `IconButton` shows its label as one.

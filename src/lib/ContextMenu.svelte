@@ -36,6 +36,7 @@
   import { clock } from "./clock.svelte";
   import { formatDue } from "./time";
   import { iconLabel, noteIcon, pickIcon } from "./noteIcons.svelte";
+  import TagInput from "./TagInput.svelte";
 
   /** The canvas's menu, for a note, a selection, a link or the background; renders nothing of its own. */
   let {
@@ -202,30 +203,29 @@
     ];
   }
 
-  function addTag() {
-    const tag = newTag.trim();
-    const ids = target?.kind === "node" ? [target.id] : target?.kind === "group" ? target.ids : [];
-    if (!tag) return;
-    for (const id of ids) store.addTag(id, tag);
-    newTag = "";
+  const targetIds = () => (target?.kind === "node" ? [target.id] : target?.kind === "group" ? target.ids : []);
+
+  function addTag(tag: string) {
+    for (const id of targetIds()) store.addTag(id, tag);
+  }
+
+  /** Tags every target note already has, so they aren't suggested. */
+  function sharedTags(): string[] {
+    const notes = notesOf(targetIds());
+    return notes.length ? notes[0].tags.filter((tag) => notes.every((n) => n.tags.includes(tag))) : [];
   }
 </script>
 
 {#snippet tagInput(_: MenuControl)}
-  <form
-    class="new-tag"
-    onsubmit={(e) => {
-      e.preventDefault();
-      addTag();
-    }}
-  >
-    <input
-      class="field-input"
-      placeholder={t(target?.kind === "group" ? "ctx.group.addTag" : "ctx.newTag")}
+  <div class="new-tag">
+    <TagInput
+      inline
       bind:value={newTag}
-      onblur={addTag}
+      exclude={sharedTags()}
+      placeholder={t(target?.kind === "group" ? "ctx.group.addTag" : "ctx.newTag")}
+      onadd={addTag}
     />
-  </form>
+  </div>
 {/snippet}
 
 {#snippet aligns(control: MenuControl)}
@@ -253,11 +253,6 @@
 <style>
   .new-tag {
     padding: var(--gap-1) var(--gap-2) var(--gap-2);
-  }
-  .new-tag input {
-    min-height: 0;
-    padding: var(--gap-1) var(--gap-4);
-    font-size: var(--fs-xs);
   }
   .aligns {
     display: flex;
