@@ -12,7 +12,7 @@
   import InlineMd from "./InlineMd.svelte";
   import { t, plural } from "./i18n";
 
-  type Section = "workflows" | "tracking" | "note" | "github" | "git";
+  type Section = "workflows" | "tracking" | "note" | "checklist" | "github" | "git";
   let { onclose, section = "workflows", workflow }: { onclose: () => void; section?: Section; workflow?: string | null } = $props();
 
   // svelte-ignore state_referenced_locally
@@ -53,6 +53,7 @@
         { id: "todo", label: t("settings.nav.todo"), trailing: builtin },
         { id: "tracking", label: t("settings.nav.tracking"), trailing: builtin },
         { id: "note", label: t("settings.nav.note"), trailing: builtin },
+        { id: "checklist", label: t("settings.nav.checklist"), trailing: builtin },
         ...store.workflows.map((w) => ({ id: `wf:${w.id}`, label: w.name || t("settings.nav.unnamed") })),
       ],
     },
@@ -60,7 +61,7 @@
   const current = $derived(page === "workflows" ? (selectedId === null ? "todo" : `wf:${selectedId}`) : page);
 
   function select(id: string) {
-    if (id === "github" || id === "git" || id === "tracking" || id === "note") {
+    if (id === "github" || id === "git" || id === "tracking" || id === "note" || id === "checklist") {
       page = id;
       return;
     }
@@ -143,6 +144,14 @@
           (v) => (store.noteTemplate = v),
           () => store.saveMeta(),
           t("settings.note.placeholder"),
+        )}
+      {:else if page === "checklist"}
+        <p class="help"><InlineMd source={t("settings.checklist.help")} /></p>
+        {@render template(
+          () => store.checklistTemplate,
+          (v) => (store.checklistTemplate = v),
+          () => store.saveMeta(),
+          t("settings.checklist.placeholder"),
         )}
       {:else if page === "git"}
         <p class="help"><InlineMd source={t("settings.git.help")} /></p>

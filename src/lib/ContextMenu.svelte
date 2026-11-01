@@ -89,7 +89,7 @@
     const note = store.byId(id);
     if (!note) return [];
     const workflow = store.workflowOf(note);
-    const progress = note.tracking ? store.progress(note) : null;
+    const progress = note.tracking || note.checklist ? store.progress(note) : null;
     return [
       { label: t("ctx.open"), run: () => store.select(id) },
       { label: t("ctx.openWindow"), icon: ArrowSquareOut, run: () => store.openInWindow(id) },
@@ -104,7 +104,7 @@
         },
       },
       progress
-        ? { kind: "heading", label: t("ctx.tracking", { done: progress.done, total: progress.total }) }
+        ? { kind: "heading", label: t(note.checklist ? "ctx.checklist" : "ctx.tracking", { done: progress.done, total: progress.total }) }
         : note.workflow === null && !note.permanent
           ? { label: t(store.isDone(note) ? "node.markNotDone" : "node.markDone"), run: () => store.advance(id) }
           : null,

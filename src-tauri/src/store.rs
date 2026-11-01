@@ -34,6 +34,9 @@ pub struct Note {
     /// A permanent note: no progress of its own, never done or ready.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub permanent: bool,
+    /// A checklist: done when every task item in its body is ticked; no own status.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub checklist: bool,
     /// When it's due: `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; opaque here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
@@ -77,6 +80,8 @@ struct FrontMatter {
     tracking: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     permanent: bool,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    checklist: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     due: Option<String>,
     #[serde(default)]
@@ -183,6 +188,9 @@ pub struct Meta {
     /// Template for new permanent notes (the "Note" kind).
     #[serde(default)]
     pub note_template: String,
+    /// Template for new checklists; `None` until set, which the frontend reads as one empty item.
+    #[serde(default)]
+    pub checklist_template: Option<String>,
     /// User-added swatches shown in colour pickers after the built-in palette.
     #[serde(default)]
     pub palette: Vec<String>,
@@ -462,6 +470,7 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
             .unwrap_or_else(|| if fm.done { "done".into() } else { todo() }),
         tracking: fm.tracking,
         permanent: fm.permanent,
+        checklist: fm.checklist,
         due: fm.due,
         x: fm.x,
         y: fm.y,
@@ -485,6 +494,7 @@ pub fn serialize_note(note: &Note) -> Result<String, String> {
         status: Some(note.status.clone()),
         tracking: note.tracking,
         permanent: note.permanent,
+        checklist: note.checklist,
         due: note.due.clone(),
         x: note.x,
         y: note.y,
@@ -648,6 +658,7 @@ pub struct MetaPatch {
     pub default_template: Option<String>,
     pub tracking_template: Option<String>,
     pub note_template: Option<String>,
+    pub checklist_template: Option<String>,
     pub palette: Option<Vec<String>>,
     pub git: Option<GitSettings>,
 }
@@ -687,6 +698,9 @@ pub fn save_meta(root: &Path, patch: MetaPatch) -> Result<(), String> {
     }
     if let Some(t) = patch.note_template {
         meta.note_template = t;
+    }
+    if let Some(t) = patch.checklist_template {
+        meta.checklist_template = Some(t);
     }
     if let Some(p) = patch.palette {
         meta.palette = p;
@@ -735,6 +749,7 @@ mod tests {
             status: "todo".into(),
             tracking: false,
             permanent: false,
+            checklist: false,
             due: None,
             x: 12.5,
             y: -3.0,
@@ -815,6 +830,7 @@ mod tests {
                 workflows: Some(vec![wf]),
                 default_template: Some("- [ ] ".into()),
                 note_template: Some("## Idea\n".into()),
+                checklist_template: Some(String::new()),
                 palette: Some(vec!["#ff8800".into()]),
                 ..Default::default()
             },
@@ -831,12 +847,18 @@ mod tests {
         assert_eq!(m.workflows[0].template, "## Checklist\n- [ ] tests");
         assert_eq!(m.default_template, "- [ ] ");
         assert_eq!(m.note_template, "## Idea\n");
+        assert_eq!(
+            m.checklist_template.as_deref(),
+            Some(""),
+            "cleared, not unset"
+        );
         // Old files without templates still load.
         let legacy: Meta =
             serde_json::from_str(r#"{"workflows":[{"id":"x","name":"X","stages":[]}]}"#).unwrap();
         assert_eq!(legacy.workflows[0].template, "");
         assert_eq!(legacy.default_template, "");
         assert_eq!(legacy.note_template, "");
+        assert_eq!(legacy.checklist_template, None);
         assert!(legacy.palette.is_empty());
         assert!(!legacy.git.enabled && legacy.git.interval_min == 5);
 
@@ -1024,6 +1046,20 @@ mod tests {
         let mut n = n;
         n.due = None;
         assert!(!serialize_note(&n).unwrap().contains("due"));
+    }
+
+    #[test]
+    fn checklist_flag_is_omitted_when_false() {
+        let n = parse_note(
+            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\nchecklist: true\n---\n- [ ] a\n",
+            "x.md",
+        )
+        .unwrap();
+        assert!(n.checklist && !n.tracking);
+        assert!(serialize_note(&n).unwrap().contains("checklist: true\n"));
+        let mut n = n;
+        n.checklist = false;
+        assert!(!serialize_note(&n).unwrap().contains("checklist"));
     }
 
     #[test]

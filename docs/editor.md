@@ -144,9 +144,11 @@ card, "Show as link" (`embedToLink`: the alt, else the page's title, else `<url>
 ## Templates
 
 `Workflow.template` and `Meta.default_template` (for Todo) are edited in `WorkflowEditor`;
-tracking issues have `Meta.tracking_template` (settings → "Tracking issue"), and permanent notes
-`Meta.note_template` (settings → "Note"); `store.templateFor(workflow, tracking, permanent)` picks.
-`store.create` fills `body` from `templateFor(workflow, tracking)` via `renderTemplate`
+tracking issues have `Meta.tracking_template` (settings → "Tracking issue"), permanent notes
+`Meta.note_template` (settings → "Note") and checklists `Meta.checklist_template` (settings →
+"Checklist"; `null` until set, read as `CHECKLIST_TEMPLATE`, one empty task item, so Enter
+continues the list); `store.templateFor(note)` picks by the note's kind.
+`store.create` fills `body` from `templateFor(note)` via `renderTemplate`
 (`{{date}}`, `{{title}}`) only when `init.body` is undefined (clones/pastes pass a body).
 `isEmpty` treats a body equal to its template as blank so accidental notes are still
 discarded; `setWorkflow` swaps in the new template only when the body is blank by that

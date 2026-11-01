@@ -37,8 +37,8 @@
 
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent);
-  const progress = $derived(note.tracking ? store.progress(note) : null);
+  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent && !note.checklist);
+  const progress = $derived(note.tracking || note.checklist ? store.progress(note) : null);
   const due = $derived(parseDue(note.due));
   const dueSt = $derived(dueState(note.due, done, clock.now));
   const late = $derived(store.lateDeps(note));
@@ -140,7 +140,7 @@
 <aside class="panel" class:standalone bind:this={panelEl}>
   <header>
     {#if progress}
-      <span class="ring" title={t("node.progress", { done: progress.done, total: progress.total })}
+      <span class="ring" title={t(note.checklist ? "node.checklist" : "node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing value={progress.done} max={progress.total} size={16} label={t("ring.aria", progress)} /></span
       >
     {:else if !custom && !note.permanent}
@@ -201,15 +201,16 @@
           </span>
         {/if}
         {#if progress}
-          <span class="track-info" title={t("panel.depsDone")}>{progress.done}/{progress.total}</span>
+          <span class="track-info" title={t(note.checklist ? "panel.itemsDone" : "panel.depsDone")}>{progress.done}/{progress.total}</span>
         {/if}
         <select
           class="wf"
-          value={note.tracking ? "tracking" : note.permanent ? "permanent" : (note.workflow ?? "")}
+          value={note.tracking ? "tracking" : note.permanent ? "permanent" : note.checklist ? "checklist" : (note.workflow ?? "")}
           onchange={(e) => {
             const v = e.currentTarget.value;
             if (v === "tracking") store.setTracking(note.id, true);
             else if (v === "permanent") store.setPermanent(note.id, true);
+            else if (v === "checklist") store.setChecklist(note.id, true);
             else {
               store.setTracking(note.id, false);
               store.setWorkflow(note.id, v || null);
@@ -220,6 +221,7 @@
           <option value="">{t("panel.kind.todo")}</option>
           <option value="tracking">{t("panel.kind.tracking")}</option>
           <option value="permanent">{t("panel.kind.permanent")}</option>
+          <option value="checklist">{t("panel.kind.checklist")}</option>
           {#each store.workflows as wf (wf.id)}
             <option value={wf.id}>{wf.name}</option>
           {/each}
@@ -227,8 +229,10 @@
         <IconButton
           label={t("panel.manageWorkflows")}
           onclick={() =>
-            store.openSettings(note.tracking ? "tracking" : note.permanent ? "note" : "workflows", note.tracking ? null : note.workflow)}
-          ><GearSix /></IconButton
+            store.openSettings(
+              note.tracking ? "tracking" : note.permanent ? "note" : note.checklist ? "checklist" : "workflows",
+              note.tracking ? null : note.workflow,
+            )}><GearSix /></IconButton
         >
         {#if !note.permanent}
           {#if due}

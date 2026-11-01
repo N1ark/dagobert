@@ -8,6 +8,7 @@ import { History, type NoteDiff } from "./history";
 import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, joinBlocks, splitBlocks } from "./blocks";
+import { CHECKLIST_TEMPLATE, taskProgress, toggleTask } from "./checklist";
 import { t, plural, type HistoryLabel } from "./i18n";
 import { assetNames, EMBED_RE, embed, extOf, fileExt, fileName, kindOf, parseAlt, type MediaSource } from "./media";
 
@@ -87,6 +88,7 @@ class Store {
   trackingTemplate = $state("");
   /** Template for new permanent notes. */
   noteTemplate = $state("");
+  checklistTemplate = $state(CHECKLIST_TEMPLATE);
   /** Tags currently used to filter the canvas (OR semantics). */
   tagFilter = $state<string[]>([]);
   selectedId = $state<string | null>(null);
@@ -99,7 +101,7 @@ class Store {
   /** Installed by App: select a note and centre the canvas on it. */
   jump: (id: string) => void = (id) => this.select(id);
   /** Set by `App`: shows the settings panel (mobile routes the cog through it). */
-  openSettings: (section: "workflows" | "tracking" | "note", workflow: string | null) => void = () => {};
+  openSettings: (section: "workflows" | "tracking" | "note" | "checklist", workflow: string | null) => void = () => {};
   /** Set by `App`: slides the mobile panel out rather than dropping it. */
   dismissPanel: () => void = () => {};
 
@@ -414,15 +416,16 @@ class Store {
 
   isDone(note: Note): boolean {
     if (note.permanent) return false;
-    if (note.tracking) {
+    if (note.tracking || note.checklist) {
       const p = this.progress(note);
       return p.total > 0 && p.done === p.total;
     }
     return this.workflowOf(note).stages.find((s) => s.name === note.status)?.done ?? false;
   }
 
-  /** Direct dependencies done / total (what a tracking issue's ring shows); permanent notes don't count. */
+  /** A checklist's ticked items, else direct dependencies done (a tracking issue's ring); permanent notes don't count. */
   progress(note: Note): { done: number; total: number } {
+    if (note.checklist) return this.#tasks(note);
     let done = 0,
       total = 0;
     for (const d of note.deps) {
@@ -434,6 +437,16 @@ class Store {
     return { done, total };
   }
 
+  /** Item counts by note, kept while its body is unchanged, since `isDone` runs for every note on every edit. */
+  #taskCache = new Map<string, { body: string; p: { done: number; total: number } }>();
+  #tasks(note: Note): { done: number; total: number } {
+    const hit = this.#taskCache.get(note.id);
+    if (hit?.body === note.body) return hit.p;
+    const p = taskProgress(note.body);
+    this.#taskCache.set(note.id, { body: note.body, p });
+    return p;
+  }
+
   setTracking(id: string, tracking: boolean) {
     const n = this.byId(id);
     if (!n || !!n.tracking === tracking) return;
@@ -442,9 +455,36 @@ class Store {
     if (tracking) {
       n.workflow = null;
       n.permanent = false;
+      n.checklist = false;
     }
-    if (blank) n.body = renderTemplate(this.templateFor(n.workflow, tracking), n.title);
+    if (blank) n.body = renderTemplate(this.templateFor(n), n.title);
     this.touch(id, { immediate: true, label: "kind" });
+  }
+
+  /** A checklist's progress is its own task items, so it drops its workflow like a tracking issue. */
+  setChecklist(id: string, checklist: boolean) {
+    const n = this.byId(id);
+    if (!n || !!n.checklist === checklist) return;
+    const blank = this.#bodyIsBlank(n);
+    n.checklist = checklist;
+    if (checklist) {
+      n.tracking = false;
+      n.permanent = false;
+      n.workflow = null;
+      n.status = DEFAULT_WORKFLOW.stages[0].name;
+    }
+    if (blank) n.body = renderTemplate(this.templateFor(n), n.title);
+    this.touch(id, { immediate: true, label: "kind" });
+  }
+
+  /** Ticks or unticks the checklist item on body line `line`; one undo step. */
+  toggleTask(id: string, line: number) {
+    const n = this.byId(id);
+    if (!n) return;
+    const body = toggleTask(n.body, line);
+    if (body === n.body) return;
+    n.body = body;
+    this.touch(id, { immediate: true, label: "check" });
   }
 
   /** A permanent note has no progress, so it drops its workflow and due date. */
@@ -455,18 +495,19 @@ class Store {
     n.permanent = permanent;
     if (permanent) {
       n.tracking = false;
+      n.checklist = false;
       n.workflow = null;
       n.status = DEFAULT_WORKFLOW.stages[0].name;
       n.due = null;
     }
-    if (blank) n.body = renderTemplate(this.templateFor(n.workflow, false, permanent), n.title);
+    if (blank) n.body = renderTemplate(this.templateFor(n), n.title);
     this.touch(id, { immediate: true, label: "kind" });
   }
 
   /** Mark done (first done stage) or not done (first stage) in the note's own workflow. */
   setDone(id: string, done: boolean) {
     const n = this.byId(id);
-    if (!n || n.tracking || n.permanent) return;
+    if (!n || n.tracking || n.permanent || n.checklist) return;
     const stages = this.workflowOf(n).stages;
     const target = done ? (stages.find((s) => s.done) ?? stages[stages.length - 1]) : stages[0];
     this.setStatus(id, target.name);
@@ -482,24 +523,25 @@ class Store {
   /** Move to the next stage (or previous with `step = -1`), wrapping around. */
   advance(id: string, step = 1) {
     const n = this.byId(id);
-    if (!n || n.tracking || n.permanent) return;
+    if (!n || n.tracking || n.permanent || n.checklist) return;
     const stages = this.workflowOf(n).stages;
     const i = stages.findIndex((s) => s.name === n.status);
     this.setStatus(id, stages[(i + step + stages.length) % stages.length].name);
   }
 
-  /** Raw template for a workflow id (null = built-in Todo) or a tracking issue. */
-  templateFor(workflowId: string | null, tracking = false, permanent = false): string {
-    if (permanent) return this.noteTemplate;
-    if (tracking) return this.trackingTemplate;
-    return workflowId ? (this.workflows.find((w) => w.id === workflowId)?.template ?? "") : this.defaultTemplate;
+  /** Raw template for a note's kind: its workflow (null = built-in Todo), or tracking / permanent / checklist. */
+  templateFor(kind: Pick<Note, "workflow" | "tracking" | "permanent" | "checklist">): string {
+    if (kind.permanent) return this.noteTemplate;
+    if (kind.tracking) return this.trackingTemplate;
+    if (kind.checklist) return this.checklistTemplate;
+    return kind.workflow ? (this.workflows.find((w) => w.id === kind.workflow)?.template ?? "") : this.defaultTemplate;
   }
 
   /** True when the body is empty or is just an untouched template. */
   #bodyIsBlank(n: Note): boolean {
     const b = n.body.trim();
     if (!b) return true;
-    const tpl = this.templateFor(n.workflow, !!n.tracking, !!n.permanent);
+    const tpl = this.templateFor(n);
     return b === tpl.trim() || b === renderTemplate(tpl, n.title).trim();
   }
 
@@ -510,10 +552,11 @@ class Store {
     const blank = this.#bodyIsBlank(n);
     n.workflow = workflowId;
     n.permanent = false;
+    n.checklist = false;
     const stages = this.workflowOf(n).stages;
     n.status = (wasDone ? (stages.find((s) => s.done) ?? stages[0]) : stages[0]).name;
     // An untouched body picks up the new workflow's template.
-    if (blank) n.body = renderTemplate(this.templateFor(workflowId), n.title);
+    if (blank) n.body = renderTemplate(this.templateFor({ workflow: workflowId }), n.title);
     this.touch(id, { immediate: true, label: "workflow" });
   }
 
@@ -629,6 +672,7 @@ class Store {
     if (meta.default_template !== undefined) this.defaultTemplate = meta.default_template;
     if (meta.tracking_template !== undefined) this.trackingTemplate = meta.tracking_template;
     if (meta.note_template !== undefined) this.noteTemplate = meta.note_template;
+    if (meta.checklist_template !== undefined) this.checklistTemplate = meta.checklist_template ?? CHECKLIST_TEMPLATE;
     if (meta.repos) this.repos = meta.repos;
     if (meta.palette) this.palette = meta.palette;
     if (!meta.git) return false;
@@ -700,7 +744,7 @@ class Store {
       ...init,
     };
     // New notes start from their workflow's template; clones/pastes pass a body.
-    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note.workflow, !!note.tracking, !!note.permanent), note.title);
+    if (init.body === undefined) note.body = renderTemplate(this.templateFor(note), note.title);
     this.notes.push(note);
     this.#record("create", { id: note.id, before: null, after: $state.snapshot(note) });
     this.save(note.id, true);
@@ -995,6 +1039,7 @@ class Store {
       status,
       tracking: !!src.tracking,
       permanent: !!src.permanent,
+      checklist: !!src.checklist,
       due: src.due ?? null,
       width: src.width ?? null,
     });
@@ -1324,6 +1369,7 @@ class Store {
       default_template: this.defaultTemplate,
       tracking_template: this.trackingTemplate,
       note_template: this.noteTemplate,
+      checklist_template: this.checklistTemplate,
       repos: $state.snapshot(this.repos),
       palette: $state.snapshot(this.palette),
       git: { enabled: this.gitEnabled, interval_min: this.gitInterval },

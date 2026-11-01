@@ -133,7 +133,7 @@
   {@const st = stateOf(n)}
   {@const time = timeOf(n)}
   <li class={["row", st, store.isDone(n) && "done"]}>
-    {#if !n.tracking}
+    {#if !n.tracking && !n.checklist}
       <button
         class="checkbox check"
         role="checkbox"

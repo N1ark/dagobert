@@ -61,7 +61,7 @@ The native window can't be screenshotted from the CLI.
 - `calendar.ts`, `clock.svelte.ts`, `Calendar.svelte` — due dates and the calendar pane.
 - Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
   `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`,
-  `media.ts`, `preview.ts`. They run under
+  `media.ts`, `preview.ts`, `checklist.ts`. They run under
   plain Node, so they must not import `purr`.
 
 Details per area (read the one you're working in):
@@ -96,6 +96,10 @@ Details per area (read the one you're working in):
 - Permanent notes (`note.permanent`, frontmatter `permanent: true`, omitted when false): the
   "Note" kind; no checkbox, status or due date, never done or ready, left out of the toolbar's
   total and of tracking progress; a dependent treats them as satisfied.
+- Checklists (`note.checklist`, frontmatter `checklist: true`, omitted when false): progress is
+  the body's task items (`checklist.ts`, fenced code skipped, empty items ignored); `isDone` =
+  at least one item and all ticked; `setDone` / `advance` are no-ops; "ready" as for a Todo.
+  Cards list the first unticked items, ticked via `store.toggleTask` (one undo step).
 - Due dates (`note.due`, frontmatter `due`, omitted when unset) are local wall-clock
   `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, no zone, so a synced project never shifts a day; Rust
   treats them as opaque. Overdue = not done and past due (`dueState`); "now" comes from

@@ -698,6 +698,7 @@ mod tests {
             status: "todo".into(),
             tracking: false,
             permanent: false,
+            checklist: false,
             due: None,
             x: 0.0,
             y: 0.0,

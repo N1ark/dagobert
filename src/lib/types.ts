@@ -12,6 +12,8 @@ export interface Note {
   tracking?: boolean;
   /** Permanent note: no checkbox or status, never done or ready; satisfies its dependents. */
   permanent?: boolean;
+  /** Checklist: done when every task item in its body is ticked; has no status of its own. */
+  checklist?: boolean;
   /** `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; see calendar.ts. */
   due?: string | null;
   x: number;
@@ -101,6 +103,8 @@ export interface Meta {
   tracking_template: string;
   /** Template for new permanent notes (the "Note" kind). */
   note_template?: string;
+  /** Template for new checklists; null or absent until set (then one empty task item). */
+  checklist_template?: string | null;
   /** GitHub repo aliases: alias -> "owner/name". */
   repos: Record<string, string>;
   /** User-added swatches shown in colour pickers after the built-in palette. */

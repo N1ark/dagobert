@@ -6,9 +6,10 @@
   import { ProgressRing } from "purr";
   import { CalendarBlank, Warning, WarningCircle } from "purr/glyphs";
   import { MARKER_RE } from "./blocks";
+  import { isTaskLine, tasks } from "./checklist";
   import { firstMedia, stripMedia } from "./media";
   import MediaIcon from "./MediaIcon.svelte";
-  import { t } from "./i18n";
+  import { t, plural } from "./i18n";
   import { dueState } from "./calendar";
   import { clock } from "./clock.svelte";
   import { formatDue } from "./time";
@@ -33,19 +34,24 @@
     onresize: (h: number) => void;
   } = $props();
 
+  /** How many of a checklist's unticked items the card lists. */
+  const SHOWN = 3;
+
   let height = $state(0);
   $effect(() => onresize(height));
 
   const ready = $derived(store.isReady(note));
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
-  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent);
-  const progress = $derived(note.tracking ? store.progress(note) : null);
+  const custom = $derived(note.workflow !== null && !note.tracking && !note.permanent && !note.checklist);
+  const progress = $derived(note.tracking || note.checklist ? store.progress(note) : null);
+  const open = $derived(note.checklist ? tasks(note.body).filter((i) => !i.done) : []);
   const conflict = $derived(store.hasConflict(note));
   // First non-empty body line, block markers and embeds stripped so it renders as inline markdown.
   const preview = $derived(
     stripMedia(note.body)
       .split("\n")
+      .filter((l) => !note.checklist || !isTaskLine(l))
       .map((l) => l.replace(/^\s*(#{1,6}\s+|>\s*|[-*+]\s+(\[[ xX]\]\s*)?|\d+\.\s+)/, "").trim())
       .find((l) => l.length > 0 && !/^(```|---|\*\*\*|___)/.test(l) && !MARKER_RE.test(l)) ?? "",
   );
@@ -74,7 +80,7 @@
 >
   <div class="head">
     {#if progress}
-      <span class="ring-wrap" title={t("node.progress", { done: progress.done, total: progress.total })}
+      <span class="ring-wrap" title={t(note.checklist ? "node.checklist" : "node.progress", { done: progress.done, total: progress.total })}
         ><ProgressRing value={progress.done} max={progress.total} label={t("ring.aria", progress)} /></span
       >
     {:else if !custom && !note.permanent}
@@ -126,6 +132,28 @@
       {#if media}<span class="media"><MediaIcon kind={media} /></span>{/if}
       <InlineMd source={preview} />
     </div>
+  {/if}
+  {#if open.length}
+    <ul class="tasks">
+      {#each open.slice(0, SHOWN) as item (item.line)}
+        <li>
+          <button
+            class="checkbox"
+            role="checkbox"
+            aria-checked="false"
+            onpointerdown={(e) => e.stopPropagation()}
+            onclick={(e) => {
+              e.stopPropagation();
+              store.toggleTask(note.id, item.line);
+            }}
+            title={t("node.tick")}
+            aria-label={t("node.tick")}
+          ></button>
+          <span class="item"><InlineMd source={item.text} /></span>
+        </li>
+      {/each}
+      {#if open.length > SHOWN}<li class="more">{plural("node.tasks.more", open.length - SHOWN)}</li>{/if}
+    </ul>
   {/if}
   <div class="port" data-port title={t("node.port")}></div>
   <div class="grip" data-resize title={t("node.resize")}></div>
@@ -281,6 +309,36 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .tasks {
+    --check: 12px;
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: var(--fs-xs);
+  }
+  .tasks li {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+  }
+  .tasks .checkbox {
+    align-self: flex-start;
+    margin-top: calc((1lh - var(--check)) / 2);
+  }
+  .item {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .more {
+    color: var(--faint);
+    padding-left: calc(var(--check) + 6px);
   }
   .media {
     display: inline-flex;

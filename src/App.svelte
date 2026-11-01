@@ -128,7 +128,7 @@
     }
   }
   let showWorkflows = $state(false);
-  let settingsSection = $state<"workflows" | "tracking" | "note" | "github" | "git">("workflows");
+  let settingsSection = $state<"workflows" | "tracking" | "note" | "checklist" | "github" | "git">("workflows");
   let settingsWorkflow = $state<string | null | undefined>(undefined);
   /** Bumped per opening, so an already open settings pane goes to the page asked for. */
   let settingsKey = $state(0);
@@ -370,7 +370,7 @@
           symbol: ["checkmark.square"],
           menu: "Note",
           menuLabel: t("action.toggle-done"),
-          enabled: !!sel && !sel.tracking && !sel.permanent,
+          enabled: !!sel && !sel.tracking && !sel.permanent && !sel.checklist,
         },
       ),
       a("open-window", t("action.open-window"), () => store.selectedId && store.openInWindow(store.selectedId), {

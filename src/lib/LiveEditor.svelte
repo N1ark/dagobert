@@ -251,7 +251,7 @@
       const boxes = [...(target.closest(".block")?.querySelectorAll('input[type="checkbox"]') ?? [])];
       const next = [...blocks];
       next[i] = toggleCheckbox(blocks[i], boxes.indexOf(target));
-      setBody(joinBlocks(next));
+      setBody(joinBlocks(next), "check");
       return;
     }
     activate(i, caretFromClick(e, blocks[i]));

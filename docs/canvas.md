@@ -39,6 +39,11 @@ Performance rules (profile in Safari, not Chrome — Chrome is fine either way):
 - `main.ts` exposes `window.store` in dev builds so a script can seed a big graph;
   simulate panning with dispatched `WheelEvent`s, not by writing `store.viewport`.
 
+A checklist card lists its first three unticked items (`tasks` in `checklist.ts`, a `$derived`
+of the body, so it reruns only when that note is edited); their boxes stop `pointerdown` like the
+card's checkbox and call `store.toggleTask`. Its done-ness is counted through `store.progress`,
+which caches item counts per note while the body is unchanged.
+
 `NodeCard.svelte` reports its height via `onresize` so edges can anchor at mid-height
 (don't use `bind:` with a fallback — Svelte 5 throws). Node width is an optional `width`
 in frontmatter (omitted = `NODE_W` 220, see `widthOf`), resized via the bottom-right grip

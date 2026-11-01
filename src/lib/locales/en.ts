@@ -115,6 +115,10 @@ export default {
 
   // Node card
   "node.progress": "{done} of {total} dependencies done",
+  "node.checklist": "{done} of {total} items ticked",
+  "node.tick": "Tick off",
+  "node.tasks.more.one": "{n} more item",
+  "node.tasks.more.other": "{n} more items",
   "node.markDone": "Mark as done",
   "node.markNotDone": "Mark as not done",
   "node.toggleDone": "toggle done",
@@ -130,6 +134,7 @@ export default {
   "ctx.copy": "Copy",
   "ctx.duplicate": "Duplicate",
   "ctx.tracking": "Tracking issue — {done}/{total} done",
+  "ctx.checklist": "Checklist — {done}/{total} ticked",
   "ctx.status": "Status",
   "ctx.tags": "Tags",
   "ctx.due": "Due date",
@@ -168,10 +173,12 @@ export default {
   "panel.openWindow.aria": "open in new window",
   "panel.close.aria": "close",
   "panel.depsDone": "dependencies done",
+  "panel.itemsDone": "items ticked",
   "panel.kind": "Kind",
   "panel.kind.todo": "Todo",
   "panel.kind.tracking": "Tracking issue",
   "panel.kind.permanent": "Note",
+  "panel.kind.checklist": "Checklist",
   "panel.manageWorkflows": "Manage workflows",
   "panel.created": "created {when}",
   "panel.edited": "edited {when}",
@@ -341,6 +348,7 @@ export default {
   "settings.nav.todo": "Todo",
   "settings.nav.tracking": "Tracking issue",
   "settings.nav.note": "Note",
+  "settings.nav.checklist": "Checklist",
   "settings.nav.builtin": "Built-in",
   "settings.nav.unnamed": "Unnamed",
   "settings.nav.new": "New workflow",
@@ -351,6 +359,9 @@ export default {
   "settings.tracking.placeholder": "## Scope\n…",
   "settings.note.help": "A **note** is just a note: no checkbox or status, never done, and it doesn't hold up the notes that depend on it.", // markdown
   "settings.note.placeholder": "## Context\n…",
+  "settings.checklist.help":
+    "A **checklist** is a note holding a task list: tick its items in the note or right on its card, and it counts as done once every item is ticked.", // markdown
+  "settings.checklist.placeholder": "- [ ] …",
   "settings.git.help":
     "Commits your notes regularly, pulls what other machines pushed and pushes back. A note whose body couldn't be cleanly merged shows a warning until you clean up the conflict.", // markdown
   "settings.git.enable": "Track this project with git",
@@ -455,6 +466,7 @@ export default {
   "history.tidy": "tidy",
   "history.align": "align",
   "history.kind": "kind",
+  "history.check": "tick item",
   "history.status": "status",
   "history.workflow": "workflow",
   "history.tag": "tag",
