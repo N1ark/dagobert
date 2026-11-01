@@ -170,7 +170,7 @@
   const softDim = $derived(matches === null && chain !== null);
 
   const edges = $derived.by(() => {
-    const out: { from: string; to: string; d: string; head: string; dim: boolean; chain: boolean }[] = [];
+    const out: { from: string; to: string; d: string; head: string; dim: boolean; done: boolean; chain: boolean }[] = [];
     for (const n of store.notes) {
       for (const dep of n.deps) {
         const s = store.byId(dep);
@@ -182,6 +182,7 @@
           d: path(rightOf(s), leftOf(n)),
           head: head(leftOf(n)),
           dim: !inSet,
+          done: store.isDone(s),
           chain: chain !== null && inSet && matches === null,
         });
       }
@@ -1140,6 +1141,7 @@
           class:sel
           class:near
           class:dim={edge.dim}
+          class:done={edge.done}
           data-edge
           data-from={edge.from}
           data-to={edge.to}
@@ -1330,6 +1332,9 @@
   .edge.sel .line {
     stroke: var(--theme2);
     stroke-width: 2.5;
+  }
+  .edge.done:not(:hover, .sel) {
+    opacity: var(--done-opacity, 0.55);
   }
   .edge.dim {
     opacity: 0.15;

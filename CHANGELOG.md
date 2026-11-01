@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Links leaving a completed note fade with it.
+
 ## [0.12.0] - 2026-11-01
 
 ### Added
