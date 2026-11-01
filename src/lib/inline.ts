@@ -1,6 +1,7 @@
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { renderWikilinks } from "./wikilinks";
+import "./icons.svelte";
 
 /** Text markdown, wikilinks, refs and autolinks would all leave as it is, so it can skip the parser. */
 export const isPlain = (source: string) => !/[\\`*_~[\]!<>&=|#:@\n]|www\./i.test(source);

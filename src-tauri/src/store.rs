@@ -40,9 +40,6 @@ pub struct Note {
     /// When it's due: `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; opaque here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub due: Option<String>,
-    /// An icon shown before the title: a Phosphor (or purr) icon name; opaque here.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<String>,
     #[serde(default)]
     pub x: f64,
     #[serde(default)]
@@ -87,8 +84,6 @@ struct FrontMatter {
     checklist: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     due: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    icon: Option<String>,
     #[serde(default)]
     x: f64,
     #[serde(default)]
@@ -483,7 +478,6 @@ pub fn parse_note(text: &str, file: &str) -> Result<Note, String> {
         permanent: fm.permanent,
         checklist: fm.checklist,
         due: fm.due,
-        icon: fm.icon,
         x: fm.x,
         y: fm.y,
         width: fm.width,
@@ -508,7 +502,6 @@ pub fn serialize_note(note: &Note) -> Result<String, String> {
         permanent: note.permanent,
         checklist: note.checklist,
         due: note.due.clone(),
-        icon: note.icon.clone(),
         x: note.x,
         y: note.y,
         width: note.width,
@@ -764,7 +757,6 @@ mod tests {
             permanent: false,
             checklist: false,
             due: None,
-            icon: None,
             x: 12.5,
             y: -3.0,
             width: None,
@@ -1078,19 +1070,6 @@ mod tests {
         let mut n = n;
         n.checklist = false;
         assert!(!serialize_note(&n).unwrap().contains("checklist"));
-    }
-
-    #[test]
-    fn icon_is_optional() {
-        let mut n = parse_note(
-            "---\nid: x\ntitle: t\ncreated: c\nmodified: m\nicon: Rocket\n---\n",
-            "x.md",
-        )
-        .unwrap();
-        assert_eq!(n.icon.as_deref(), Some("Rocket"));
-        assert!(serialize_note(&n).unwrap().contains("icon: Rocket\n"));
-        n.icon = None;
-        assert!(!serialize_note(&n).unwrap().contains("icon"));
     }
 
     #[test]

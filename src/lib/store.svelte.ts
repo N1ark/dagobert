@@ -753,9 +753,7 @@ class Store {
 
   /** A note with nothing in it — typically an accidental double-click. */
   isEmpty(n: Note): boolean {
-    return (
-      !n.title.trim() && !n.due && !n.icon && this.#bodyIsBlank(n) && !n.tags.length && !n.deps.length && !this.dependents(n.id).length
-    );
+    return !n.title.trim() && !n.due && this.#bodyIsBlank(n) && !n.tags.length && !n.deps.length && !this.dependents(n.id).length;
   }
 
   /** Select `id`, alone or within `multi`. */
@@ -1054,13 +1052,6 @@ class Store {
     this.touch(id, { immediate: true, label: due ? "due" : "undue" });
   }
 
-  setIcon(id: string, icon: string | null) {
-    const n = this.byId(id);
-    if (!n || (n.icon ?? null) === icon) return;
-    n.icon = icon;
-    this.touch(id, { immediate: true, label: icon ? "icon" : "unicon" });
-  }
-
   /** Dependencies due after this note is, so it can't be done in time. */
   lateDeps(note: Note): Note[] {
     if (!note.due) return [];
@@ -1089,7 +1080,6 @@ class Store {
       permanent: !!src.permanent,
       checklist: !!src.checklist,
       due: src.due ?? null,
-      icon: src.icon ?? null,
       width: src.width ?? null,
     });
   }
@@ -1343,7 +1333,7 @@ class Store {
         }
         if (local) {
           const { file: _f, ...fields } = target;
-          // Optional fields the target lacks (a due date, an icon) were set since: clear them too.
+          // Optional fields the target lacks (a due date) were set since: clear them too.
           for (const k of Object.keys(local) as (keyof Note)[]) if (k !== "file" && !(k in fields)) delete (local as Partial<Note>)[k];
           Object.assign(local, fields);
           this.save(d.id, true);

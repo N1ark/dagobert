@@ -2,7 +2,7 @@
 
 Read this when touching `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`,
 `editor.ts`, `wikilinks.ts`, `links.ts`, `filelinks.ts`, `MentionPopup.svelte`, `Markdown.svelte`,
-`InlineMd.svelte` or `highlight.ts`.
+`InlineMd.svelte`, `inlineIcons.ts`, `icons.svelte.ts`, `IconPopup.svelte` or `highlight.ts`.
 
 ## NotePanel.svelte
 
@@ -68,6 +68,27 @@ the system browser.
 `MentionPopup.svelte` is the `@` autocomplete; the parent forwards keys via `handleKey`.
 Offers "Create …" when no title matches. `IssuePopup.svelte` (`alias#query`) follows the
 same pattern. `LinkPicker.svelte` is the search dropdown for adding deps/dependents.
+
+## Inline icons
+
+`:name:` draws an icon like an emoji, `name` being a purr or Phosphor icon in kebab case
+(`:rocket:`, `:git-branch:`; `kebab` in `inlineIcons.ts`). It is a marked inline extension
+(`iconExtension`, tested; registered once in `icons.svelte.ts`, which `inline.ts` and `Markdown`
+import), so it renders in bodies, card previews and every `InlineMd` title, and code spans,
+fences and URLs keep it as text. Only a real icon name renders, and not right after a letter or
+digit (`10:30:00`, `a:b:`, `foo:bar:` stay text; `\:rocket:` escapes it). The HTML is an
+`svg.ico` (1em, on the baseline, `currentColor`), or a blank `span.ico` of the same size until
+the shapes chunk is in: the renderer reads that `$state`, so what drew a blank renders again.
+The names ship in the main bundle, so the text never shows as `:name:` first. The source keeps
+the text, so copying, git and other apps see `:rocket:`. Quick open shows a title with icons
+through `InlineMd` rather than its match highlighting.
+
+Typing `:` and two letters or more, not after a word or inside a code span (`typedIcon`, tested),
+opens `IconPopup.svelte` in the editor and in the title field: ↑/↓, ↩ or ⇥ inserts `:name:`, Esc
+closes it, and a closing `:` or a space leaves the text alone. "Insert icon…" (palette and Note
+menu) fires a cancelable `insert-icon` window event that the selected note's editor takes: it
+opens `IconPicker` at the caret and inserts there (a space first after a letter), or after the
+last paragraph when nothing is being edited; unclaimed, App appends it as a paragraph.
 
 ## Rendering
 

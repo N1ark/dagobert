@@ -28,6 +28,7 @@ export default {
   "action.reveal": "Reveal in Finder",
   "action.copy-note": "Copy note",
   "action.insert-media": "Insert media…",
+  "action.insert-icon": "Insert icon…",
   "action.link-file": "Link a file…",
   "action.link-folder": "Link a folder…",
   "action.gallery.show": "Show media gallery",
@@ -145,7 +146,6 @@ export default {
   "ctx.due.clear": "No due date",
   "ctx.newTag": "new tag…",
   "ctx.resetWidth": "Reset width",
-  "ctx.icon": "Set icon…",
   "ctx.delete": "Delete…",
   "ctx.reallyDelete": "Confirm",
   "ctx.group.selected": "{n} notes selected",
@@ -526,8 +526,6 @@ export default {
   "history.unpreview": "show as link",
   "history.due": "set due date",
   "history.undue": "remove due date",
-  "history.icon": "set icon",
-  "history.unicon": "remove icon",
 
   // Relative times
   "time.justNow": "just now",
@@ -540,10 +538,9 @@ export default {
   "due.tip": "Due {when}",
   "due.tip.overdue": "Overdue: was due {when}",
 
-  // Note icons
-  "icon.pick": "Choose an icon",
+  // Inline icons
+  "icon.pick": "Insert an icon",
   "icon.search": "Search icons",
-  "icon.remove": "Remove icon",
   "icon.none": "No icon matches.",
   "icon.loading": "Loading icons",
 

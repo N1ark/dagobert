@@ -7,6 +7,9 @@
   import MentionPopup from "./MentionPopup.svelte";
   import { isMobile } from "./backend";
   import IssuePopup from "./IssuePopup.svelte";
+  import IconPopup from "./IconPopup.svelte";
+  import { pickIcon } from "./icons.svelte";
+  import { typedIcon } from "./inlineIcons";
   import MediaActions from "./MediaActions.svelte";
   import { copyImage } from "./images";
   import type { IssueRef } from "./github";
@@ -52,6 +55,9 @@
   let textarea = $state<HTMLTextAreaElement | null>(null);
   let mentionPopup = $state<MentionPopup | null>(null);
   let issuePopup = $state<IssuePopup | null>(null);
+  let iconPopup = $state<IconPopup | null>(null);
+  /** Active `:name` icon autocomplete. */
+  let iconTyped = $state<{ start: number; query: string; left: number; top: number } | null>(null);
   /** Active `alias#query` GitHub picker. */
   let issue = $state<{ start: number; alias: string; repo: string; query: string; left: number; top: number } | null>(null);
 
@@ -187,6 +193,7 @@
     draft = "";
     mention = null;
     issue = null;
+    iconTyped = null;
   }
 
   function autosize() {
@@ -635,13 +642,13 @@
   function onKey(e: KeyboardEvent) {
     const el = e.target as HTMLTextAreaElement;
     // At most one popup is open; it takes the keys it knows, and Escape closes it.
-    if (mention || issue) {
+    if (mention || issue || iconTyped) {
       if (e.key === "Escape") {
         e.preventDefault();
-        mention = issue = null;
+        mention = issue = iconTyped = null;
         return;
       }
-      if ((mention ? mentionPopup : issuePopup)?.handleKey(e)) {
+      if ((mention ? mentionPopup : issue ? issuePopup : iconPopup)?.handleKey(e)) {
         e.preventDefault();
         return;
       }
@@ -691,7 +698,7 @@
 
   function updateMention() {
     const el = textarea;
-    if (!el || el.selectionStart !== el.selectionEnd) return void (mention = issue = null);
+    if (!el || el.selectionStart !== el.selectionEnd) return void (mention = issue = iconTyped = null);
     const caret = el.selectionStart;
     const before = el.value.slice(Math.max(0, caret - 80), caret);
     const m = MENTION_RE.exec(before);
@@ -703,6 +710,16 @@
       return;
     }
     mention = null;
+    const ic = activeIsCode ? null : typedIcon(before);
+    if (ic) {
+      issue = null;
+      const start = caret - before.length + ic.start;
+      const c = caretCoords(el, start);
+      const left = Math.max(0, Math.min(el.offsetLeft + c.left, (container?.clientWidth ?? 0) - 240));
+      iconTyped = { start, query: ic.query, left, top: el.offsetTop + c.top + c.height + 4 };
+      return;
+    }
+    iconTyped = null;
     // An open picker stays anchored (so the query may hold spaces) until the caret leaves it.
     if (issue) {
       const from = issue.start + issue.alias.length + 1;
@@ -727,7 +744,7 @@
     if (!el) return;
     el.value = el.value.slice(0, start) + insert + el.value.slice(el.selectionStart);
     const pos = start + insert.length;
-    mention = issue = null;
+    mention = issue = iconTyped = null;
     el.setSelectionRange(pos, pos);
     onInput();
     requestAnimationFrame(() => {
@@ -740,6 +757,44 @@
   function insertIssue(ref: IssueRef) {
     if (issue) replaceTyped(issue.start, `${issue.alias}#${ref.number} `);
   }
+
+  function insertIcon(name: string) {
+    if (iconTyped) replaceTyped(iconTyped.start, `:${name}: `);
+  }
+
+  /** "Insert icon…" for this note: the grid, then the icon at the caret, or after the last paragraph. */
+  function onInsertIcon(e: Event) {
+    if ((e as CustomEvent<{ id: string }>).detail.id !== note.id || !container) return;
+    e.preventDefault();
+    const el = active !== null ? textarea : null;
+    const sel = el && { start: el.selectionStart, end: el.selectionEnd };
+    let anchor: HTMLElement | { x: number; y: number } = container;
+    if (el && sel) {
+      const c = caretCoords(el, sel.start);
+      const r = el.getBoundingClientRect();
+      anchor = { x: r.left + c.left, y: r.top + c.top + c.height };
+    }
+    pickIcon(anchor, (name) => {
+      const icon = `:${name}:`;
+      if (el && sel && textarea === el) {
+        // After a letter it wouldn't render, so it gets a space.
+        const text = (/[\p{L}\p{N}]$/u.test(el.value.slice(0, sel.start)) ? " " : "") + icon;
+        const at = sel.start + text.length;
+        el.focus();
+        return apply(el, { text: el.value.slice(0, sel.start) + text + el.value.slice(sel.end), start: at, end: at });
+      }
+      const list = [...blocks];
+      const last = list.at(-1);
+      if (last !== undefined && !isCode(last) && !isConflict(last)) list[list.length - 1] = last + (/\s$/.test(last) ? "" : " ") + icon;
+      else list.push(icon);
+      setBody(joinBlocks(list));
+      activate(list.length - 1);
+    });
+  }
+  $effect(() => {
+    window.addEventListener("insert-icon", onInsertIcon);
+    return () => window.removeEventListener("insert-icon", onInsertIcon);
+  });
 
   function insertLink(title: string) {
     if (mention) replaceTyped(mention.start, `[[${title}]] `);
@@ -762,7 +817,7 @@
       if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateMention();
     }}
     onclick={updateMention}
-    onblur={() => setTimeout(() => (mention = issue = null), 150)}
+    onblur={() => setTimeout(() => (mention = issue = iconTyped = null), 150)}
     spellcheck={prose}
     autocapitalize={autocorrect ? "sentences" : "off"}
     {...{ autocorrect: autocorrect ? "on" : "off" }}
@@ -829,6 +884,9 @@
       top={issue.top}
       onpick={insertIssue}
     />
+  {/if}
+  {#if iconTyped}
+    <IconPopup bind:this={iconPopup} query={iconTyped.query} left={iconTyped.left} top={iconTyped.top} onpick={insertIcon} />
   {/if}
   {#if mention}
     <MentionPopup

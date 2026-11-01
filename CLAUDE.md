@@ -61,7 +61,7 @@ The native window can't be screenshotted from the CLI.
 - `calendar.ts`, `clock.svelte.ts`, `Calendar.svelte` — due dates and the calendar pane.
 - Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
   `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`,
-  `media.ts`, `preview.ts`, `checklist.ts`, `filelinks.ts`, `workflows.ts`. They run under
+  `media.ts`, `preview.ts`, `checklist.ts`, `filelinks.ts`, `workflows.ts`, `inlineIcons.ts`. They run under
   plain Node, so they must not import `purr`.
 
 Details per area (read the one you're working in):

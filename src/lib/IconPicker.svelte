@@ -1,46 +1,47 @@
 <script lang="ts">
   import { Popover, rank, SearchInput, Spinner, VirtualList } from "purr";
-  import { store } from "./store.svelte";
-  import { iconLabel, iconNames, iconPicker, noteIcon } from "./noteIcons.svelte";
+  import { iconGlyph, iconNames, iconPicker, loadIcons } from "./icons.svelte";
   import { t } from "./i18n";
   import { untrack } from "svelte";
 
-  /** The note icon picker, opened through `pickIcon`; mounted once in App. */
+  /** The icon grid, opened through `pickIcon`; mounted once in App. */
   const COLS = 8;
   const CELL = 36;
 
   let query = $state("");
   let active = $state(0);
   let hovered = $state<string | null>(null);
+  let ready = $state(false);
   let list = $state<ReturnType<typeof VirtualList<string[]>> | null>(null);
 
-  const note = $derived(iconPicker.id ? store.byId(iconPicker.id) : null);
-  const names = $derived(iconNames());
-  const hits = $derived(query.trim() ? rank(names, query, { keys: [(n) => n] }).map((h) => h.item) : names);
+  const hits = $derived(query.trim() ? rank(iconNames, query, { keys: [(n) => n] }).map((h) => h.item) : iconNames);
   const rows = $derived(Array.from({ length: Math.ceil(hits.length / COLS) }, (_, r) => hits.slice(r * COLS, r * COLS + COLS)));
-  const shown = $derived(hovered ?? hits[active] ?? note?.icon ?? null);
+  const shown = $derived(hovered ?? hits[active] ?? null);
 
-  // Start on the note's icon, scrolled into view; a search starts on its best match.
+  $effect(() => {
+    if (iconPicker.anchor) void loadIcons().then(() => (ready = true));
+  });
+  // A search starts on its best match.
   $effect(() => {
     void hits;
-    void iconPicker.id;
     hovered = null;
-    active = untrack(() => (!query.trim() && note?.icon ? Math.max(0, hits.indexOf(note.icon)) : 0));
+    active = 0;
   });
   $effect(() => {
-    if (list) untrack(() => list?.scrollToIndex(Math.floor(active / COLS), "center"));
+    if (list) untrack(() => list?.scrollToIndex(Math.floor(active / COLS)));
   });
 
   function close() {
-    iconPicker.id = null;
     iconPicker.anchor = null;
+    iconPicker.onpick = null;
     query = "";
     hovered = null;
   }
 
-  function choose(name: string | null) {
-    if (note) store.setIcon(note.id, name);
+  function choose(name: string) {
+    const pick = iconPicker.onpick;
     close();
+    pick?.(name);
   }
 
   function onkeydown(e: KeyboardEvent) {
@@ -49,7 +50,6 @@
       e.preventDefault();
       hovered = null;
       active = Math.max(0, Math.min(hits.length - 1, active + step));
-      list?.scrollToIndex(Math.floor(active / COLS));
     } else if (e.key === "Enter" && hits[active]) {
       e.preventDefault();
       choose(hits[active]);
@@ -57,21 +57,20 @@
   }
 </script>
 
-{#if note && iconPicker.anchor}
+{#if iconPicker.anchor}
   <Popover anchor={iconPicker.anchor} label={t("icon.pick")} onclose={close} width="{COLS * CELL + 24}px" padding="0" autofocus>
     <SearchInput bind:value={query} label={t("icon.search")} placeholder={t("icon.search")} {onkeydown} data-autofocus />
     <div class="grid" style:height="{CELL * 7 + 8}px">
-      {#if names.length}
+      {#if ready}
         <VirtualList bind:this={list} items={rows} rowHeight={CELL} padding="4px 12px">
           {#snippet children(row, r)}
             <div class="row">
               {#each row as name, c (name)}
-                {@const Icon = noteIcon(name)}
+                {@const Icon = iconGlyph(name)}
                 <button
                   class="cell"
                   class:active={r * COLS + c === active && !hovered}
-                  class:current={name === note.icon}
-                  aria-label={iconLabel(name)}
+                  aria-label={name}
                   onpointerenter={() => (hovered = name)}
                   onpointerleave={() => (hovered = null)}
                   onclick={() => choose(name)}
@@ -86,12 +85,7 @@
         <p class="empty"><Spinner label={t("icon.loading")} /></p>
       {/if}
     </div>
-    <footer>
-      <span class="name truncate">{shown ? iconLabel(shown) : ""}</span>
-      {#if note.icon}
-        <button class="btn btn--ghost btn--sm" onclick={() => choose(null)}>{t("icon.remove")}</button>
-      {/if}
-    </footer>
+    <footer class="truncate">{shown ? `:${shown}:` : ""}</footer>
   </Popover>
 {/if}
 
@@ -117,10 +111,6 @@
   .cell.active {
     background: var(--chip);
   }
-  .cell.current {
-    background: var(--theme-soft);
-    color: var(--theme2);
-  }
   .empty {
     display: flex;
     justify-content: center;
@@ -129,15 +119,10 @@
     font-size: var(--fs-xs);
   }
   footer {
-    display: flex;
-    align-items: center;
-    gap: var(--gap-3);
     min-height: 36px;
-    padding: var(--gap-2) var(--sp-4);
+    padding: var(--gap-3) var(--sp-4);
     border-top: 1px solid var(--border);
-  }
-  .name {
-    flex: 1;
+    font-family: var(--mono);
     font-size: var(--fs-xs);
     color: var(--muted);
   }

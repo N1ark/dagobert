@@ -1,7 +1,6 @@
 <script lang="ts">
   import { store } from "./store.svelte";
   import InlineMd from "./InlineMd.svelte";
-  import NoteIcon from "./NoteIcon.svelte";
   import { t } from "./i18n";
 
   /** The one way to link to a note from a list: a pill with its title, the selected one highlighted. */
@@ -16,7 +15,7 @@
   aria-current={id === store.selectedId || undefined}
   onclick={() => onjump(id)}
 >
-  <NoteIcon name={note?.icon} /><InlineMd source={note?.title ?? ""} fallback={t("app.untitled")} />
+  <InlineMd source={note?.title ?? ""} fallback={t("app.untitled")} />
 </button>
 
 <style>

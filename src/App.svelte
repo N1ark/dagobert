@@ -5,6 +5,7 @@
   import NotePanel from "./lib/NotePanel.svelte";
   import TagMenu from "./lib/TagMenu.svelte";
   import IconPicker from "./lib/IconPicker.svelte";
+  import { pickIcon } from "./lib/icons.svelte";
   import type { Action } from "./lib/menu";
   import GitHubSignIn from "./lib/GitHubSignIn.svelte";
   import Dock from "./lib/Dock.svelte";
@@ -40,6 +41,7 @@
     ArrowSquareOut,
     Copy,
     ImageSquare,
+    Smiley,
     Paperclip,
     FolderSimplePlus,
     Images,
@@ -395,6 +397,12 @@
         menu: "Note",
         enabled: !!sel,
       }),
+      a("insert-icon", t("action.insert-icon"), () => insertIcon(), {
+        icon: Smiley,
+        symbol: ["face.smiling", "star"],
+        menu: "Note",
+        enabled: !!sel,
+      }),
       a("link-file", t("action.link-file"), () => insertLinks(false), {
         icon: Paperclip,
         symbol: ["doc.badge.plus", "doc"],
@@ -621,6 +629,13 @@
     const embeds = id ? await store.pickMedia() : [];
     if (!id || !embeds.length) return;
     if (window.dispatchEvent(new CustomEvent("insert-media", { detail: { id, embeds }, cancelable: true }))) store.appendBlocks(id, embeds);
+  }
+
+  /** The icon grid for the selected note; its editor inserts the pick at the caret, else it's appended. */
+  function insertIcon() {
+    const id = store.selectedId;
+    if (id && window.dispatchEvent(new CustomEvent("insert-icon", { detail: { id }, cancelable: true })))
+      pickIcon({ x: innerWidth / 2, y: innerHeight / 3 }, (name) => store.appendBlocks(id, [`:${name}:`]));
   }
 
   /** Links to picked files or a folder, put in the selected note like media. */

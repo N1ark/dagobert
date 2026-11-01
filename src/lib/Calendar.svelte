@@ -7,7 +7,6 @@
   import { clock } from "./clock.svelte";
   import { formatDay, formatTime } from "./time";
   import InlineMd from "./InlineMd.svelte";
-  import NoteIcon from "./NoteIcon.svelte";
   import DockButton from "./DockButton.svelte";
   import {
     daysBetween,
@@ -120,7 +119,7 @@
     onpointercancel={() => (drag = null)}
   >
     {#if withTime && time}<span class="time">{formatTime(time)}</span>{/if}
-    <span class="name"><NoteIcon name={n.icon} /><InlineMd source={n.title} fallback={t("app.untitled")} /></span>
+    <span class="name"><InlineMd source={n.title} fallback={t("app.untitled")} /></span>
   </button>
 {/snippet}
 
@@ -147,7 +146,7 @@
       <span class="check"></span>
     {/if}
     <button class="open" aria-current={n.id === store.selectedId || undefined} onclick={() => onjump(n.id)}>
-      <span class="name"><NoteIcon name={n.icon} /><InlineMd source={n.title} fallback={t("app.untitled")} /></span>
+      <span class="name"><InlineMd source={n.title} fallback={t("app.untitled")} /></span>
       <span class="when">
         {#if day}{formatDay(parseDue(n.due)!.date, clock.today)}{/if}{#if day && time},
         {/if}{#if time}{formatTime(time)}{/if}

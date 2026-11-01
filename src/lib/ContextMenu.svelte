@@ -23,7 +23,6 @@
     DistributeHorizontal,
     DistributeVertical,
     FolderOpen,
-    Shapes,
     Trash,
   } from "purr/icons";
   import { store } from "./store.svelte";
@@ -35,7 +34,6 @@
   import { addDays, moveDue } from "./calendar";
   import { clock } from "./clock.svelte";
   import { formatDue } from "./time";
-  import { iconLabel, noteIcon, pickIcon } from "./noteIcons.svelte";
   import TagInput from "./TagInput.svelte";
 
   /** The canvas's menu, for a note, a selection, a link or the background; renders nothing of its own. */
@@ -62,14 +60,12 @@
 
   let target = $state.raw<MenuTarget | null>(null);
   let newTag = $state("");
-  let point = { x: 0, y: 0 };
 
   const notesOf = (ids: string[]) => ids.map((id) => store.byId(id)).filter((n): n is Note => !!n);
 
   export function show(x: number, y: number, at: MenuTarget) {
     target = at;
     newTag = "";
-    point = { x, y };
     menu.showAt(x, y, () => build(at));
   }
 
@@ -123,12 +119,6 @@
           }))
         : []),
       !note.permanent && dueEntry([note]),
-      {
-        label: t("ctx.icon"),
-        icon: noteIcon(note.icon) ?? Shapes,
-        note: note.icon ? iconLabel(note.icon) : undefined,
-        run: () => pickIcon(id, point),
-      },
       ...tagEntries(
         (tag) => note.tags.includes(tag),
         (tag) => store.toggleTag(id, tag),

@@ -16,8 +16,6 @@ export interface Note {
   checklist?: boolean;
   /** `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`, local time; see calendar.ts. */
   due?: string | null;
-  /** A purr/Phosphor icon name shown before the title; see noteIcons.svelte.ts. */
-  icon?: string | null;
   x: number;
   y: number;
   /** Card width on the canvas; null/undefined means the default. */

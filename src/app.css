@@ -47,6 +47,15 @@ body.mobile {
   gap: var(--gap-1);
 }
 
+/* An inline `:name:` icon, sized and coloured like the text around it (a blank while the shapes load). */
+.ico {
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+}
+
 /* ---- rendered markdown: what Dagobert adds to purr's `.md` ------------------------------ */
 
 .md .media {

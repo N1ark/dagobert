@@ -9,7 +9,7 @@ All notable changes to Dagobert are documented here. The format follows
 ### Added
 
 - Settings → GitHub can use the GitHub CLI's sign-in instead, for organisations that block the Dagobert app.
-- Notes can have an icon before their title, as an alternative to emoji: click the icon slot in the note panel, or "Set icon…" in the right-click menu, and search the whole icon set.
+- Icons in note text, like emoji: type `:` and a name (`:rocket:`) to pick one, or use "Insert icon…" to browse them all; they show in titles too.
 - Links to files and folders on your Mac: drop one onto a note or use "Link a file…", click to open it; links to missing files are struck through.
 - Click an image in a note to see it full screen; ← and → (or a swipe) step through the note's other images, ⌥-click edits it.
 - Save, copy or reveal an image from its right-click menu or the image viewer; on iPhone, long-press an image or tap Share in the viewer to share it or save it to Photos.

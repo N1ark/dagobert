@@ -11,14 +11,14 @@
   import TagInput from "./TagInput.svelte";
   import { stageColor } from "./workflows";
   import InlineMd from "./InlineMd.svelte";
-  import NoteIcon from "./NoteIcon.svelte";
+  import IconPopup from "./IconPopup.svelte";
+  import { typedIcon } from "./inlineIcons";
   import NoteLink from "./NoteLink.svelte";
   import { mentions, renameLinks } from "./wikilinks";
   import { headings } from "./toc";
   import { t, plural } from "./i18n";
   import { keys } from "./keys";
-  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Clock, Shapes, Warning } from "purr/icons";
-  import { noteIcon, pickIcon } from "./noteIcons.svelte";
+  import { X, Plus, ArrowSquareOut, GearSix, CalendarBlank, Clock, Warning } from "purr/icons";
   import { dueState, joinDue, parseDue } from "./calendar";
   import { clock } from "./clock.svelte";
   import { formatDay, formatTime } from "./time";
@@ -44,7 +44,6 @@
   const due = $derived(parseDue(note.due));
   const dueSt = $derived(dueState(note.due, done, clock.now));
   const late = $derived(store.lateDeps(note));
-  const Icon = $derived(noteIcon(note.icon));
   let titleEl = $state<HTMLInputElement | null>(null);
   let titleFocused = $state(false);
 
@@ -105,6 +104,33 @@
 
   function edited() {
     store.touch(note.id);
+    updateTitleIcon();
+  }
+
+  /** The `:name` icon autocomplete in the title, placed under what was typed. */
+  let titleIcon = $state<{ start: number; query: string; left: number } | null>(null);
+  let titlePopup = $state<IconPopup | null>(null);
+
+  function updateTitleIcon() {
+    const el = titleEl;
+    const ic = el && el.selectionStart === el.selectionEnd ? typedIcon(el.value.slice(0, el.selectionStart ?? 0)) : null;
+    if (!el || !ic) return void (titleIcon = null);
+    const ctx = document.createElement("canvas").getContext("2d")!;
+    ctx.font = getComputedStyle(el).font;
+    const x =
+      el.offsetLeft + parseFloat(getComputedStyle(el).paddingLeft) + ctx.measureText(el.value.slice(0, ic.start)).width - el.scrollLeft;
+    titleIcon = { ...ic, left: Math.max(0, Math.min(x, el.offsetWidth - 240)) };
+  }
+
+  function insertTitleIcon(name: string) {
+    const el = titleEl;
+    if (!el || !titleIcon) return;
+    const caret = el.selectionStart ?? el.value.length;
+    note.title = el.value.slice(0, titleIcon.start) + `:${name}:` + el.value.slice(caret);
+    const at = titleIcon.start + name.length + 2;
+    titleIcon = null;
+    store.touch(note.id);
+    requestAnimationFrame(() => el.setSelectionRange(at, at));
   }
 
   /** Committing a title change rewrites [[links]] in other notes. */
@@ -137,9 +163,6 @@
         <input type="checkbox" class="checkbox" checked={done} onchange={() => store.advance(note.id)} />
       </label>
     {/if}
-    <IconButton label={t("icon.pick")} class={["icon-slot", !note.icon && "unset"]} onclick={(e) => pickIcon(note.id, e.currentTarget)}
-      >{#if Icon}<Icon />{:else}<Shapes />{/if}</IconButton
-    >
     <!-- Rendered until it's edited, like the body's blocks. -->
     <span class="title-wrap">
       <input
@@ -153,9 +176,18 @@
         onfocus={() => (titleFocused = true)}
         onblur={() => {
           titleFocused = false;
+          titleIcon = null;
           titleCommitted();
         }}
+        onkeyup={(e) => {
+          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) updateTitleIcon();
+        }}
         onkeydown={(e) => {
+          if (titleIcon && (e.key === "Escape" || titlePopup?.handleKey(e))) {
+            e.preventDefault();
+            if (e.key === "Escape") titleIcon = null;
+            return;
+          }
           if (e.key === "Escape" && !standalone) {
             e.preventDefault();
             store.select(null);
@@ -164,6 +196,15 @@
       />
       {#if !titleFocused && note.title}
         <span class="title-md" aria-hidden="true"><InlineMd source={note.title} /></span>
+      {/if}
+      {#if titleIcon}
+        <IconPopup
+          bind:this={titlePopup}
+          query={titleIcon.query}
+          left={titleIcon.left}
+          top={(titleEl?.offsetHeight ?? 0) + 4}
+          onpick={insertTitleIcon}
+        />
       {/if}
     </span>
     {#if !standalone && !isMobile}
@@ -330,9 +371,7 @@
             <div class="chips">
               {#each g.items as d (d.id)}
                 <span class="chip" class:done={store.isDone(d)}>
-                  <button class="jump" onclick={() => onjump(d.id)}
-                    ><NoteIcon name={d.icon} /><InlineMd source={d.title} fallback={t("app.untitled")} /></button
-                  >
+                  <button class="jump" onclick={() => onjump(d.id)}><InlineMd source={d.title} fallback={t("app.untitled")} /></button>
                   <button class="x" onclick={() => g.remove(d.id)} aria-label={t("panel.link.remove")}><X /></button>
                 </span>
               {/each}
@@ -424,13 +463,6 @@
   }
   .done input {
     --check: 16px;
-  }
-  header :global(.icon-slot) {
-    margin-right: calc(-1 * var(--gap-3));
-    color: var(--color2);
-  }
-  header :global(.icon-slot.unset) {
-    color: var(--faint);
   }
   .title-wrap {
     flex: 1;

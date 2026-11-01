@@ -8,6 +8,7 @@
   import { previews } from "./previews.svelte";
   import { backend } from "./backend";
   import { store } from "./store.svelte";
+  import "./icons.svelte";
 
   // Once per app: `use` wraps the renderer again on every call.
   marked.use(highlightExtension, mediaExtension, {
