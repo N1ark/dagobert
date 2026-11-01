@@ -45,6 +45,7 @@ All notable changes to Dagobert are documented here. The format follows
 - Undo and redo from the command palette work, so they do on the phone too.
 - On the phone, text no longer changes size when you start editing it.
 - Spellcheck in notes, and autocorrect on the phone (not in code blocks).
+- A note you empty by editing it is deleted when you leave it, like a fresh one.
 
 ## [0.11.0] - 2026-09-28
 

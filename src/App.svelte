@@ -655,6 +655,7 @@
     window.addEventListener("keydown", onKey);
     // Flush pending debounced saves whenever the page may be going away.
     const flush = () => store.flushAll();
+    const unload = () => (store.dropEmpty(), flush());
     // There is no quit on mobile, only background and foreground.
     const lifecycle = isMobile && !standaloneId;
     const onVisibility = () => {
@@ -663,8 +664,8 @@
       else flush();
     };
     const onFocus = () => store.focused();
-    window.addEventListener("beforeunload", flush);
-    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", unload);
+    window.addEventListener("pagehide", unload);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
@@ -674,8 +675,8 @@
       ungit();
       unupdate();
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("beforeunload", flush);
-      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", unload);
+      window.removeEventListener("pagehide", unload);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };

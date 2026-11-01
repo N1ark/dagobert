@@ -5,7 +5,7 @@ import type { Asset, Conflict, GitSettings, GitStatus, MetaPatch, Note, Viewport
 import { stamp } from "./time";
 import { isLater } from "./calendar";
 import { History, type NoteDiff } from "./history";
-import { DEFAULT_WORKFLOW, renderTemplate } from "./workflows";
+import { DEFAULT_WORKFLOW, renderTemplate, untouched } from "./workflows";
 import { DEFAULT_TAG_COLOR, normalizeColor, TAG_PALETTE } from "./tags";
 import { isConflict, joinBlocks, splitBlocks } from "./blocks";
 import { CHECKLIST_TEMPLATE, taskProgress, toggleTask } from "./checklist";
@@ -540,10 +540,7 @@ class Store {
 
   /** True when the body is empty or is just an untouched template. */
   #bodyIsBlank(n: Note): boolean {
-    const b = n.body.trim();
-    if (!b) return true;
-    const tpl = this.templateFor(n);
-    return b === tpl.trim() || b === renderTemplate(tpl, n.title).trim();
+    return untouched(n.body, this.templateFor(n), n.title);
   }
 
   setWorkflow(id: string, workflowId: string | null) {
@@ -627,6 +624,7 @@ class Store {
   }
 
   async open(path: string) {
+    this.dropEmpty();
     this.flushAll();
     try {
       const p = await backend.openProject(path);
@@ -705,6 +703,7 @@ class Store {
   }
 
   close() {
+    this.dropEmpty();
     this.flushAll();
     void backend.unwatchProject();
     if (this.syncs) void backend.gitConfigure(false, this.gitInterval);
@@ -759,13 +758,18 @@ class Store {
     );
   }
 
-  select(id: string | null) {
-    this.multi = id ? [id] : [];
+  /** Select `id`, alone or within `multi`. */
+  select(id: string | null, multi: string[] = id ? [id] : []) {
+    this.multi = multi;
     if (id === this.selectedId) return;
-    // Leaving an empty note discards it outright (no trash entry).
-    const prev = this.selectedId ? this.byId(this.selectedId) : null;
-    if (prev && prev.id !== id && this.isEmpty(prev)) void this.discard(prev.id);
+    this.dropEmpty();
     this.selectedId = id;
+  }
+
+  /** Leaving an empty note discards it outright (no trash entry). */
+  dropEmpty() {
+    const n = this.selected;
+    if (n && this.isEmpty(n)) void this.discard(n.id);
   }
 
   /** Mark a note as edited and schedule a save. */

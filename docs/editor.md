@@ -30,10 +30,11 @@ splitter. `MARKER_RE` / `stripMarkers` keep marker lines out of search and card 
 Every block renders via `Markdown.svelte` except the `active` one, which is a textarea
 holding `draft`. Rules worth knowing:
 
-- The draft is live-synced into `note.body` unless it's empty (an empty block can't be
-  represented, so it's dropped only when leaving it — see `moveBy`'s `dropped` offset).
+- The draft is live-synced into `note.body`, even when blank: a blank block can't be
+  represented, so it leaves the body and the textarea stays as a `detached` slot before
+  block `active` (`withDraft` splices it back in), so `store.isEmpty` always sees the truth.
 - Typing a blank line splits the draft and moves the caret to the right new block
-  (`locate`); a "virtual" block (`active === blocks.length`) exists for appending.
+  (`locate`); a detached slot at `active === blocks.length` is how a paragraph is appended.
 - A body changed from elsewhere (another window) while a block is active reloads the
   draft, keeping the caret.
 - Backspace at offset 0 merges into the previous block; ↑/↓ on first/last line move
@@ -171,6 +172,7 @@ tracking issues have `Meta.tracking_template` (settings → "Tracking issue"), p
 continues the list); `store.templateFor(note)` picks by the note's kind.
 `store.create` fills `body` from `templateFor(note)` via `renderTemplate`
 (`{{date}}`, `{{title}}`) only when `init.body` is undefined (clones/pastes pass a body).
-`isEmpty` treats a body equal to its template as blank so accidental notes are still
-discarded; `setWorkflow` swaps in the new template only when the body is blank by that
+`isEmpty` treats a body equal to its template as blank (`untouched`: whitespace aside,
+`{{date}}` any day, `{{title}}` the title or nothing) so accidental notes are still discarded,
+by `store.dropEmpty` on every way of leaving one (`select`, closing the project or window); `setWorkflow` swaps in the new template only when the body is blank by that
 definition.

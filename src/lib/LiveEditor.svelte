@@ -50,6 +50,8 @@
   let rowDrag = $state<{ first: number; height: number } | null>(null);
   /** Index of the block being edited, or null when everything is rendered. */
   let active = $state<number | null>(null);
+  /** The edited block is blank, so it's out of the body: a slot before block `active`. */
+  let detached = $state(false);
   /** Images next to each other lay out as one gallery; the block being edited breaks it. */
   const runs = $derived(galleryRuns(blocks, active));
   /** Raw text of the active block while it's being edited. */
@@ -99,7 +101,7 @@
   /** Blocks with the active slot replaced by the draft (empty drafts drop out). */
   function withDraft(): string[] {
     const next = [...blocks];
-    if (active !== null) next[active] = draft;
+    if (active !== null) next.splice(active, detached ? 0 : 1, draft);
     return next;
   }
 
@@ -115,6 +117,7 @@
   async function activate(index: number, caret: number | "end" = "end") {
     const list = commit();
     active = null;
+    detached = false;
     if (!list.length) return appendBlock();
     const i = Math.max(0, Math.min(index, list.length - 1));
     draft = list[i];
@@ -143,8 +146,10 @@
     untrack(() => {
       if (joinBlocks(withDraft()) === body) return;
       const list = splitBlocks(body);
+      if (detached) return void (active = Math.min(active!, list.length));
       if (active! >= list.length) {
         active = list.length;
+        detached = true;
         draft = "";
         return;
       }
@@ -163,6 +168,7 @@
     if (active === null) return;
     commit();
     active = null;
+    detached = false;
     draft = "";
     mention = null;
     issue = null;
@@ -199,17 +205,16 @@
     active = null;
     draft = "";
     active = list.length;
+    detached = true;
     pendingCaret = 0;
     await tick();
     focusCaret();
   }
 
-  /** Move editing to a neighbouring block, accounting for the active one being dropped if empty. */
+  /** Move editing to a neighbouring block; a detached slot sits right before block `active`. */
   function moveBy(delta: -1 | 1) {
     if (active === null) return;
-    const dropped = draft.trim() === "" && active < blocks.length ? 1 : 0;
-    const target = delta < 0 ? active - 1 : active + 1 - dropped;
-    activate(target, delta < 0 ? "end" : 0);
+    activate(delta < 0 ? active - 1 : detached ? active : active + 1, delta < 0 ? "end" : 0);
   }
 
   // ---- rendered block interactions -----------------------------------------
@@ -427,16 +432,16 @@
       activate(active! + index, offset);
       return;
     }
-    // Sync as we type so cards and search see the edit; an empty draft has no markdown to sync.
-    if (draft.trim() !== "") {
-      const caret = el.selectionStart;
-      setBody(joinBlocks(withDraft()));
-      await tick();
-      // The textarea may have been re-mounted (virtual block became real).
-      if (textarea !== el) {
-        pendingCaret = caret;
-        focusCaret();
-      }
+    // Sync as we type so cards, search and the empty-note check see it; a blank draft leaves the body.
+    const caret = el.selectionStart;
+    const body = joinBlocks(withDraft());
+    detached = draft.trim() === "";
+    setBody(body);
+    await tick();
+    // The textarea is re-mounted when the block joins or leaves the body.
+    if (textarea !== el) {
+      pendingCaret = caret;
+      focusCaret();
     }
     updateMention();
   }
@@ -468,6 +473,7 @@
     const sel = editing && textarea ? { start: textarea.selectionStart, end: textarea.selectionEnd } : null;
     const r = insertBlocks(withDraft(), active ?? blocks.length, sel, embeds);
     active = null;
+    detached = false;
     draft = "";
     setBody(joinBlocks(r.blocks), "media");
     if (!editing) return;
@@ -546,7 +552,7 @@
       moveBy(-1);
       return;
     }
-    if (e.key === "ArrowDown" && last && active! < blocks.length - 1) {
+    if (e.key === "ArrowDown" && last && active! + (detached ? 0 : 1) < blocks.length) {
       e.preventDefault();
       moveBy(1);
       return;
@@ -558,8 +564,9 @@
       const prev = blocks[prevIdx];
       const merged = draft.trim() ? prev + "\n" + draft : prev;
       const next = [...blocks];
-      next.splice(prevIdx, 2, merged);
+      next.splice(prevIdx, detached ? 1 : 2, merged);
       active = null;
+      detached = false;
       setBody(joinBlocks(next));
       activate(prevIdx, prev.length);
       return;
@@ -659,7 +666,12 @@
 
 {#snippet view(i: number)}
   {@const block = blocks[i]}
-  {#if active === i}
+  {#if detached && active === i}
+    <div class="block editing" class:code={activeIsCode}>
+      {@render input()}
+    </div>
+  {/if}
+  {#if !detached && active === i}
     <div class="block editing" class:code={activeIsCode} data-block={i}>
       {@render input()}
     </div>
@@ -688,7 +700,7 @@
       {@render view(run.start)}
     {/if}
   {/each}
-  {#if active !== null && active >= blocks.length}
+  {#if detached && active !== null && active >= blocks.length}
     <div class="block editing" class:code={activeIsCode}>
       {@render input()}
     </div>

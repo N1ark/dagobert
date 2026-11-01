@@ -519,12 +519,11 @@
     if (id) {
       if (e.shiftKey) {
         // Toggle membership; don't start a drag.
-        store.multi = store.multi.includes(id) ? store.multi.filter((x) => x !== id) : [...store.multi, id];
-        if (store.multi.includes(id) && store.selectedId !== id) {
-          store.selectedId = id;
-          const n = store.byId(id);
-          if (n) store.touch(id, { immediate: true, silent: true });
-        }
+        const multi = store.multi.includes(id) ? store.multi.filter((x) => x !== id) : [...store.multi, id];
+        if (multi.includes(id) && store.selectedId !== id) {
+          store.select(id, multi);
+          store.touch(id, { immediate: true, silent: true });
+        } else store.multi = multi;
         return;
       }
       // Dragging a node in the group moves the whole group.
