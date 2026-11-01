@@ -6,6 +6,7 @@
   import DockButton from "./DockButton.svelte";
   import { stageColor } from "./workflows";
   import GitHubSignIn from "./GitHubSignIn.svelte";
+  import GitHubCli from "./GitHubCli.svelte";
   import { isMobile } from "./backend";
   import { IconButton, PanelHeader, SettingsLayout, tooltip, type SettingsGroup } from "purr";
   import { relative } from "./time";
@@ -240,6 +241,7 @@
         <h4>{t("settings.github.account")}</h4>
         <p class="help"><InlineMd source={t("settings.github.signin.help")} /></p>
         <GitHubSignIn />
+        {#if !isMobile}<GitHubCli />{/if}
       {:else if wf}
         <input class="field-input name" bind:value={wf.name} onchange={() => commit(wf)} placeholder={t("settings.wf.name")} />
         <p class="help">{t("settings.wf.help")}</p>

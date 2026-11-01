@@ -8,6 +8,7 @@ All notable changes to Dagobert are documented here. The format follows
 
 ### Added
 
+- Settings → GitHub can use the GitHub CLI's sign-in instead, for organisations that block the Dagobert app.
 - Click an image in a note to see it full screen; ← and → step through the note's other images, ⌥-click edits it.
 - Links can show as a preview card with the page's title, description and image: right-click a link in a note and pick "Show as preview".
 - Images next to each other in a note lay out as a gallery; drag an image's corner to make its rows bigger or smaller.

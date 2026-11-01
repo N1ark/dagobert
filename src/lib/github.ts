@@ -88,9 +88,12 @@ async function scopedToken(repo?: string): Promise<string | null> {
   return repo && readAnonymously.has(repo) ? null : tok;
 }
 
-async function api<T>(path: string, repo?: string): Promise<T> {
-  const tok = await scopedToken(repo);
+/** `app` sends the sign-in's token, for the endpoints only a GitHub App token can use. */
+async function api<T>(path: string, repo?: string, app = false): Promise<T> {
+  let tok = app ? await auth.appToken() : await scopedToken(repo);
   let res = await send(path, tok);
+  // The GitHub CLI's token may have been revoked or rotated: ask again, else use the sign-in.
+  if (res.status === 401 && tok && !app && auth.rejected(tok)) res = await send(path, (tok = await scopedToken(repo)));
   // An app token 404s on repos it isn't installed on; public data needs no token, so retry without.
   if (tok && !res.ok && (res.status === 404 || (res.status === 403 && !rateLimited(res)))) {
     const anon = await send(path, null);
@@ -110,12 +113,12 @@ export interface RepoRef {
   private: boolean;
 }
 
-/** Every page of `path`, following GitHub's `per_page` cap. */
+/** Every page of `path` (an app endpoint), following GitHub's `per_page` cap. */
 async function pages<T>(path: string, pick: (body: never) => T[]): Promise<T[]> {
   const out: T[] = [];
   for (let page = 1; page <= 10; page++) {
     const sep = path.includes("?") ? "&" : "?";
-    const batch = pick((await api(`${path}${sep}per_page=100&page=${page}`)) as never);
+    const batch = pick((await api(`${path}${sep}per_page=100&page=${page}`, undefined, true)) as never);
     out.push(...batch);
     if (batch.length < 100) break;
   }

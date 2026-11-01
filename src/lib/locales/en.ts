@@ -421,6 +421,15 @@ export default {
   "settings.github.waiting": "Waiting for approval…",
   "settings.github.reopen": "Open github.com again",
   "settings.github.cancel": "Cancel",
+  "settings.github.gh": "Use the GitHub CLI's token",
+  "settings.github.gh.help":
+    "For organisations that block the Dagobert app: issues, pull requests and git use the account `gh` is signed in with, and fall back to your sign-in above. The token is read from `gh auth token` when needed and never saved.", // markdown
+  "settings.github.gh.checking": "Checking the GitHub CLI…",
+  "settings.github.gh.as": "GitHub CLI signed in as {login}",
+  "github.gh.missing": "The GitHub CLI (`gh`) isn't installed.", // markdown
+  "github.gh.signedOut": "The GitHub CLI isn't signed in: run `gh auth login` in a terminal.", // markdown
+  "github.gh.rejected": "GitHub refused the GitHub CLI's token: run `gh auth refresh` in a terminal.", // markdown
+  "github.gh.unreachable": "Couldn't reach GitHub to check the GitHub CLI's account.",
   "settings.wf.name": "Workflow name",
   "settings.wf.help": "Stages in order; tick the ones that count as done.",
   "settings.wf.pillColor": "Pill colour",

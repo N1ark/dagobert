@@ -1,6 +1,6 @@
 # GitHub integration
 
-Read this when touching `github.ts`, `auth.svelte.ts`, `github.rs`, `secrets.ts`,
+Read this when touching `github.ts`, `auth.svelte.ts`, `github.rs`, `gh.rs`, `GitHubCli.svelte`, `secrets.ts`,
 `prs.svelte.ts`, `PullRequests.svelte`, `PrIcon.svelte`, `prIcons.svelte.ts`,
 `IssuePopup.svelte` or `CloneDialog.svelte`.
 
@@ -22,6 +22,18 @@ Read this when touching `github.ts`, `auth.svelte.ts`, `github.rs`, `secrets.ts`
 - The app's user token only reaches repositories the GitHub App is **installed** on, so a
   notes repo needs that one-time install before it will sync. `listRepos` (the clone
   picker) lists exactly those.
+- **GitHub CLI token** (desktop; `GitHubCli.svelte` under the sign-in, app-wide flag
+  `dagobert.useGh`, re-read on every `token()` so other windows follow): for orgs that
+  block the app. `auth.token()` then returns `gh auth token` first and the sign-in's
+  `appToken()` when gh has none, for the REST API **and** git (sync, quit, clone);
+  `listRepos` stays on `appToken()`, since installations need an app token. `gh.rs` finds
+  `gh` without the shell's PATH (`/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin`, PATH,
+  then `$SHELL -lc 'command -v gh'`) and answers `gh-missing` / `gh-signed-out`; the
+  command is a stub on mobile. The token lives only in `Auth`'s memory (never stored,
+  logged or put in a URL); a failure isn't retried for a minute. A 401 with it
+  (`auth.rejected`) asks `gh` again once; the same token again counts as refused and the
+  sign-in takes over. `auth.gh` (`checkGh()`, run on toggle and when the page opens)
+  shows the CLI's login from `/user`, or why it can't be used.
 - The session's name / email (`/user`, falling back to the `users.noreply` address for
   private emails) is the commit identity written into a clone; desktop commits use the
   repository's git config.

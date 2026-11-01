@@ -89,7 +89,7 @@ off on every target, so libssh2 is never built.
   tracks (its upstream when it lives there, else its own name); pull, push and
   ahead/behind all use it.
 - Detached HEAD is refused everywhere. Credentials (`callbacks` / `pick_cred`): the
-  signed-in GitHub token as the HTTPS password and nothing else — no ssh-agent, no key
+  active GitHub token (`auth.token()`: the sign-in's, or the GitHub CLI's when that's on) as the HTTPS password and nothing else — no ssh-agent, no key
   files, no credential helper, never a prompt. The frontend passes it per call
   (`git_sync` / `git_quit` / `clone_project`); Rust never writes it to disk. `ensure_https`
   moves an ssh `origin` onto its HTTPS url before a fetch or push. `timeout` aborts a

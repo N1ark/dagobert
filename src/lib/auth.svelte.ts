@@ -1,11 +1,25 @@
 /** GitHub App sign-in: a code approved in the browser, for both the REST API and git. */
-import { backend } from "./backend";
+import { readFlag, writeFlag } from "purr";
+import { backend, isMobile } from "./backend";
 import { secrets, type Session } from "./secrets";
-import { t } from "./i18n";
+import { t, type Key } from "./i18n";
 import type { Token } from "./types";
 
 /** Refresh this long before expiry, so a sync never starts on a dead token. */
 const EARLY = 60_000;
+/** App-wide: use the GitHub CLI's token before the sign-in. */
+const USE_GH = "dagobert.useGh";
+/** A failed `gh auth token` isn't run again for this long. */
+const GH_RETRY = 60_000;
+
+/** The GitHub CLI's account, or the reason its token can't be used (a locale key). */
+export type GhStatus = { login: string } | { error: Key } | null;
+
+const GH_ERRORS: Record<string, Key> = {
+  "gh-missing": "github.gh.missing",
+  "gh-signed-out": "github.gh.signedOut",
+  "gh-rejected": "github.gh.rejected",
+};
 
 /** The signed-in user, for the commit identity. api.github.com allows CORS, so this needs no command. */
 async function whoami(token: string) {
@@ -29,8 +43,73 @@ class Auth {
   #cancelled = false;
   #refreshing: Promise<string | null> | null = null;
 
+  #useGh = $state(!isMobile && readFlag(USE_GH, false));
+  /** Shown in settings; null until checked. */
+  gh = $state<GhStatus>(null);
+  /** Held in memory only, never stored. */
+  #ghToken: string | null = null;
+  #ghFailedAt = -Infinity;
+  #ghRejected: string | null = null;
+  #ghFetching: Promise<string | null> | null = null;
+
   get signedIn() {
     return !!this.session;
+  }
+
+  /** Whether API calls and git use the GitHub CLI's token, falling back to the sign-in. */
+  get useGh() {
+    return this.#useGh;
+  }
+
+  set useGh(on: boolean) {
+    this.#useGh = on;
+    writeFlag(USE_GH, on);
+    this.#ghToken = null;
+    this.gh = null;
+    if (on) void this.checkGh();
+  }
+
+  /** Reads the CLI's token afresh and looks up whose it is. */
+  async checkGh() {
+    this.#ghFailedAt = -Infinity;
+    const tok = await this.#gh();
+    if (!tok) return;
+    try {
+      this.gh = { login: (await whoami(tok)).login };
+    } catch (e) {
+      if (String(e).includes("401")) this.rejected(tok);
+      else this.gh = { error: "github.gh.unreachable" };
+    }
+  }
+
+  async #gh(): Promise<string | null> {
+    if (this.#ghToken) return this.#ghToken;
+    if (Date.now() - this.#ghFailedAt < GH_RETRY) return null;
+    this.#ghFetching ??= (async () => {
+      try {
+        const tok = await backend.ghToken();
+        if (tok === this.#ghRejected) throw new Error("gh-rejected");
+        this.#ghToken = tok;
+        return tok;
+      } catch (e) {
+        const code = e instanceof Error ? e.message : String(e);
+        this.#ghFailedAt = Date.now();
+        this.gh = { error: GH_ERRORS[code] ?? "github.gh.unreachable" };
+        return null;
+      } finally {
+        this.#ghFetching = null;
+      }
+    })();
+    return this.#ghFetching;
+  }
+
+  /** A request got 401 with `token`: when it was the CLI's, ask `gh` again (once) and fall back to the sign-in. */
+  rejected(token: string): boolean {
+    if (token !== this.#ghToken) return false;
+    this.#ghRejected = token;
+    this.#ghToken = null;
+    this.gh = { error: "github.gh.rejected" };
+    return true;
   }
 
   #save(s: Session | null) {
@@ -103,8 +182,16 @@ class Auth {
     return this.session;
   }
 
-  /** A usable access token, refreshed if it is about to expire. Null when signed out. */
+  /** The token for the API and git: the CLI's when that's on and it works, else the sign-in's. */
   async token(): Promise<string | null> {
+    // Another window may have flipped the toggle.
+    const on = !isMobile && readFlag(USE_GH, false);
+    if (on !== this.#useGh) this.#useGh = on;
+    return (on && (await this.#gh())) || this.appToken();
+  }
+
+  /** The sign-in's access token, refreshed if it is about to expire. Null when signed out. */
+  async appToken(): Promise<string | null> {
     const s = this.#reload();
     if (!s) return null;
     if (!s.expires || Date.now() < s.expires - EARLY) return s.access;

@@ -1,3 +1,5 @@
+#[cfg(desktop)]
+mod gh;
 mod git;
 mod github;
 #[cfg(target_os = "ios")]
@@ -399,6 +401,15 @@ async fn github_refresh(refresh_token: String) -> Result<github::Refreshed, Stri
     blocking(move || github::refresh(&refresh_token)).await?
 }
 
+/// The GitHub CLI's token, held only in the frontend's memory; there is no `gh` on mobile.
+#[tauri::command]
+async fn gh_token() -> Result<String, String> {
+    #[cfg(desktop)]
+    return blocking(gh::token).await?;
+    #[cfg(not(desktop))]
+    Err("gh-missing".into())
+}
+
 /// Checks for and downloads a newer release; `None` when up to date (always on mobile).
 #[tauri::command]
 #[allow(unused_variables)]
@@ -457,6 +468,7 @@ pub fn run() {
             link_preview,
             github_signin_poll,
             github_refresh,
+            gh_token,
             sf_symbol,
             watch_project,
             unwatch_project,

@@ -22,8 +22,9 @@ broken.
 
 - `state.rs` holds `Recent` and `AppState` and is compiled everywhere. `watch.rs` and
   `update.rs` are `#[cfg(desktop)]`, because `notify` and the updater plugin are declared
-  only for the desktop targets; `keyboard.rs` is iOS-only.
-- `watch_project` / `unwatch_project` / `update_check` / `update_install` are commands on
+  only for the desktop targets; so is `gh.rs` (no GitHub CLI on a phone). `keyboard.rs` is
+  iOS-only.
+- `watch_project` / `unwatch_project` / `update_check` / `update_install` / `gh_token` are commands on
   **every** target with no-op bodies on mobile: `generate_handler!` won't take `cfg` on
   its entries.
 - Quit interception (`on_window_event`, `ExitRequested`, `sync::intercept_quit`) is

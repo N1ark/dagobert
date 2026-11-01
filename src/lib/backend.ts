@@ -498,6 +498,12 @@ export const backend = {
     return invoke<Refreshed>("github_refresh", { refreshToken });
   },
 
+  /** `gh auth token` (desktop); rejects with `gh-missing` or `gh-signed-out`. Never log or store it. */
+  async ghToken(): Promise<string> {
+    if (!inTauri) throw new Error("gh-missing");
+    return invoke<string>("gh_token");
+  },
+
   /** Software keyboard height in CSS pixels, from UIKit. Returns an unsubscribe. */
   onKeyboard(cb: (height: number) => void): () => void {
     if (!inTauri) return () => {};
