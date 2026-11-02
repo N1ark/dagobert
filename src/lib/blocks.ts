@@ -92,6 +92,26 @@ export function locate(text: string, offset: number): { index: number; offset: n
   return { index: parts.length - 1, offset: parts[parts.length - 1].length };
 }
 
+/** Offsets of the blocks holding a git conflict region (each with the paragraph around it), as `splitBlocks` sees them. */
+export function conflictSpans(text: string): { from: number; to: number }[] {
+  if (!/^<{7} /m.test(text)) return [];
+  const out: { from: number; to: number }[] = [];
+  let pos = 0;
+  for (const block of splitBlocks(text)) {
+    const at = text.indexOf(block, pos);
+    if (isConflict(block)) out.push({ from: at, to: at + block.length });
+    pos = at + block.length;
+  }
+  return out;
+}
+
+/** Each line of `text` without up to `n` leading spaces or tabs (code nested in a list item, at the margin). */
+export function dedent(text: string, n: number): string {
+  if (n <= 0) return text;
+  const re = new RegExp(`^[ \\t]{0,${n}}`, "gm");
+  return text.replace(re, "");
+}
+
 /** Toggle the n-th task checkbox (`[ ]`/`[x]`) in a block. */
 export function toggleCheckbox(block: string, nth: number): string {
   let i = -1;

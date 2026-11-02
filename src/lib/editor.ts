@@ -113,6 +113,13 @@ function setMediaSize(block: string, index: number, size: { width?: number | nul
   });
 }
 
+/** Offset in a block of its `index`-th embed, as rendered (code spans skipped); null when there's no such embed. */
+export function embedAt(block: string, index: number): number | null {
+  let n = -1;
+  for (const m of block.matchAll(EMBED_OR_CODE)) if (m[1] === undefined && ++n === index) return m.index;
+  return null;
+}
+
 /** Sets (or with null removes) the `|width` of the `index`-th embed in a block, as rendered. */
 export function setMediaWidth(block: string, index: number, width: number | null): string {
   return setMediaSize(block, index, { width });

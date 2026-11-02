@@ -67,3 +67,17 @@ assert.deepEqual(runs([img, img, img, img], 1), ["0", "1", "2-4"]);
 assert.equal(galleryHeight("![a|x160](assets/a.png)\n![b|x90](assets/b.png)"), 160);
 assert.equal(galleryHeight("![a|300](assets/a.png)"), null);
 console.log("media ok");
+
+// Galleries in the live editor: image-only items that join the one before, two images or more.
+{
+  const { galleryGroups } = await import("../src/lib/media.ts");
+  const it = (images, joins = true) => ({ images, joins });
+  assert.deepEqual(galleryGroups([it(1), it(1), it(1)]), [{ start: 0, end: 3 }]);
+  assert.deepEqual(galleryGroups([it(1), it(1, false), it(1)]), [{ start: 1, end: 3 }]);
+  assert.deepEqual(galleryGroups([it(1), it(0), it(1)]), []);
+  assert.deepEqual(galleryGroups([it(2), it(0), it(1), it(1)]), [
+    { start: 0, end: 1 },
+    { start: 2, end: 4 },
+  ]);
+  assert.deepEqual(galleryGroups([]), []);
+}

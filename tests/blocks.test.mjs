@@ -71,3 +71,25 @@ console.log("blocks ok");
   assert.deepEqual(spliceBlocks(b, { s: 1, start: 0, e: 2, end: 7 }, "x"), ["# Title", "x"]);
   console.log("block spans ok");
 }
+
+// Conflict regions as offsets, with the paragraph around them; unterminated ones are text.
+{
+  const { conflictSpans } = await import("../src/lib/blocks.ts");
+  const doc = `a\n\nx\n${conflict}\ny\n\nz`;
+  assert.deepEqual(conflictSpans(doc), [{ from: 3, to: 3 + `x\n${conflict}\ny`.length }]);
+  assert.deepEqual(conflictSpans("a\n\n<<<<<<< x\nb\n\nc"), []);
+  assert.deepEqual(conflictSpans("plain\n\ntext"), []);
+  // Git conflicts inside a fence are still conflicts: the whole fenced block is the region's block.
+  assert.deepEqual(conflictSpans("t\n\n```\n<<<<<<< x\n=======\n>>>>>>> y\n```"), [{ from: 3, to: 38 }]);
+  const two = `${conflict}\n\nmid\n\n${conflict}`;
+  assert.deepEqual(conflictSpans(two), [
+    { from: 0, to: conflict.length },
+    { from: two.length - conflict.length, to: two.length },
+  ]);
+}
+
+{
+  const { dedent } = await import("../src/lib/blocks.ts");
+  assert.equal(dedent("  ```sh\n  x\n    y\n ```", 2), "```sh\nx\n  y\n```");
+  assert.equal(dedent("a\n b", 0), "a\n b");
+}

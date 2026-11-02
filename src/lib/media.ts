@@ -149,6 +149,23 @@ export function galleryRuns(blocks: string[], skip: number | null = null): { sta
   return runs;
 }
 
+/** `[start, end)` runs of items that lay out as one gallery: image-only ones (`images` > 0), each but the first `joins` the one before, two images or more. */
+export function galleryGroups(items: { images: number; joins: boolean }[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (let i = 0; i < items.length;) {
+    if (!items[i].images) {
+      i++;
+      continue;
+    }
+    let j = i + 1,
+      images = items[i].images;
+    while (j < items.length && items[j].images && items[j].joins) images += items[j++].images;
+    if (images >= 2) out.push({ start: i, end: j });
+    i = j;
+  }
+  return out;
+}
+
 /** A gallery's row height: the `|x…` of its first image, if it has one. */
 export function galleryHeight(block: string): number | null {
   for (const m of block.matchAll(EMBED_RE)) return parseAlt(m[1]).height;
