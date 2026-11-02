@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-02
+
 ### Changed
 
 - Links leaving a completed note fade with it.
