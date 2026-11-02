@@ -23,10 +23,7 @@ export const focusedField = StateField.define<boolean>({
 
 /** Keeps `focusedField` in step with the DOM focus. */
 export function focusTracking(): Extension {
-  return [
-    focusedField,
-    EditorView.focusChangeEffect.of((_state, focusing) => setFocused.of(focusing)),
-  ];
+  return [focusedField, EditorView.focusChangeEffect.of((_state, focusing) => setFocused.of(focusing))];
 }
 
 /** Source in `from..to` shows as typed (markers and all) when the editor is focused and a selection range touches it. */

@@ -55,12 +55,13 @@ The native window can't be screenshotted from the CLI.
 - `Tiles.svelte`, `Dock.svelte`, `DockButton.svelte`, `tiles.ts`, `panes.svelte.ts` — the
   desktop's tiled panels (Zed-style splits, or popups); purr's `Sheet` holds them on a phone.
 - `Canvas.svelte`, `NodeCard.svelte`, `Minimap.svelte`, `Grain.svelte` — the graph.
-- `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`, `editor.ts`, `wikilinks.ts` —
+- `NotePanel.svelte`, `LiveEditor.svelte` (CodeMirror live preview: `liveCore.ts`, `liveSyntax.ts`,
+  `livePreview.ts`, `liveBlocks.ts`, `liveCommands.ts`), `blocks.ts`, `editor.ts`, `wikilinks.ts` —
   the editor.
 - `github.ts`, `prs.svelte.ts`, `PullRequests.svelte` — GitHub integration.
 - `calendar.ts`, `clock.svelte.ts`, `Calendar.svelte` — due dates and the calendar pane.
 - Pure modules with tests in `tests/`: `layout.ts`, `i18n.ts`, `highlight.ts`, `query.ts`,
-  `history.ts`, `blocks.ts`, `editor.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`,
+  `history.ts`, `blocks.ts`, `editor.ts`, `liveSyntax.ts`, `liveCommands.ts`, `toc.ts`, `viewport.ts`, `tiles.ts`, `calendar.ts`,
   `media.ts`, `preview.ts`, `checklist.ts`, `filelinks.ts`, `workflows.ts`, `inlineIcons.ts`. They run under
   plain Node, so they must not import `purr`.
 

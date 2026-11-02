@@ -11,7 +11,6 @@ import {
   assetNames,
   mediaExtension,
   imageCount,
-  galleryRuns,
   isLinkEmbed,
   galleryHeight,
 } from "../src/lib/media.ts";
@@ -58,12 +57,6 @@ assert.equal(imageCount("![a](assets/a.png) caption"), 0);
 assert.equal(imageCount("![v](assets/v.mov)"), 0);
 assert.equal(imageCount("plain"), 0);
 assert.equal(imageCount("![](https://x.y/page)\n![](assets/a.png)"), 0, "a preview card isn't an image");
-const img = "![](assets/a.png)";
-const runs = (blocks, skip) => galleryRuns(blocks, skip).map((r) => (r.gallery ? `${r.start}-${r.end}` : `${r.start}`));
-assert.deepEqual(runs(["text", img, img, img, "text", img]), ["0", "1-4", "4", "5"]);
-assert.deepEqual(runs([`${img} ${img}`, "text"]), ["0-1", "1"]);
-assert.deepEqual(runs([img, img, img], 1), ["0", "1", "2"]);
-assert.deepEqual(runs([img, img, img, img], 1), ["0", "1", "2-4"]);
 assert.equal(galleryHeight("![a|x160](assets/a.png)\n![b|x90](assets/b.png)"), 160);
 assert.equal(galleryHeight("![a|300](assets/a.png)"), null);
 console.log("media ok");

@@ -637,29 +637,25 @@ const theme = EditorView.baseTheme({
   ".cm-line.cm-lb-marker": { fontFamily: "var(--mono)", fontSize: "var(--fs-sm)", color: "var(--warn)" },
 });
 
-/** ↑/↓ would hop over a block: they land on its edge instead, which reveals it. */
+/** ↑/↓ go one doc line at a time: onto a block's edge rather than over it (which reveals it), nor over a short blank line. */
 function vertical(view: EditorView, down: boolean): boolean {
   const { decos } = view.state.field(blocksField);
+  const doc = view.state.doc;
   let moved = false;
   const sel = EditorSelection.create(
     view.state.selection.ranges.map((range) => {
       const next = view.moveVertically(range, down);
-      const line = view.state.doc.lineAt(range.head);
+      const line = doc.lineAt(range.head);
+      const n = line.number + (down ? 1 : -1);
+      if (n < 1 || n > doc.lines) return next;
+      const l = doc.line(n);
       let edge: number | null = null;
-      const [from, to] = down ? [line.to + 1, next.head] : [next.head, line.from - 1];
-      if (from <= to)
-        decos.between(from, to, (a, b, deco) => {
-          if (!deco.spec.block) return;
-          if (down && a >= from && edge === null) edge = a;
-          if (!down && b <= to) edge = b;
-        });
+      decos.between(l.from, l.to, (a, b, deco) => {
+        if (deco.spec.block) edge = down ? a : b;
+      });
       if (edge === null) {
-        // Nor over a short line (a blank one between paragraphs): one doc line at a time.
-        const doc = view.state.doc;
-        const n = line.number + (down ? 1 : -1);
         const target = doc.lineAt(next.head).number;
         if (down ? target <= n : target >= n) return next;
-        const l = doc.line(n);
         edge = l.from + Math.min(l.length, range.head - line.from);
       }
       moved = true;

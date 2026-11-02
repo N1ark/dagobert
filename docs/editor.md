@@ -1,6 +1,6 @@
 # Note panel and editor
 
-Read this when touching `NotePanel.svelte`, `LiveEditor.svelte`, `blocks.ts`,
+Read this when touching `NotePanel.svelte`, `LiveEditor.svelte`, `live*.ts`, `LiveBlock.svelte`, `blocks.ts`,
 `editor.ts`, `wikilinks.ts`, `links.ts`, `filelinks.ts`, `MentionPopup.svelte`, `Markdown.svelte`,
 `InlineMd.svelte`, `inlineIcons.ts`, `icons.svelte.ts`, `IconPopup.svelte` or `highlight.ts`.
 
@@ -17,44 +17,45 @@ Width is `panelW` in `App.svelte` (localStorage `dagobert.panelWidth`, dragged v
 
 ## LiveEditor.svelte
 
-Obsidian-style live preview, per block. `blocks.ts` splits the body on blank lines (fenced
-code and `<<<<<<< `…`>>>>>>> ` conflict regions kept whole, and a list's indented paragraphs: a
-line after blank lines stays in its block when indented to the list's text, so `- foo` + blank +
-`  bar` renders as one item of two paragraphs, while items apart stay blocks of their own; a region belongs to the
-paragraph around it so resolving it never adds paragraph breaks; an unterminated
-`<<<<<<< ` is ordinary text; blank-line runs collapse on re-join). A block holding a region
-renders through `ConflictBlock.svelte` (two stacked `Markdown` panes showing the whole
-paragraph as each side wrote it + keep mine / theirs / both, via `resolveConflict`, one
-undo step labelled `resolveConflict`); clicking it edits the raw text. The store's
-`hasMarkers` (→ `conflictIds`: badge, toolbar count) is fence-aware through the same
-splitter. `MARKER_RE` / `stripMarkers` keep marker lines out of search and card previews.
+Typora/Obsidian-style live preview on one CodeMirror 6 view whose doc is `note.body`, verbatim:
+no blocks, no textarea, so clicks land where they're aimed and selection, copy and arrows work
+across paragraphs natively. The pieces:
 
-Every block renders via `Markdown.svelte` except the `active` one, which is a textarea
-holding `draft`. Rules worth knowing:
-
-- The draft is live-synced into `note.body`, even when blank: a blank block can't be
-  represented, so it leaves the body and the textarea stays as a `detached` slot before
-  block `active` (`withDraft` splices it back in), so `store.isEmpty` always sees the truth.
-- Typing a blank line splits the draft, and indenting it under a list joins it to that list; either way `onInput` sees the body split differently and moves the caret
-  to its block (`locate`), keeping its line still. A detached slot at `active === blocks.length`
-  is how a paragraph is appended.
-- A body changed from elsewhere (another window) while a block is active reloads the
-  draft, keeping the caret.
-- Backspace at offset 0 merges into the previous block; ↑/↓ on first/last line move
-  between blocks; Esc leaves edit mode.
-- Clicking a rendered block places the caret near the click via `caretRangeFromPoint` +
-  text search (`rawOffset`) and scrolls so that line stays under the pointer (`holdAt`; focus
-  is `preventScroll`, `.live` has `overflow-anchor: none`, `autosize` restores the scroll it
-  would lose near the bottom); entering by keyboard just reveals the caret, and Esc (`leave`)
-  keeps the caret's place in the block, in proportion, where it was on screen. The click is
-  matched against the whole block's text (`pointOffset`), the longest match from either side
-  winning, so repeated words (list items alike) don't send the caret to the first of them; task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
-  strips marked's `disabled` so the click arrives).
-- A drag-selection over rendered blocks stays: the click ending it (on the block, or on
-  `.live` when it spans several) doesn't edit (`selecting`). `selectedSpan` maps it to
-  markdown offsets (`pointOffset`: a block's ends exactly, `rawOffset` in between); copy/cut
-  put that markdown (`sliceBlocks`) on the clipboard, and a printable key, ⌫ or ⌦ replaces
-  it (`spliceBlocks`) in a capturing window `keydown`, ahead of the panel's ⌫ and the canvas.
+- `liveCore.ts`: the contract. `revealed(state, from, to)` is the one reveal rule (focused, and a
+  selection range touches the element), so an unfocused editor reads as fully rendered.
+  `editLabel` carries a store undo label on a transaction; `external` marks a body brought in from
+  elsewhere; `replaceRange`, `diff`, `placeCaret` (keeps a clicked line under the pointer).
+- `liveSyntax.ts` `liveMarkdown()`: lezer markdown + GFM, minus what marked doesn't render, plus
+  `==highlight==`, `[[wikilinks]]`, `:icon:` and `alias#123` parsers (pure; whether an icon or
+  alias is real is decided when drawing).
+- `livePreview.ts` `livePreview()`: inline decorations over the visible ranges. Markers hide per
+  element (`**`, `` ` ``, `[`/`](url)`, `[[`, escapes), per line for headings, quotes, rules and
+  list markers. Real `strong`/`em`/`code`/`mark` tags and class `md` on `.cm-content` let purr's
+  markdown.css style it. Bullets by CSS, a hanging indent from `--md-indent`, task `[ ]` → a
+  checkbox (toggles with label `check`, caret stays), `:icon:` → the icon, a lone blank line between
+  blocks shrinks to the paragraph gap. A plain click on an unrevealed link follows it (`links.ts`
+  semantics); ⌥-click or the keyboard edits it. Reveals wait for the mouse-up, so a drag doesn't
+  shift text. `liveWatch.svelte.ts` redraws when link targets, done-ness, repos or file targets change.
+- `liveBlocks.ts` `liveBlocks(host)`: a StateField of block widgets (`LiveBlock.svelte`, mounting
+  `Markdown`/`ConflictBlock`) for fenced and indented code, tables, HTML blocks, conflict regions
+  (`conflictSpans`, only scanned when a line starts `<<<<<<< `), image-only paragraphs and gallery
+  runs of them (`galleryGroups`). Revealed, a block shows its source (code in a code box at the
+  rendered line height); a click on a widget reveals it with the caret near the click (`rawOffset`
+  against its source). ↑/↓ step one doc line and stop on a widget's edge, which reveals it. Images
+  inside text are inline widgets. Widgets compare by source, so typing elsewhere never remounts them.
+  A conflict widget is `ConflictBlock.svelte`: the region's paragraph as each side wrote it, keep
+  mine / theirs / both (`resolveConflict`, label `resolveConflict`). The store's `hasMarkers`
+  (→ `conflictIds`) is fence-aware through `splitBlocks`; `MARKER_RE` / `stripMarkers` keep marker
+  lines out of search and card previews.
+- `LiveEditor.svelte`: mounts the view in `.live` (the scroll container; the editor grows with its
+  content), writes the doc to `note.body` with `store.touch` (label from `editLabel`), and applies
+  outside changes with `diff()` + `external`, out of CM's history. Keys: popups first, then Esc
+  (blurs, keeping the caret's line in place), then the `editor.ts` commands through `applySel`
+  (`liveCommands.ts`). `contentAttributes` turn spellcheck/autocorrect off inside code. A press
+  below the text puts the caret at the end on a fresh paragraph; blank lines left there are
+  trimmed on blur. `scrollTo(pos)` serves the TOC (`toc.ts` headings carry `from`).
+- Undo: CM's history while typing; the menu's undo calls it (`editorHistory`, since
+  `execCommand("undo")` doesn't reach CM), the store's undo everywhere else.
 
 Body shortcuts (bold, italic, code, link, strike, ==highlight== from `keys.ts`; Enter
 continues lists, Tab/⇧Tab indents; pasting a URL over a selection makes a link) are pure
@@ -126,8 +127,8 @@ the pure parts (`kindOf`, `parseAlt`, `mediaHtml`, `stripMedia`, `assetNames`) a
 `image` renderer `Markdown.svelte` installs. An `afterSanitizeAttributes` DOMPurify hook maps
 `assets/…` sources to `backend.assetUrl` (the asset protocol; object URLs in the browser mock)
 **after** sanitising, whose URI allowlist would drop `asset:`. Pasting files in `LiveEditor`
-saves them (`store.saveFiles`) and inserts each as its own block at the caret
-(`insertBlocks`, one undo step labelled `media`); typing resumes after them. Card previews
+saves them (`store.addMedia`) and inserts each as its own paragraph at the caret
+(`embedChange`, one undo step labelled `media`); typing resumes after them. Card previews
 drop embeds and show a kind icon (`MediaIcon`); the search box matches their alt text.
 
 The extension picks the element: `<img>`, `<video controls preload="metadata">` (its `src`
@@ -137,15 +138,15 @@ sniffs content types and serves range requests, so video seeks without loading t
 file. Adding a file over 50 MB to a git-tracked project warns (GitHub refuses 100 MB).
 
 Images and videos render inside a `span.media` carrying a `.resize` handle, shown only in
-`LiveEditor`'s rendered blocks on hover. Dragging it (`onResizeStart`; `pointerdown` stops
-propagation, the block's click ignores `.resize`) sets the width live, clamped to 32 px … the
+the editor's media widgets (`liveBlocks.ts`) on hover. Dragging it (`onPointerDown`, which stops
+propagation; the widget's click ignores `.resize`) sets the width live, clamped to 32 px … the
 block's width; on release `setMediaWidth(block, index, width)` (`editor.ts`, tested; code
 spans skipped so `index` matches the rendered order) writes `|<width>` into the source, one
-undo step labelled `resizeMedia`. Double-clicking the handle removes it.
+undo step labelled `resizeMedia`, through the widget's current range.
 
-Galleries: `galleryRuns` (`media.ts`, tested) groups consecutive image-only blocks holding two
-images or more (the active block breaks a run); `LiveEditor` wraps a run in `.gallery`, whose
-blocks, `.md` and `<p>` are `display: contents`, so every `.media` is a flex item. Each grows by
+Galleries: `galleryGroups` (`media.ts`, tested) groups consecutive image-only paragraphs holding
+two images or more (a revealed paragraph breaks a run); `liveBlocks` draws a run as one widget,
+`.gallery`, whose `.md` and `<p>` are `display: contents`, so every `.media` is a flex item. Each grows by
 its width/height ratio (`--r`, set when the image loads) from a base height (`--gallery-row`,
 90 px), which makes justified rows; `max-width` caps a row that can't fill at 2.2× that. The
 corner handle on any of its images sets the base height for the whole gallery (`resizeGallery`),
@@ -153,9 +154,9 @@ kept on its first image as `|x<height>` (`setMediaHeight`, `galleryHeight`; `par
 height, which nothing else uses). A second press on any handle resets it (`resetSize`): the
 first press's pointer capture keeps a real `dblclick` from arriving.
 The gallery is hovered like a block and outlines the image under the pointer; a click between
-images edits the nearest one (`onGalleryClick`).
+images edits the nearest one.
 Clicking an image opens it full screen in purr's `Lightbox`, with the note's other images a step
-away (`viewImage`); ⌥-click edits its block instead.
+away (`viewImage`, the `BlockHost` the editor passes to `liveBlocks`); ⌥-click edits it instead.
 `Markdown` tags a project image with `data-asset` (its name in `assets/`). On a Mac, a
 right-click on an image (`onImageMenu`) and the viewer's buttons (`MediaActions`, also the
 gallery's) save a copy (`export_asset` behind a save dialog), copy it (`images.ts`: redrawn as
@@ -169,7 +170,7 @@ Getting media in: every route ends in `store.addMedia(items)` (a path → `impor
 streams it on the Rust side; a `File` → `save_asset`), which links other paths on disk (below) and skips other files. Tauri
 swallows HTML5 file drops, so `backend.onFileDrop` uses `onDragDropEvent` (window drag/drop
 events in the browser) and App dispatches a bubbling `media-drop` (`MediaDrop`) at the
-element under the point: `LiveEditor` inserts before the block under the pointer (after it
+element under the point: `LiveEditor` inserts before the top-level block under the pointer (after it
 past its middle), `Canvas` creates a note there named after the first file. "Insert media…"
 (`insert-media`, the dialog plugin; the photo picker on iOS) fires a cancelable window
 `insert-media` event that the selected note's editor takes to insert at the caret; unclaimed,

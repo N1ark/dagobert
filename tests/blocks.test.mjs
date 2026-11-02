@@ -1,23 +1,9 @@
 import assert from "node:assert/strict";
-import {
-  splitBlocks,
-  joinBlocks,
-  locate,
-  toggleCheckbox,
-  isConflict,
-  conflictSides,
-  resolveConflict,
-  stripMarkers,
-} from "../src/lib/blocks.ts";
+import { splitBlocks, joinBlocks, isConflict, conflictSides, resolveConflict, stripMarkers } from "../src/lib/blocks.ts";
 assert.deepEqual(splitBlocks("a\nb\n\nc\n\n\n\nd"), ["a\nb", "c", "d"]);
 assert.deepEqual(splitBlocks("x\n\n```js\nfoo\n\nbar\n```\n\ny"), ["x", "```js\nfoo\n\nbar\n```", "y"]);
 assert.deepEqual(splitBlocks(""), []);
 assert.equal(joinBlocks(["a", "", "b"]), "a\n\nb");
-assert.deepEqual(locate("hello\n\nworld", 9), { index: 1, offset: 2 });
-assert.deepEqual(locate("hello\n\nworld", 3), { index: 0, offset: 3 });
-assert.deepEqual(locate("hello", 3), { index: 0, offset: 3 });
-assert.equal(toggleCheckbox("- [ ] a\n- [x] b", 1), "- [ ] a\n- [ ] b");
-assert.equal(toggleCheckbox("- [ ] a\n- [x] b", 0), "- [x] a\n- [x] b");
 const conflict = "<<<<<<< mine\nours\n\nmore\n=======\ntheirs\n>>>>>>> theirs";
 assert.deepEqual(splitBlocks(`a\n\n${conflict}\n\nb\n\nc`), ["a", conflict, "b", "c"]);
 // A region touching the surrounding lines stays inside that paragraph.
@@ -51,26 +37,6 @@ assert.deepEqual(splitBlocks("- a\n\n  ```\n  x\n\n  ```\n\nz"), ["- a\n\n  ```\
 assert.deepEqual(splitBlocks("x\n\n  y"), ["x", "  y"]);
 assert.deepEqual(splitBlocks("- a\n\n<<<<<<< x\nb\n\n  c"), ["- a", "<<<<<<< x\nb", "  c"]);
 console.log("blocks ok");
-{
-  const { insertBlocks } = await import("../src/lib/blocks.ts");
-  const img = "![](assets/a.png)";
-  assert.deepEqual(insertBlocks(["one", "two words"], 1, { start: 3, end: 4 }, [img]), { blocks: ["one", "two", img, "words"], after: 3 });
-  assert.deepEqual(insertBlocks(["one"], 0, null, [img, img]), { blocks: ["one", img, img], after: 3 });
-  assert.deepEqual(insertBlocks(["one", "two"], 2, null, [img]), { blocks: ["one", "two", img], after: 3 });
-  assert.deepEqual(insertBlocks(["- a\n  - b"], 0, { start: 3, end: 3 }, [img]), { blocks: ["- a", img, "  - b"], after: 2 });
-  assert.deepEqual(insertBlocks(["x"], 0, { start: 0, end: 0 }, [img]), { blocks: [img, "x"], after: 1 });
-  console.log("insertBlocks ok");
-}
-{
-  const { sliceBlocks, spliceBlocks } = await import("../src/lib/blocks.ts");
-  const b = ["# Title", "first para", "- a\n- b"];
-  assert.equal(sliceBlocks(b, { s: 0, start: 0, e: 2, end: 7 }), "# Title\n\nfirst para\n\n- a\n- b");
-  assert.equal(sliceBlocks(b, { s: 1, start: 6, e: 2, end: 3 }), "para\n\n- a");
-  assert.equal(sliceBlocks(b, { s: 1, start: 0, e: 1, end: 5 }), "first");
-  assert.deepEqual(spliceBlocks(b, { s: 0, start: 2, e: 1, end: 6 }, ""), ["# para", "- a\n- b"]);
-  assert.deepEqual(spliceBlocks(b, { s: 1, start: 0, e: 2, end: 7 }, "x"), ["# Title", "x"]);
-  console.log("block spans ok");
-}
 
 // Conflict regions as offsets, with the paragraph around them; unterminated ones are text.
 {
