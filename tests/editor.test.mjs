@@ -67,3 +67,11 @@ console.log("editor ok");
   assert.equal(rawOffset(list, shown.slice(0, at), shown.slice(at), 0), list.indexOf("line 30") + 1);
   console.log("rawOffset ok");
 }
+
+{
+  const { embedAt } = await import("../src/lib/editor.ts");
+  const b = 'x ![a](assets/x.png) `![c](d.png)` ![b](assets/y.mp4 "t")';
+  assert.equal(embedAt(b, 0), 2);
+  assert.equal(embedAt(b, 1), b.indexOf("![b]"));
+  assert.equal(embedAt(b, 2), null);
+}

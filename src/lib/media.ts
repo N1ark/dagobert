@@ -132,21 +132,21 @@ export function imageCount(block: string): number {
   return rest.trim() ? 0 : n;
 }
 
-/** Blocks as `[start, end)` runs; consecutive image-only blocks with two images or more make one gallery run. */
-export function galleryRuns(blocks: string[], skip: number | null = null): { start: number; end: number; gallery: boolean }[] {
-  const runs: { start: number; end: number; gallery: boolean }[] = [];
-  for (let i = 0; i < blocks.length;) {
-    let j = i,
-      images = 0;
-    while (j < blocks.length && j !== skip && imageCount(blocks[j])) images += imageCount(blocks[j++]);
-    if (images >= 2) runs.push({ start: i, end: j, gallery: true });
-    else {
-      j = Math.max(j, i + 1);
-      for (let k = i; k < j; k++) runs.push({ start: k, end: k + 1, gallery: false });
+/** `[start, end)` runs of items that lay out as one gallery: image-only ones (`images` > 0), each but the first `joins` the one before, two images or more. */
+export function galleryGroups(items: { images: number; joins: boolean }[]): { start: number; end: number }[] {
+  const out: { start: number; end: number }[] = [];
+  for (let i = 0; i < items.length;) {
+    if (!items[i].images) {
+      i++;
+      continue;
     }
+    let j = i + 1,
+      images = items[i].images;
+    while (j < items.length && items[j].images && items[j].joins) images += items[j++].images;
+    if (images >= 2) out.push({ start: i, end: j });
     i = j;
   }
-  return runs;
+  return out;
 }
 
 /** A gallery's row height: the `|x…` of its first image, if it has one. */

@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The note editor is a live preview: markdown renders as you type, its symbols show only where the caret is, and clicks land exactly where you aim.
+
 ## [0.13.2] - 2026-11-02
 
 ### Fixed

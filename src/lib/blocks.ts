@@ -77,34 +77,24 @@ export function joinBlocks(blocks: string[]): string {
   return blocks.filter((b) => b.trim() !== "").join("\n\n");
 }
 
-/** Which sub-block of `text` contains `offset`, and the offset within it. */
-export function locate(text: string, offset: number): { index: number; offset: number } {
-  const parts = splitBlocks(text);
-  if (parts.length <= 1) return { index: 0, offset: Math.min(offset, text.length) };
+/** Offsets of the blocks holding a git conflict region (each with the paragraph around it), as `splitBlocks` sees them. */
+export function conflictSpans(text: string): { from: number; to: number }[] {
+  if (!/^<{7} /m.test(text)) return [];
+  const out: { from: number; to: number }[] = [];
   let pos = 0;
-  for (let i = 0; i < parts.length; i++) {
-    const at = text.indexOf(parts[i], pos);
-    if (offset <= at + parts[i].length || i === parts.length - 1) {
-      return { index: i, offset: Math.max(0, Math.min(parts[i].length, offset - at)) };
-    }
-    pos = at + parts[i].length;
+  for (const block of splitBlocks(text)) {
+    const at = text.indexOf(block, pos);
+    if (isConflict(block)) out.push({ from: at, to: at + block.length });
+    pos = at + block.length;
   }
-  return { index: parts.length - 1, offset: parts[parts.length - 1].length };
+  return out;
 }
 
-/** Toggle the n-th task checkbox (`[ ]`/`[x]`) in a block. */
-export function toggleCheckbox(block: string, nth: number): string {
-  let i = -1;
-  return block.replace(/^(\s*(?:[-*+]|\d+\.)\s+)\[([ xX])\]/gm, (m, pre: string, state: string) => {
-    i++;
-    if (i !== nth) return m;
-    return `${pre}[${state === " " ? "x" : " "}]`;
-  });
-}
-
-/** True when the block is a fenced code block. */
-export function isCode(block: string): boolean {
-  return /^\s*(```|~~~)/.test(block);
+/** Each line of `text` without up to `n` leading spaces or tabs (code nested in a list item, at the margin). */
+export function dedent(text: string, n: number): string {
+  if (n <= 0) return text;
+  const re = new RegExp(`^[ \\t]{0,${n}}`, "gm");
+  return text.replace(re, "");
 }
 
 /** The line ranges of the conflict region inside a block, if it holds one. */
@@ -166,43 +156,4 @@ export function stripMarkers(text: string): string {
     .split("\n")
     .filter((l) => !MARKER_RE.test(l))
     .join("\n");
-}
-
-/**
- * `inserted` as blocks of their own, splitting block `index` at `sel` (its end when null; an index
- * past the end appends). `after` is the index of the first block following them.
- */
-export function insertBlocks(
-  blocks: string[],
-  index: number,
-  sel: { start: number; end: number } | null,
-  inserted: string[],
-): { blocks: string[]; after: number } {
-  const src = blocks[index] ?? "";
-  const cut = sel ?? { start: src.length, end: src.length };
-  const before = src.slice(0, cut.start).trimEnd();
-  const tail = src.slice(cut.end).replace(/^[ \t]*\n?/, "");
-  const head = splitBlocks(joinBlocks([...blocks.slice(0, index), before, ...inserted]));
-  return { blocks: splitBlocks(joinBlocks([...head, tail, ...blocks.slice(index + 1)])), after: head.length };
-}
-
-/** A span from offset `start` of block `s` to offset `end` of block `e`. */
-export interface BlockSpan {
-  s: number;
-  start: number;
-  e: number;
-  end: number;
-}
-
-/** The markdown a span covers. */
-export function sliceBlocks(blocks: string[], r: BlockSpan): string {
-  if (r.s === r.e) return blocks[r.s].slice(r.start, r.end);
-  return joinBlocks([blocks[r.s].slice(r.start), ...blocks.slice(r.s + 1, r.e), blocks[r.e].slice(0, r.end)]);
-}
-
-/** Replace a span with `text`, which joins what's left of its first and last blocks into one. */
-export function spliceBlocks(blocks: string[], r: BlockSpan, text: string): string[] {
-  const next = [...blocks];
-  next.splice(r.s, r.e - r.s + 1, blocks[r.s].slice(0, r.start) + text + blocks[r.e].slice(r.end));
-  return next;
 }

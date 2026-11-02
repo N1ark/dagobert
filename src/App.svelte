@@ -65,6 +65,7 @@
   import { t, plural } from "./lib/i18n";
   import { keys } from "./lib/keys";
   import { matches as pressed } from "purr";
+  import { editorHistory } from "./lib/liveCommands";
   import type { ProjectRef } from "./lib/types";
   import { dueState } from "./lib/calendar";
   import { clock } from "./lib/clock.svelte";
@@ -562,6 +563,8 @@
   /** Undo/redo from the menu: native inside text fields (not the palette's search), ours elsewhere. */
   function editUndo(kind: "undo" | "redo") {
     const el = document.activeElement as HTMLElement | null;
+    // The note editor keeps its own history; `execCommand` would only replay the browser's DOM edits.
+    if (editorHistory(el, kind)) return;
     if (el && el.closest("input, textarea, [contenteditable]") && !el.closest("[role=combobox]")) document.execCommand(kind);
     else if (kind === "undo") store.undo();
     else store.redo();
