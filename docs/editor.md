@@ -18,7 +18,9 @@ Width is `panelW` in `App.svelte` (localStorage `dagobert.panelWidth`, dragged v
 ## LiveEditor.svelte
 
 Obsidian-style live preview, per block. `blocks.ts` splits the body on blank lines (fenced
-code and `<<<<<<< `…`>>>>>>> ` conflict regions kept whole; a region belongs to the
+code and `<<<<<<< `…`>>>>>>> ` conflict regions kept whole, and a list too: a line after blank
+lines stays in its block when indented to the list's text or when it is an item of the same list,
+so `- foo` + blank + `  bar` renders as one item of two paragraphs; a region belongs to the
 paragraph around it so resolving it never adds paragraph breaks; an unterminated
 `<<<<<<< ` is ordinary text; blank-line runs collapse on re-join). A block holding a region
 renders through `ConflictBlock.svelte` (two stacked `Markdown` panes showing the whole
@@ -33,14 +35,18 @@ holding `draft`. Rules worth knowing:
 - The draft is live-synced into `note.body`, even when blank: a blank block can't be
   represented, so it leaves the body and the textarea stays as a `detached` slot before
   block `active` (`withDraft` splices it back in), so `store.isEmpty` always sees the truth.
-- Typing a blank line splits the draft and moves the caret to the right new block
-  (`locate`); a detached slot at `active === blocks.length` is how a paragraph is appended.
+- Typing a blank line splits the draft, and indenting it (or making it an item) under a list
+  joins it to that list; either way `onInput` sees the body split differently and moves the caret
+  to its block (`locate`), keeping its line still. A detached slot at `active === blocks.length`
+  is how a paragraph is appended.
 - A body changed from elsewhere (another window) while a block is active reloads the
   draft, keeping the caret.
 - Backspace at offset 0 merges into the previous block; ↑/↓ on first/last line move
   between blocks; Esc leaves edit mode.
 - Clicking a rendered block places the caret near the click via `caretRangeFromPoint` +
-  text search (`rawOffset`); task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
+  text search (`rawOffset`) and scrolls so that line stays under the pointer (`holdAt`; focus
+  is `preventScroll`, `.live` has `overflow-anchor: none`, `autosize` restores the scroll it
+  would lose near the bottom); entering by keyboard just reveals the caret; task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
   strips marked's `disabled` so the click arrives).
 - A drag-selection over rendered blocks stays: the click ending it (on the block, or on
   `.live` when it spans several) doesn't edit (`selecting`). `selectedSpan` maps it to
@@ -69,6 +75,7 @@ Clicks in rendered markdown go through `links.ts` `onLinkClick`: wikilinks call
 the system browser.
 
 `MentionPopup.svelte` is the `@` autocomplete; the parent forwards keys via `handleKey`.
+The editor's popups sit in `.live`'s scrolled coordinates (`below`), not the textarea's block.
 Offers "Create …" when no title matches. `IssuePopup.svelte` (`alias#query`) follows the
 same pattern. `LinkPicker.svelte` is the search dropdown for adding deps/dependents.
 

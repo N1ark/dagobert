@@ -134,8 +134,8 @@
     return splitBlocks(body);
   }
 
-  /** Start editing block `index` (of the current body) with the caret at `caret`. */
-  async function activate(index: number, caret: number | "end" = "end") {
+  /** Start editing block `index` (of the current body) with the caret at `caret`, its line at `y` when clicked there. */
+  async function activate(index: number, caret: number | "end" = "end", y?: number) {
     const list = commit();
     active = null;
     detached = false;
@@ -145,19 +145,28 @@
     active = i;
     pendingCaret = caret === "end" ? draft.length : Math.min(caret, draft.length);
     await tick();
-    focusCaret();
+    focusCaret(y);
   }
 
-  function focusCaret() {
+  function focusCaret(y?: number) {
     const el = textarea;
     if (!el) return;
-    el.focus();
+    el.focus({ preventScroll: true });
     if (pendingCaret !== null) {
       el.setSelectionRange(pendingCaret, pendingCaret);
       pendingCaret = null;
     }
     autosize();
-    revealCaret();
+    if (y === undefined) revealCaret(true);
+    else holdAt(y);
+  }
+
+  /** Scrolls so the caret's line sits at `y`: the line clicked stays under the pointer as it turns into source. */
+  function holdAt(y: number) {
+    const el = textarea;
+    if (!el || !container) return;
+    const c = caretCoords(el, el.selectionEnd);
+    container.scrollTop += el.getBoundingClientRect().top + c.top + c.height / 2 - y;
   }
 
   // Another window changed the body under an active block: reload the draft, keeping the caret.
@@ -199,14 +208,17 @@
   function autosize() {
     const el = textarea;
     if (!el) return;
+    // Collapsing it first would pull the editor's scroll back when it's near the bottom.
+    const top = container?.scrollTop ?? 0;
     el.style.height = "0";
     el.style.height = `${el.scrollHeight}px`;
+    if (container) container.scrollTop = top;
   }
 
-  /** Keeps the caret in view on a phone, where the keyboard shrinks the editor under it. */
-  function revealCaret() {
+  /** Keeps the caret in view: on a phone as typing goes (the keyboard shrinks the editor), else when a block is entered. */
+  function revealCaret(entering = false) {
     const el = textarea;
-    if (!isMobile || !el || !container || document.activeElement !== el) return;
+    if ((!isMobile && !entering) || !el || !container || document.activeElement !== el) return;
     const c = caretCoords(el, el.selectionEnd);
     const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop + c.top;
     const pad = 12;
@@ -243,14 +255,18 @@
 
   // ---- rendered block interactions -----------------------------------------
 
-  /** Best-effort: place the caret in the raw text near the clicked rendered text. */
-  function caretFromClick(e: MouseEvent, raw: string): number {
+  /** Best-effort: the caret in the raw text near the clicked rendered text, and the middle of the line clicked. */
+  function caretFromClick(e: MouseEvent, raw: string): { caret: number; y: number } {
     const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
     const node = range?.startContainer;
-    if (!node || node.nodeType !== Node.TEXT_NODE) return raw.length;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return { caret: raw.length, y: e.clientY };
     const text = node.textContent ?? "";
     const off = range!.startOffset;
-    return rawOffset(raw, text.slice(0, off), text.slice(off), raw.length);
+    const line = range!.getClientRects()[0];
+    return {
+      caret: rawOffset(raw, text.slice(0, off), text.slice(off), raw.length),
+      y: line?.height ? line.top + line.height / 2 : e.clientY,
+    };
   }
 
   /** A click that ends a drag-selection keeps it rather than editing. */
@@ -360,7 +376,9 @@
       setBody(joinBlocks(next), "check");
       return;
     }
-    if (!selecting()) activate(i, caretFromClick(e, blocks[i]));
+    if (selecting()) return;
+    const { caret, y } = caretFromClick(e, blocks[i]);
+    activate(i, caret, y);
   }
 
   /** The block's `index`-th embed, rewritten to `width` (null = natural size). */
@@ -537,16 +555,20 @@
     draft = el.value;
     autosize();
     revealCaret();
-    // A blank line splits the draft in two; follow the caret into the right block.
+    const caret = el.selectionStart;
+    const next = withDraft();
+    const body = joinBlocks(next);
+    // A blank line splits the draft, an indent or a list marker joins it to a list next to it: follow the caret.
     const parts = splitBlocks(draft);
-    if (parts.length > 1) {
-      const { index, offset } = locate(draft, el.selectionStart);
-      activate(active! + index, offset);
+    const list = splitBlocks(body);
+    if (parts.length && (list.length !== next.length || list[active!] !== parts[0])) {
+      const before = joinBlocks(next.slice(0, active!));
+      const { index, offset } = locate(body, (before ? before.length + 2 : 0) + caret);
+      const c = caretCoords(el, caret);
+      activate(index, offset, el.getBoundingClientRect().top + c.top + c.height / 2);
       return;
     }
     // Sync as we type so cards, search and the empty-note check see it; a blank draft leaves the body.
-    const caret = el.selectionStart;
-    const body = joinBlocks(withDraft());
     detached = draft.trim() === "";
     setBody(body);
     await tick();
@@ -705,8 +727,7 @@
     if (m) {
       issue = null;
       const start = caret - m[2].length - 1;
-      const c = caretCoords(el, start);
-      mention = { start, query: m[2], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+      mention = { start, query: m[2], ...below(el, start) };
       return;
     }
     mention = null;
@@ -714,9 +735,8 @@
     if (ic) {
       issue = null;
       const start = caret - before.length + ic.start;
-      const c = caretCoords(el, start);
-      const left = Math.max(0, Math.min(el.offsetLeft + c.left, (container?.clientWidth ?? 0) - 240));
-      iconTyped = { start, query: ic.query, left, top: el.offsetTop + c.top + c.height + 4 };
+      const at = below(el, start);
+      iconTyped = { start, query: ic.query, ...at, left: Math.max(0, Math.min(at.left, (container?.clientWidth ?? 0) - 240)) };
       return;
     }
     iconTyped = null;
@@ -734,8 +754,16 @@
     const repo = g && store.repos[g[2]];
     if (!g || !repo) return void (issue = null);
     const start = caret - g[3].length - g[2].length - 1;
-    const c = caretCoords(el, start);
-    issue = { start, alias: g[2], repo, query: g[3], left: el.offsetLeft + c.left, top: el.offsetTop + c.top + c.height + 4 };
+    issue = { start, alias: g[2], repo, query: g[3], ...below(el, start) };
+  }
+
+  /** Where a popup goes under offset `at` of the textarea, in the scrolled editor's coordinates. */
+  function below(el: HTMLTextAreaElement, at: number): { left: number; top: number } {
+    const c = caretCoords(el, at);
+    const r = el.getBoundingClientRect();
+    const box = container?.getBoundingClientRect() ?? { left: 0, top: 0 };
+    const scroll = container?.scrollTop ?? 0;
+    return { left: r.left - box.left + c.left, top: r.top - box.top + scroll + c.top + c.height + 4 };
   }
 
   /** Replace what was typed from `start` up to the caret by `insert`. */
@@ -923,6 +951,8 @@
     position: relative;
     flex: 1;
     overflow-y: auto;
+    /* Entering and leaving a block keep the clicked line in place themselves. */
+    overflow-anchor: none;
     padding: 10px 16px 4px;
     cursor: text;
   }

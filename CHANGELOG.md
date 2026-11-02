@@ -9,6 +9,12 @@ All notable changes to Dagobert are documented here. The format follows
 ### Changed
 
 - Links leaving a completed note fade with it.
+- A list keeps paragraphs indented under its items, and items separated by blank lines, as one list.
+
+### Fixed
+
+- In a long note, the icon, mention and issue pickers show at the caret when the note is scrolled.
+- Clicking into a paragraph keeps the line you clicked where it was, and typing near the end of a long note no longer jumps.
 
 ## [0.12.0] - 2026-11-01
 

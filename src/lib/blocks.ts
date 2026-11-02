@@ -6,21 +6,42 @@ const CONFLICT_END = /^>{7} /;
 /** Any git conflict marker line. */
 export const MARKER_RE = /^(<{7} |={7}$|>{7} )/;
 
-/** Blank lines split blocks, except inside fenced code and git conflict regions. */
+/** A list item's marker: its indent, the marker, the spaces after it. */
+const ITEM_RE = /^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+|$)/;
+
+const width = (ws: string) => ws.replace(/\t/g, "    ").length;
+
+/** Blank lines split blocks, except inside fenced code, git conflict regions and lists (a loose item, an indented paragraph). */
 export function splitBlocks(text: string): string[] {
+  const lines = text.split("\n");
+  const plain = new Set<number>();
+  for (;;) {
+    const r = split(lines, plain);
+    if (typeof r !== "number") return r;
+    // No closing marker: that "region" is ordinary text after all.
+    plain.add(r);
+  }
+}
+
+/** The blocks, or the line of a conflict region that never closes; conflict starts at `plain` lines are text. */
+function split(lines: string[], plain: Set<number>): string[] | number {
   const out: string[] = [];
   let cur: string[] = [];
+  let blank: string[] = [];
   let fence: string | null = null;
-  let conflict = false;
-  for (const line of text.split("\n")) {
-    if (conflict) {
+  let conflict = -1;
+  /** Where the text of the current block's outermost list items starts, and that list's marker kind. */
+  let list = null as { indent: number; kind: string } | null;
+  const continues = (line: string) => {
+    if (!list) return false;
+    if (width(/^[ \t]*/.exec(line)![0]) >= list.indent) return true;
+    const m = ITEM_RE.exec(line);
+    return !!m && kindOf(m[2]) === list.kind;
+  };
+  for (const [i, line] of lines.entries()) {
+    if (conflict >= 0) {
       cur.push(line);
-      if (CONFLICT_END.test(line)) conflict = false;
-      continue;
-    }
-    if (!fence && CONFLICT_START.test(line)) {
-      cur.push(line);
-      conflict = true;
+      if (CONFLICT_END.test(line)) conflict = -1;
       continue;
     }
     const f = /^\s*(```+|~~~+)/.exec(line);
@@ -29,32 +50,37 @@ export function splitBlocks(text: string): string[] {
       if (f && f[1][0] === fence[0] && f[1].length >= fence.length) fence = null;
       continue;
     }
-    if (f) {
-      fence = f[1];
-      cur.push(line);
+    if (line.trim() === "") {
+      if (cur.length) blank.push(line);
       continue;
     }
-    if (line.trim() === "") {
-      if (cur.length) out.push(cur.join("\n"));
+    if (blank.length && continues(line)) cur.push(...blank);
+    else if (blank.length) {
+      out.push(cur.join("\n"));
       cur = [];
-    } else {
-      cur.push(line);
+      list = null;
+    }
+    blank = [];
+    cur.push(line);
+    if (CONFLICT_START.test(line) && !plain.has(i)) conflict = i;
+    else if (f) fence = f[1];
+    else {
+      const m = ITEM_RE.exec(line);
+      const at = m ? width(m[1]) : 0;
+      if (m && (!list || at < list.indent)) {
+        const gap = m[3] ? width(m[3]) : 1;
+        const indent = at + m[2].length + (gap > 4 ? 1 : gap);
+        list = { indent: Math.min(list?.indent ?? Infinity, indent), kind: kindOf(m[2]) };
+      }
     }
   }
-  if (conflict) {
-    // No closing marker: the "region" is ordinary text after all.
-    let part: string[] = [];
-    for (const line of cur) {
-      if (line.trim() === "") {
-        if (part.length) out.push(part.join("\n"));
-        part = [];
-      } else part.push(line);
-    }
-    cur = part;
-  }
+  if (conflict >= 0) return conflict;
   if (cur.length) out.push(cur.join("\n"));
   return out;
 }
+
+/** Bullets of one character form one list, numbers with one delimiter another. */
+const kindOf = (marker: string) => (/\d/.test(marker) ? marker.slice(-1) : marker);
 
 export function joinBlocks(blocks: string[]): string {
   return blocks.filter((b) => b.trim() !== "").join("\n\n");

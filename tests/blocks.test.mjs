@@ -41,6 +41,14 @@ assert.deepEqual(splitBlocks("<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs\n
   "<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs",
   "z",
 ]);
+// A list keeps its loose items and indented paragraphs; what isn't indented under it starts a block.
+assert.deepEqual(splitBlocks("- foo\n\n  bar\n\nbaz"), ["- foo\n\n  bar", "baz"]);
+assert.deepEqual(splitBlocks("- a\n\n- b\n\n* c"), ["- a\n\n- b", "* c"]);
+assert.deepEqual(splitBlocks("1. a\n\n   b\n\n  c"), ["1. a\n\n   b", "  c"]);
+assert.deepEqual(splitBlocks("- a\n  - b\n\n    c\n\nd"), ["- a\n  - b\n\n    c", "d"]);
+assert.deepEqual(splitBlocks("- a\n\n  ```\n  x\n\n  ```\n\nz"), ["- a\n\n  ```\n  x\n\n  ```", "z"]);
+assert.deepEqual(splitBlocks("x\n\n  y"), ["x", "  y"]);
+assert.deepEqual(splitBlocks("- a\n\n<<<<<<< x\nb\n\n  c"), ["- a", "<<<<<<< x\nb", "  c"]);
 console.log("blocks ok");
 {
   const { insertBlocks } = await import("../src/lib/blocks.ts");
