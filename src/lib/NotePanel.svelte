@@ -35,7 +35,7 @@
 
   const mentionedIn = $derived(mentions(note));
   const toc = $derived(standalone ? headings(note.body) : []);
-  let panelEl = $state<HTMLElement | null>(null);
+  let editor = $state<LiveEditor | null>(null);
 
   const done = $derived(store.isDone(note));
   const workflow = $derived(store.workflowOf(note));
@@ -143,16 +143,12 @@
     store.removeTag(note.id, t);
   }
 
-  function jumpTo(block: number) {
-    panelEl?.querySelector(`.live [data-block="${block}"]`)?.scrollIntoView({ block: "start", behavior: "smooth" });
-  }
-
   function createLinkedNote(title: string) {
     store.create(note.x + (note.width ?? 220) + 60, note.y, { title });
   }
 </script>
 
-<aside class="panel" class:standalone bind:this={panelEl}>
+<aside class="panel" class:standalone>
   <header>
     {#if progress}
       <span class="ring" title={t(note.checklist ? "node.checklist" : "node.progress", { done: progress.done, total: progress.total })}
@@ -413,7 +409,7 @@
     {#if standalone}
       <nav class="toc" aria-label={t("panel.toc")}>
         {#each toc as h, i (i)}
-          <button class="entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => jumpTo(h.block)}
+          <button class="entry" class:h1={h.level === 1} style="--lvl:{h.level}" onclick={() => editor?.scrollTo(h.from)}
             ><InlineMd source={h.text} /></button
           >
         {:else}
@@ -424,7 +420,7 @@
   </div>
 
   <div class="body">
-    <LiveEditor {note} oncreatelink={createLinkedNote} />
+    <LiveEditor bind:this={editor} {note} oncreatelink={createLinkedNote} />
   </div>
 
   <footer>
