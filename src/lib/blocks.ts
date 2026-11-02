@@ -11,7 +11,7 @@ const ITEM_RE = /^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+|$)/;
 
 const width = (ws: string) => ws.replace(/\t/g, "    ").length;
 
-/** Blank lines split blocks, except inside fenced code, git conflict regions and lists (a loose item, an indented paragraph). */
+/** Blank lines split blocks, except inside fenced code, git conflict regions and before a paragraph indented under a list item. */
 export function splitBlocks(text: string): string[] {
   const lines = text.split("\n");
   const plain = new Set<number>();
@@ -30,14 +30,9 @@ function split(lines: string[], plain: Set<number>): string[] | number {
   let blank: string[] = [];
   let fence: string | null = null;
   let conflict = -1;
-  /** Where the text of the current block's outermost list items starts, and that list's marker kind. */
-  let list = null as { indent: number; kind: string } | null;
-  const continues = (line: string) => {
-    if (!list) return false;
-    if (width(/^[ \t]*/.exec(line)![0]) >= list.indent) return true;
-    const m = ITEM_RE.exec(line);
-    return !!m && kindOf(m[2]) === list.kind;
-  };
+  /** Where the text of the current block's outermost list items starts. */
+  let list: number | null = null;
+  const continues = (line: string) => list !== null && width(/^[ \t]*/.exec(line)![0]) >= list;
   for (const [i, line] of lines.entries()) {
     if (conflict >= 0) {
       cur.push(line);
@@ -67,10 +62,9 @@ function split(lines: string[], plain: Set<number>): string[] | number {
     else {
       const m = ITEM_RE.exec(line);
       const at = m ? width(m[1]) : 0;
-      if (m && (!list || at < list.indent)) {
+      if (m && (list === null || at < list)) {
         const gap = m[3] ? width(m[3]) : 1;
-        const indent = at + m[2].length + (gap > 4 ? 1 : gap);
-        list = { indent: Math.min(list?.indent ?? Infinity, indent), kind: kindOf(m[2]) };
+        list = Math.min(list ?? Infinity, at + m[2].length + (gap > 4 ? 1 : gap));
       }
     }
   }
@@ -78,9 +72,6 @@ function split(lines: string[], plain: Set<number>): string[] | number {
   if (cur.length) out.push(cur.join("\n"));
   return out;
 }
-
-/** Bullets of one character form one list, numbers with one delimiter another. */
-const kindOf = (marker: string) => (/\d/.test(marker) ? marker.slice(-1) : marker);
 
 export function joinBlocks(blocks: string[]): string {
   return blocks.filter((b) => b.trim() !== "").join("\n\n");

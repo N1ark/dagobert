@@ -18,9 +18,9 @@ Width is `panelW` in `App.svelte` (localStorage `dagobert.panelWidth`, dragged v
 ## LiveEditor.svelte
 
 Obsidian-style live preview, per block. `blocks.ts` splits the body on blank lines (fenced
-code and `<<<<<<< `…`>>>>>>> ` conflict regions kept whole, and a list too: a line after blank
-lines stays in its block when indented to the list's text or when it is an item of the same list,
-so `- foo` + blank + `  bar` renders as one item of two paragraphs; a region belongs to the
+code and `<<<<<<< `…`>>>>>>> ` conflict regions kept whole, and a list's indented paragraphs: a
+line after blank lines stays in its block when indented to the list's text, so `- foo` + blank +
+`  bar` renders as one item of two paragraphs, while items apart stay blocks of their own; a region belongs to the
 paragraph around it so resolving it never adds paragraph breaks; an unterminated
 `<<<<<<< ` is ordinary text; blank-line runs collapse on re-join). A block holding a region
 renders through `ConflictBlock.svelte` (two stacked `Markdown` panes showing the whole
@@ -35,8 +35,7 @@ holding `draft`. Rules worth knowing:
 - The draft is live-synced into `note.body`, even when blank: a blank block can't be
   represented, so it leaves the body and the textarea stays as a `detached` slot before
   block `active` (`withDraft` splices it back in), so `store.isEmpty` always sees the truth.
-- Typing a blank line splits the draft, and indenting it (or making it an item) under a list
-  joins it to that list; either way `onInput` sees the body split differently and moves the caret
+- Typing a blank line splits the draft, and indenting it under a list joins it to that list; either way `onInput` sees the body split differently and moves the caret
   to its block (`locate`), keeping its line still. A detached slot at `active === blocks.length`
   is how a paragraph is appended.
 - A body changed from elsewhere (another window) while a block is active reloads the

@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A list with blank lines between its items (a long checklist) is edited an item at a time again, so the view stays put.
+
 ## [0.13.1] - 2026-11-02
 
 ### Fixed

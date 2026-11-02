@@ -41,9 +41,10 @@ assert.deepEqual(splitBlocks("<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs\n
   "<<<<<<< mine\n```\nx\n=======\ny\n>>>>>>> theirs",
   "z",
 ]);
-// A list keeps its loose items and indented paragraphs; what isn't indented under it starts a block.
+// A list keeps the paragraphs indented under its items; what isn't indented under it starts a block.
 assert.deepEqual(splitBlocks("- foo\n\n  bar\n\nbaz"), ["- foo\n\n  bar", "baz"]);
-assert.deepEqual(splitBlocks("- a\n\n- b\n\n* c"), ["- a\n\n- b", "* c"]);
+// Items apart stay apart, so a long checklist is edited an item at a time.
+assert.deepEqual(splitBlocks("- [ ] a\n\n- [ ] b\n\n* c"), ["- [ ] a", "- [ ] b", "* c"]);
 assert.deepEqual(splitBlocks("1. a\n\n   b\n\n  c"), ["1. a\n\n   b", "  c"]);
 assert.deepEqual(splitBlocks("- a\n  - b\n\n    c\n\nd"), ["- a\n  - b\n\n    c", "d"]);
 assert.deepEqual(splitBlocks("- a\n\n  ```\n  x\n\n  ```\n\nz"), ["- a\n\n  ```\n  x\n\n  ```", "z"]);

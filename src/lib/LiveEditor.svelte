@@ -575,7 +575,7 @@
     const caret = el.selectionStart;
     const next = withDraft();
     const body = joinBlocks(next);
-    // A blank line splits the draft, an indent or a list marker joins it to a list next to it: follow the caret.
+    // A blank line splits the draft, an indent joins it to the list above: follow the caret.
     const parts = splitBlocks(draft);
     const list = splitBlocks(body);
     if (parts.length && (list.length !== next.length || list[active!] !== parts[0])) {
