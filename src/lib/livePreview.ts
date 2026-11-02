@@ -49,6 +49,9 @@ const gap = Decoration.line({ class: "cm-lp-gap" });
 const quote = Decoration.line({ class: "cm-lp-quote" });
 const setextUnder = Decoration.line({ class: "cm-lp-gap" });
 const marker = Decoration.mark({ class: "cm-lp-marker" });
+/** A revealed task's `- `, hung left of its box so the text doesn't move. */
+const outdent = Decoration.mark({ class: "cm-lp-mark cm-lp-outdent" });
+const quoteIn = Decoration.line({ class: "cm-lp-quote cm-lp-quote-in" });
 const num = Decoration.mark({ class: "cm-lp-num" });
 const bulletMarks = [1, 2, 3].map((n) => Decoration.mark({ class: `cm-lp-bullet cm-lp-bullet${n}` }));
 const inlineTags = Object.fromEntries(Object.entries(INLINE).map(([k, [tagName]]) => [k, Decoration.mark({ tagName })]));
@@ -122,13 +125,14 @@ class MountWidget extends WidgetType {
   constructor(
     readonly key: string,
     readonly cls: string,
-    readonly draw: (target: HTMLElement) => ReturnType<typeof mount>,
+    readonly draw: (target: HTMLElement, host: HTMLElement) => ReturnType<typeof mount>,
     readonly follow: () => void,
+    readonly text = "",
   ) {
     super();
   }
   eq(other: MountWidget) {
-    return other.key === this.key;
+    return other.key === this.key && other.text === this.text;
   }
   toDOM() {
     const span = document.createElement("span");
@@ -138,7 +142,14 @@ class MountWidget extends WidgetType {
       e.preventDefault();
       this.follow();
     });
-    mounted.set(span, this.draw(span));
+    // The icon and its text's first word don't part at a line end (Chrome breaks after an inline-flex box).
+    const glue = document.createElement("span");
+    glue.className = "cm-lp-glue";
+    span.append(glue);
+    mounted.set(span, this.draw(glue, span));
+    const [, first, rest] = /^(\S*)([\s\S]*)$/.exec(this.text)!;
+    glue.append(first);
+    span.append(rest);
     return span;
   }
   destroy(dom: HTMLElement) {
@@ -147,22 +158,24 @@ class MountWidget extends WidgetType {
   }
 }
 
-const prWidget = (repo: string, num: number) => {
+const prWidget = (repo: string, num: number, text: string) => {
   const key = prKey(repo, num);
   return new MountWidget(
     "pr " + key,
     "ghref cm-lp-pr",
-    (target) => mount(PrIcon, { target, props: { key, detail: true, host: target } }),
+    (target, host) => mount(PrIcon, { target, props: { key, detail: true, host } }),
     () => void openUrl(issueUrl(repo, num)).catch(console.error),
+    text,
   );
 };
 
-const fileWidget = (raw: string) =>
+const fileWidget = (raw: string, text: string) =>
   new MountWidget(
     "file " + raw,
     "filelink cm-lp-fileicon",
-    (target) => mount(FileLinkIcon, { target, props: { raw, host: target } }),
+    (target, host) => mount(FileLinkIcon, { target, props: { raw, host } }),
     () => void fileTargets.open(raw),
+    text,
   );
 
 /** Follows a link the way rendered markdown did (`links.ts`). */
@@ -300,13 +313,18 @@ function build(view: EditorView, watched: Map<string, Watched>): DecorationSet {
       const textTo = marks[1].from;
       if (textFrom === textTo) return;
       const show = shown(node.from, node.to);
+      const href = url ? doc.sliceString(url.from, url.to).replace(/^<|>$/g, "") : "";
+      const local = href && isLocalHref(href);
+      if (local && !show) {
+        watch("file " + href, () => fileState(href));
+        out.push(Decoration.replace({ widget: fileWidget(href, doc.sliceString(textFrom, textTo)) }).range(node.from, node.to));
+        return false;
+      }
       hideOr(node.from, textFrom, show);
       hideOr(textTo, node.to, show);
-      const href = url ? doc.sliceString(url.from, url.to).replace(/^<|>$/g, "") : "";
-      if (href && isLocalHref(href)) {
+      if (local) {
         const missing = watch("file " + href, () => fileState(href)) === "missing";
-        out.push(Decoration.widget({ widget: fileWidget(href), side: -1 }).range(node.from));
-        linkMark(textFrom, textTo, missing ? "filelink missing" : "filelink", show ? null : { file: href });
+        linkMark(textFrom, textTo, missing ? "filelink missing" : "filelink", null);
       } else {
         linkMark(textFrom, textTo, "cm-lp-link", show || !/^(https?:|mailto:)/.test(href) ? null : { href });
       }
@@ -353,8 +371,8 @@ function build(view: EditorView, watched: Map<string, Watched>): DecorationSet {
       const repo = watch("repo " + alias, () => store.repos[alias] ?? "");
       if (!repo) return false;
       const num = Number(text.slice(hash + 1));
-      out.push(Decoration.widget({ widget: prWidget(repo, num), side: -1 }).range(node.from));
-      linkMark(node.from, node.to, "ghref", shown(node.from, node.to) ? null : { href: issueUrl(repo, num) });
+      if (shown(node.from, node.to)) linkMark(node.from, node.to, "ghref", null);
+      else out.push(Decoration.replace({ widget: prWidget(repo, num, text) }).range(node.from, node.to));
       return false;
     }
 
@@ -379,9 +397,11 @@ function build(view: EditorView, watched: Map<string, Watched>): DecorationSet {
         out.push(hidden.range(mark.from, task.from));
         const checked = doc.sliceString(task.from + 1, task.from + 2) !== " ";
         out.push(Decoration.replace({ widget: new CheckWidget(checked) }).range(task.from, task.to));
+      } else if (show && task) {
+        out.push(outdent.range(mark.from, task.from));
+        out.push(faint.range(task.from, task.to));
       } else if (show) {
         out.push(faint.range(mark.from, mark.to));
-        if (task) out.push(faint.range(task.from, task.to));
       } else {
         out.push((mark.to - mark.from === 1 ? bulletMarks[geo.bullet - 1] : num).range(mark.from, mark.to));
       }
@@ -389,11 +409,13 @@ function build(view: EditorView, watched: Map<string, Watched>): DecorationSet {
     }
 
     if (name === "Blockquote") {
+      let inList = false;
+      for (let p = node.parent; p && !inList; p = p.parent) inList = p.name === "ListItem";
       const end = doc.lineAt(node.to).number;
       for (let n = doc.lineAt(node.from).number; n <= end; n++) {
         const line = doc.line(n);
         if (line.from > vTo) break;
-        if (!CONFLICT.test(line.text.trimStart())) out.push(quote.range(line.from));
+        if (!CONFLICT.test(line.text.trimStart())) out.push((inList ? quoteIn : quote).range(line.from));
       }
       return;
     }
@@ -425,10 +447,14 @@ function build(view: EditorView, watched: Map<string, Watched>): DecorationSet {
     const n = line.number;
     const list = listLines.get(n);
     if (/\S/.test(line.text)) {
-      if (list && !inBlock(line.from)) {
+      if (list && !inBlock(line.from + /^[ \t]*/.exec(line.text)![0].length)) {
         lineDeco(line.from, list.first ? "cm-lp-li" : "cm-lp-li cm-lp-cont", list.style);
-        const lead = /^[ \t]*/.exec(line.text)![0].length;
-        if (!list.first && lead) out.push(hidden.range(line.from, line.from + lead));
+        // Indentation after any quote markers, which hide on their own.
+        const quoted = /^(?:[ \t]*>[ \t]?)*/.exec(line.text)![0].length;
+        const lead = quoted + /^[ \t]*/.exec(line.text.slice(quoted))![0].length;
+        const before = /^[ \t]*/.exec(line.text)![0].length;
+        if (!list.first && before && quoted > before) out.push(hidden.range(line.from, line.from + before));
+        if (!list.first && lead > quoted) out.push(hidden.range(line.from + quoted, line.from + lead));
       }
     } else if (isGap(n > 1 ? doc.line(n - 1).text : null, line.text, n < doc.lines ? doc.line(n + 1).text : null) && !inBlock(line.from)) {
       out.push(gap.range(line.from));
@@ -515,7 +541,8 @@ const theme = EditorView.theme({
   ".cm-line": { padding: "0" },
   ".cm-content ::selection": { background: "var(--selection)" },
   ".cm-lp-mark": { color: "var(--faint)" },
-  ".cm-lp-gap": { fontSize: "calc(var(--md-block) / 1.5)", lineHeight: "1.5" },
+  // A full-size caret on the shrunk line: line-height alone shrinks it, the font stays.
+  ".cm-lp-gap": { lineHeight: "var(--md-block)" },
   ".cm-lp-h": {
     fontWeight: "var(--md-heading-weight)",
     lineHeight: "1.25",
@@ -534,6 +561,14 @@ const theme = EditorView.theme({
   ".cm-lp-li": { paddingLeft: "var(--lp-indent)", textIndent: "calc(-1 * var(--lp-hang))" },
   ".cm-lp-li.cm-lp-cont": { textIndent: "0" },
   ".cm-lp-li.cm-lp-quote": { paddingLeft: "calc(var(--lp-indent) + 0.75em)" },
+  // A quote inside an item draws its rule under the item's text, not at the margin.
+  ".cm-lp-li.cm-lp-quote-in": {
+    borderLeft: "none",
+    background: "linear-gradient(var(--border-strong), var(--border-strong)) no-repeat",
+    backgroundSize: "2px 100%",
+    backgroundPosition: "var(--lp-indent) 0",
+  },
+  ".cm-lp-outdent": { display: "inline-flex", width: "0", justifyContent: "flex-end", whiteSpace: "pre" },
   ".cm-lp-marker": {
     display: "inline-block",
     minWidth: "var(--lp-hang)",
@@ -569,7 +604,8 @@ const theme = EditorView.theme({
     ".cm-lp-link[data-lp-link]:hover": { textDecoration: "underline", textUnderlineOffset: "2px" },
   },
   ".cm-lp-icon svg": { display: "block", width: "100%", height: "100%" },
-  ".cm-lp-pr, .cm-lp-fileicon": { cursor: "pointer", borderBottomColor: "transparent" },
+  ".cm-lp-pr, .cm-lp-fileicon": { cursor: "pointer" },
+  ".cm-lp-glue": { whiteSpace: "nowrap" },
   ".cm-lp-fileicon .filelink-icon": { display: "inline-flex", verticalAlign: "-0.15em", marginRight: "var(--sp-1)" },
 });
 
