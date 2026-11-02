@@ -46,7 +46,10 @@ holding `draft`. Rules worth knowing:
 - Clicking a rendered block places the caret near the click via `caretRangeFromPoint` +
   text search (`rawOffset`) and scrolls so that line stays under the pointer (`holdAt`; focus
   is `preventScroll`, `.live` has `overflow-anchor: none`, `autosize` restores the scroll it
-  would lose near the bottom); entering by keyboard just reveals the caret; task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
+  would lose near the bottom); entering by keyboard just reveals the caret, and Esc (`leave`)
+  keeps the caret's place in the block, in proportion, where it was on screen. The click is
+  matched against the whole block's text (`pointOffset`), the longest match from either side
+  winning, so repeated words (list items alike) don't send the caret to the first of them; task checkboxes toggle in place (`toggleCheckbox`; `Markdown`
   strips marked's `disabled` so the click arrives).
 - A drag-selection over rendered blocks stays: the click ending it (on the block, or on
   `.live` when it spans several) doesn't edit (`selecting`). `selectedSpan` maps it to

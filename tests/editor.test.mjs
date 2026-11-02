@@ -60,5 +60,10 @@ console.log("editor ok");
   assert.equal(rawOffset("abc", "", "", 3), 3);
   assert.equal(rawOffset("First **bold** paragraph", "First bo", "ld paragraph", 0), 10);
   assert.equal(rawOffset("[text](http://example.com) after", "text a", "fter", 0), 28);
+  // Near a line's start the text after the point is what tells repeated lines apart.
+  const list = Array.from({ length: 40 }, (_, k) => `- line ${k} with **bold**`).join("\n");
+  const shown = Array.from({ length: 40 }, (_, k) => `line ${k} with bold`).join("\n");
+  const at = shown.indexOf("line 30") + 1;
+  assert.equal(rawOffset(list, shown.slice(0, at), shown.slice(at), 0), list.indexOf("line 30") + 1);
   console.log("rawOffset ok");
 }

@@ -194,6 +194,21 @@
     });
   });
 
+  /** Leaves edit mode keeping the caret's place in the block where it was on screen, in proportion as it renders. */
+  async function leave() {
+    const el = textarea;
+    const at = active;
+    if (!el || !container || at === null || detached) return deactivate();
+    const r = el.getBoundingClientRect();
+    const c = caretCoords(el, el.selectionEnd);
+    const y = r.top + c.top + c.height / 2;
+    const f = r.height ? (c.top + c.height / 2) / r.height : 0;
+    deactivate();
+    await tick();
+    const b = container.querySelector(`[data-block="${at}"]`)?.getBoundingClientRect();
+    if (b) container.scrollTop += b.top + f * b.height - y;
+  }
+
   function deactivate() {
     if (active === null) return;
     commit();
@@ -260,11 +275,13 @@
     const range = document.caretRangeFromPoint?.(e.clientX, e.clientY);
     const node = range?.startContainer;
     if (!node || node.nodeType !== Node.TEXT_NODE) return { caret: raw.length, y: e.clientY };
-    const text = node.textContent ?? "";
     const off = range!.startOffset;
     const line = range!.getClientRects()[0];
+    // Against the whole block's text: a node's own text would find the first of repeated words (list items alike).
+    const el = (e.target as HTMLElement).closest<HTMLElement>("[data-block]");
+    const text = node.textContent ?? "";
     return {
-      caret: rawOffset(raw, text.slice(0, off), text.slice(off), raw.length),
+      caret: el ? pointOffset(el, raw, node, off) : rawOffset(raw, text.slice(0, off), text.slice(off), raw.length),
       y: line?.height ? line.top + line.height / 2 : e.clientY,
     };
   }
@@ -677,7 +694,7 @@
     }
     if (e.key === "Escape") {
       e.preventDefault();
-      deactivate();
+      void leave();
       return;
     }
     const { first, last } = lineOf(el.value, el.selectionStart);

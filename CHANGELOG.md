@@ -6,6 +6,10 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Leaving a paragraph with Esc keeps it where it was, and clicking a line in a long list edits that line.
+
 ## [0.13.0] - 2026-11-02
 
 ### Changed
