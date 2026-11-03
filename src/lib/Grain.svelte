@@ -51,6 +51,7 @@
     zoom: 1,
     bg: { x: 0, y: 0, zoom: 1 },
     grid: { radius: 1.3, alpha: 1 },
+    radius: 4,
     tint: [0.69, 0.27, 0.67],
     sand: [0.95, 0.92, 0.86],
     dot: [1, 1, 1],
@@ -79,6 +80,7 @@
     frame.tint = token(style, "--theme2", frame.tint);
     frame.sand = token(style, "--grain-sand", frame.sand);
     frame.dot = token(style, "--grain-dot", frame.dot);
+    frame.radius = parseFloat(style.getPropertyValue("--radius")) || frame.radius;
     dirty = true;
   }
 

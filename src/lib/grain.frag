@@ -20,6 +20,7 @@ uniform sampler2D u_flow; // traveller pass output (device-pixel sized), .r = co
 uniform float u_zoom;
 uniform vec3 u_bg; // background camera: offset.xy (device px), zoom
 uniform vec2 u_grid; // dot grid: radius (device px), opacity
+uniform float u_radius; // node corner radius, CSS px
 uniform vec3 u_tint;
 uniform vec3 u_sand; // neutral sand, per theme
 uniform vec3 u_dot; // dot grid colour, white on dark and black on light
@@ -83,7 +84,7 @@ void main() {
     if (i >= u_count) break;
     vec4 r = u_rects[i];
     vec2 c = vec2(r.x + r.z * 0.5, u_res.y - (r.y + r.w * 0.5));
-    float d = rbox(px - c, r.zw * 0.5, 24.0 * u_dpr * u_zoom);
+    float d = rbox(px - c, r.zw * 0.5, min(u_radius * u_dpr * u_zoom, min(r.z, r.w) * 0.5));
     float halo = 1.0 - smoothstep(0.0, 27.0 * u_dpr * u_zoom, d);
     glow = max(glow, halo * halo * step(0.0, d) * u_strength[i]);
   }

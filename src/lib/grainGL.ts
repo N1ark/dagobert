@@ -25,6 +25,8 @@ export type GrainFrame = {
   bg: { x: number; y: number; zoom: number };
   /** Dot grid: radius in device px, opacity. */
   grid: { radius: number; alpha: number };
+  /** Node corner radius, CSS px (the card's `--radius`). */
+  radius: number;
   tint: [number, number, number];
   /** The neutral sand, and the dot grid (which the halo's tint also leans towards), per theme. */
   sand: [number, number, number];
@@ -95,6 +97,7 @@ export function createGrain(canvas: HTMLCanvasElement): GrainRenderer | null {
     "u_zoom",
     "u_bg",
     "u_grid",
+    "u_radius",
     "u_tint",
     "u_sand",
     "u_dot",
@@ -235,6 +238,7 @@ export function createGrain(canvas: HTMLCanvasElement): GrainRenderer | null {
       g.uniform1f(u.u_zoom, f.zoom);
       g.uniform3f(u.u_bg, f.bg.x, f.bg.y, f.bg.zoom);
       g.uniform2f(u.u_grid, f.grid.radius, f.grid.alpha);
+      g.uniform1f(u.u_radius, f.radius);
       g.uniform3fv(u.u_tint, f.tint);
       g.uniform3fv(u.u_sand, f.sand);
       g.uniform3fv(u.u_dot, f.dot);
