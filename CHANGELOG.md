@@ -6,6 +6,8 @@ All notable changes to Dagobert are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-03
+
 ### Fixed
 
 - The glow around selected notes now follows their rounded corners.
